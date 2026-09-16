@@ -342,6 +342,14 @@ REGISTRY = {
 
 FM_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 
+# 许可文件（`LICENSE` / `neqsim-LICENSE` / `riscv-isa-LICENSE.adoc` / `tcl-license.terms`…）不是
+# 文档语料 -> 不登记、不改写（见 spec/standards/DOWNLOADED.md 的 47 份清单）
+LICENSE_NAME_RE = re.compile(r"(^|[-_.])licen[cs]e([-_.]|$)", re.IGNORECASE)
+
+
+class UpgradeError(Exception):
+    """该文件无法安全处理（未登记 / `spec_type` 非法 / 必填 meta 缺 / 类型冲突）——报错但不猜测。"""
+
 
 def _yaml_quote(value: str) -> str:
     """双引号 YAML 标量（转义 `\\` 与 `"`）——用于从正文推导的 `title`。"""
@@ -366,12 +374,18 @@ def _ordered(pairs: list) -> list:
 
 
 def upgrade(path: Path) -> None:
+    """处理单份文件；不可安全处理 -> :class:`UpgradeError`（调用方决定是否继续）。"""
+    if LICENSE_NAME_RE.search(path.name):
+        print(f"[skip-license] {path.name}: 许可文件（非文档语料，不登记）")
+        return
     entry = REGISTRY.get(path.name)
     if entry is None:
-        sys.exit(f"[err] {path.name} 未在 REGISTRY 登记（spec_id/spec_org/spec_revision/spec_type + 必填 meta）")
+        raise UpgradeError(
+            f"{path.name} 未在 REGISTRY 登记（spec_id/spec_org/spec_revision/spec_type + 该类型必填 meta）"
+        )
     spec_type = entry.get("spec_type", DEFAULT_SPEC_TYPE)
     if spec_type not in DOC_TYPE_REQUIRED_META:
-        sys.exit(f"[err] {path.name}: spec_type={spec_type!r} 不在取值域 {sorted(DOC_TYPE_REQUIRED_META)}")
+        raise UpgradeError(f"{path.name}: spec_type={spec_type!r} 不在取值域 {sorted(DOC_TYPE_REQUIRED_META)}")
     if path.suffix.lower() not in MARKDOWN_SUFFIXES:
         print(f"[skip-nonmd] {path.name}: {path.suffix} 非 markdown 语料，需前置转换后才能补 frontmatter")
         return
@@ -385,7 +399,7 @@ def upgrade(path: Path) -> None:
         existing = {ln.split(":", 1)[0].strip(): ln.split(":", 1)[1] for ln in fm.splitlines() if ":" in ln}
     declared = existing.get("spec_type", "").strip().strip("\"'")
     if declared and declared != spec_type:
-        sys.exit(f"[err] {path.name}: 已有 spec_type={declared!r} 与登记表 {spec_type!r} 冲突（不改写已有字段）")
+        raise UpgradeError(f"{path.name}: 已有 spec_type={declared!r} 与登记表 {spec_type!r} 冲突（不改写已有字段）")
 
     add = []
     if "title" not in existing:
@@ -399,7 +413,7 @@ def upgrade(path: Path) -> None:
         add.append(("status", "approved" if "reviewed_by" in have else "review"))
     lack = [k for k in DOC_TYPE_REQUIRED_META[spec_type] if k not in have and k != "status"]
     if lack:
-        sys.exit(f"[err] {path.name}: spec_type={spec_type} 必填 meta 缺 {lack}——请在 REGISTRY 补登记（不猜测）")
+        raise UpgradeError(f"{path.name}: spec_type={spec_type} 必填 meta 缺 {lack}——请在 REGISTRY 补登记（不猜测）")
 
     missing = _ordered([(k, v) for k, v in add if k not in existing])
     if not missing:
@@ -414,8 +428,20 @@ def upgrade(path: Path) -> None:
         print(f"[ok] {path.name}: +{len(missing)} 字段 ({', '.join(k for k, _ in missing)})")
 
 
+def main(argv: list) -> int:
+    """批量处理（逐个隔离失败：单个文件报错不阻断其余，最后以退出码汇总）。"""
+    if not argv:
+        print(__doc__)
+        return 2
+    failures = 0
+    for arg in argv:
+        try:
+            upgrade(Path(arg))
+        except UpgradeError as exc:
+            print(f"[err] {exc}")
+            failures += 1
+    return 1 if failures else 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    for arg in sys.argv[1:]:
-        upgrade(Path(arg))
+    sys.exit(main(sys.argv[1:]))
