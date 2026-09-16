@@ -274,7 +274,10 @@ DOC_TYPES = ("standard","lang","tool-manual","product","safety")     # A22 取�
 
 def get_json_schema(atom_type: str) -> dict: ...                     # schemas 表缓存加载
 def register_schema(atom_type: str, schema: dict, version: int, ctx: WriteContext) -> None: ...  # A16 写入路径
-def validate(atom_type: str, content: dict) -> list[Violation]: ...  # 委托 M09A
+# 注（分层裁决 2026-09-16）：M01 不提供 validate()——校验入口统一为
+# `agenticdocer.m09.validate_proposal(atom_type, content)`（M03/M06/M11 直接调用）。
+# 理由：M01=L1、M09=L3，M01 委托 M09A 会反转 §1.3 依赖方向（L1→L3 被禁）。
+# 该行原「委托 M09A」表述为 spec 缺陷，已撤销。
 def derive_text(atom_type: str, content: dict) -> str: ...           # A10/R5：生成 content.text（必填）
     """HTML 片段 → 纯文本（去标签；表格按行列序拼接单元格文本）；md/文本类原样。
        约束：M01 保证一切节点 content.text 非空（FTS 生成列与检索依赖）。"""
