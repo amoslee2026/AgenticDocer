@@ -643,19 +643,6 @@ async def schema_floor(db: Any, *, known_rows: dict[str, int] | None = None) -> 
         "empty_relations": empty,
         "per_relation_bytes": sizes,
     }
-    parts = int(await scalar(db, "SELECT count(*) FROM pg_partition_tree('nodes') WHERE isleaf"))
-    database_bytes = int(await scalar(db, "SELECT pg_database_size(current_database())"))
-    return {
-        "server_version": version,
-        "nodes_partition_count": parts,
-        "table_bytes": dict(sorted(grouped.items(), key=lambda item: -item[1])),
-        "relation_bytes": relations,
-        "relation_count": len(relations),
-        "total_bytes": total,
-        "total_human": human_bytes(total),
-        "database_bytes": database_bytes,
-        "database_human": human_bytes(database_bytes),
-    }
 
 
 async def counts(db: Any) -> dict[str, int]:
