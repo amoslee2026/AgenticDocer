@@ -560,27 +560,43 @@ def test_accept_confident_batch(tmp_path: pathlib.Path) -> None:
     )
 
 
-def test_check_proposals_reports_violations(parsed) -> None:
+def test_check_proposals_delegates_to_m09a(parsed) -> None:
+    """门禁判据单点：schema/text/原子注册/锚形态由 M09A 判定，M03 只追加结构判据。"""
     assert check_proposals(parsed) == []
     broken = parsed.model_copy(deep=True)
     broken.proposals[0].atom.content["text"] = ""
     broken.proposals[1].atom.anchor = broken.proposals[0].atom.anchor
-    fallback_id = next(p.proposal_id for p in broken.proposals if p.rule_id.startswith("F"))
-    fallback_proposal = next(p for p in broken.proposals if p.proposal_id == fallback_id)
-    fallback_proposal.atom.text = ""
+    fallback_proposal = next(p for p in broken.proposals if isinstance(p.atom, RawFallback))
+    fallback_proposal.atom.text = ""  # 兜底 content 由 M09A 判（A10.content.text）
     broken.doc_meta["fallback"] = {}
-    rule_ids = {violation.rule_id for violation in check_proposals(broken)}
-    assert {"A10.content.text", "M03.anchor.duplicate", "M03.fallback.empty", "M03.fallback.anchor"} <= rule_ids
-    for violation in check_proposals(broken):
-        assert violation.message and violation.path
-
-
-def test_check_proposals_rejects_atom_not_allowed_by_doc_type(parsed) -> None:
-    broken = parsed.model_copy(deep=True)
-    broken.doc_meta["doc_type"] = "safety"
-    broken.proposals[1].atom.atom_type = "臆造原子"
     violations = check_proposals(broken)
-    assert any(violation.rule_id == "M01.doc_type.atom" for violation in violations)
+    rule_ids = {violation.rule_id for violation in violations}
+    assert {"A10.content.text", "M03.anchor.duplicate", "M03.fallback.anchor"} <= rule_ids
+    # 违规定位带锚前缀（M09A 的 path 为字段相对路径，调用方加定位前缀）
+    assert any("#content.text" in violation.path for violation in violations)
+    for violation in violations:
+        assert violation.message and violation.path
+    # M03 不重复实现 schema 判据：schema 违规的 rule_id 一律来自 M09A
+    assert {violation.rule_id for violation in violations if "schema" in violation.rule_id} <= {"M09A.atom.schema"}
+
+
+def test_check_proposals_rejects_unknown_atom_and_disallowed_atom(
+    parsed, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 未注册原子：M09A 判（M09A.atom.unknown）
+    unknown = parsed.model_copy(deep=True)
+    unknown.proposals[1].atom.atom_type = "臆造原子"
+    assert "M09A.atom.unknown" in {violation.rule_id for violation in check_proposals(unknown)}
+
+    # 已注册原子但被 doc_type 组合规则排除：M09A 判（M01.doc_type.atom）
+    from agenticdocer.model import DOC_TYPE_RULES, DocTypeRule
+
+    monkeypatch.setitem(
+        DOC_TYPE_RULES, "safety", DocTypeRule(doc_type="safety", allowed_atom_types=("clause",))
+    )
+    narrowed = parsed.model_copy(deep=True)
+    narrowed.doc_meta["doc_type"] = "safety"
+    assert "M01.doc_type.atom" in {violation.rule_id for violation in check_proposals(narrowed)}
 
 
 def test_stats_report_from_source_and_workspace(tmp_path: pathlib.Path) -> None:

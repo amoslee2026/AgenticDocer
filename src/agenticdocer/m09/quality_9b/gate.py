@@ -153,9 +153,31 @@ def run_quality_gate_sync(
     storage: Storage | None = None,
     dsn: str | None = None,
 ) -> list[QualityReport]:
-    """`run_quality_gate` 的同步包装（CLI/脚本）；事件循环内调用 → `RuntimeError`。"""
+    """`run_quality_gate` 的同步包装（CLI/脚本）；事件循环内调用 → `RuntimeError`。
+
+    **资源归属**：未显式给 `storage` 时，本入口自建并自弃连接池（`Database(database_url())`），
+    故**同一进程内可重复调用**——每次 `asyncio.run` 都会新建事件循环，若复用进程级单例
+    （`get_storage()`），池中连接仍绑定在已关闭的上一个循环上，第二次调用即报
+    `Future attached to a different loop`。显式传入 `storage` 的调用方自行负责循环一致性。
+    """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(run_quality_gate(scope, storage=storage, dsn=dsn))
+        return asyncio.run(_run_sync_once(scope, storage=storage, dsn=dsn))
     raise RuntimeError("run_quality_gate_sync() 不能在事件循环内调用；请 await run_quality_gate()")
+
+
+async def _run_sync_once(
+    scope: QualityScope | None,
+    *,
+    storage: Storage | None,
+    dsn: str | None,
+) -> list[QualityReport]:
+    """同步入口的单次执行体（自建池在一轮内用完即弃）。"""
+    if storage is not None:
+        return await run_quality_gate(scope, storage=storage, dsn=dsn)
+    owned = Storage(Database(database_url()))
+    try:
+        return await run_quality_gate(scope, storage=owned, dsn=dsn)
+    finally:
+        await owned.db.dispose()
