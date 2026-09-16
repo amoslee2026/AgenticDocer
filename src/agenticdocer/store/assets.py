@@ -17,7 +17,7 @@ from typing import Any, Final
 
 from sqlalchemy import insert, select, text
 
-from ._compat import Asset
+from agenticdocer.model import Asset
 from .errors import NotFoundError
 from .repository import Repository
 from .rows import build_model, row_to_dict

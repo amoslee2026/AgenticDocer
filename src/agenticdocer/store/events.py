@@ -16,7 +16,7 @@ from uuid import UUID
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._compat import Event, NodeSnapshot, WriteContext, new_uuid7
+from agenticdocer.model import Event, NodeSnapshot, WriteContext, new_uuid7
 from .errors import ValidationError
 from .fold import apply_events as _apply_events
 from .fold import entity_ops

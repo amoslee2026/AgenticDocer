@@ -8,7 +8,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._compat import Doc, DocIn, DocStatus, WriteContext
+from agenticdocer.model import Doc, DocIn, DocStatus, WriteContext
 from .errors import ConflictError, NotFoundError, ValidationError, translate_integrity_error
 from .events import append_event
 from .repository import Repository

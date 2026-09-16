@@ -29,7 +29,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Final
 
-from ._compat import Comment, Doc, Event, Node, NodeSnapshot
+from agenticdocer.model import Comment, Doc, Event, Node, NodeSnapshot
 from .errors import ValidationError
 from .rows import build_model, jsonable
 

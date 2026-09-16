@@ -15,7 +15,7 @@ from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._compat import Ref, RefKind, WriteContext, new_uuid7
+from agenticdocer.model import Ref, RefKind, WriteContext, new_uuid7
 from .errors import NotFoundError, ValidationError, translate_integrity_error
 from .events import append_event
 from .repository import Repository

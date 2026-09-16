@@ -15,7 +15,7 @@ from uuid import UUID
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._compat import Comment, CommentState, WriteContext, new_uuid7
+from agenticdocer.model import Comment, CommentState, WriteContext, new_uuid7
 from .errors import ConflictError, NotFoundError, ValidationError
 from .events import append_event
 from .repository import Repository

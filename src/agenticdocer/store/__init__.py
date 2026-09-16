@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from ._compat import (
+from agenticdocer.model import (
     UUID7,
     Asset,
     Comment,

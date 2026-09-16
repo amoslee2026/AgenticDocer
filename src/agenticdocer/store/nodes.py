@@ -21,7 +21,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ._compat import Node, NodeIn, WriteContext, new_uuid7
+from agenticdocer.model import Node, NodeIn, WriteContext, new_uuid7
 from .comments import orphan_comments_in
 from .errors import ConflictError, NotFoundError, ValidationError, translate_integrity_error
 from .events import append_event
