@@ -5,30 +5,91 @@ purpose: guide
 audience: both
 direction: output
 status: approved
-version: "1.2.0"
+version: "1.4.0"
 section_meta: "@meta"
 ---
 
 # 用户手册
 
-生成：2026-09-16（it.arch Phase 3）。面向两类使用者：**Agent 操作者**（coding agent / 工程脚本）与**人类评审者**（WebUI）。命令行与界面细节在 it.mas/it.tdd 细化；本手册定义使用路径与预期行为。
+生成：2026-09-16（it.arch Phase 3/4）。**v1.4 更新**（依批注 B1–B11 与用户要求）——新增鉴权、CLI 工具族、监控与性能评估章节。
 
-## 1. 快速开始（Agent 操作者）
+面向三类使用者：**Agent 操作者**（coding agent / 工程脚本，经 CLI/HTTP）、**人类评审者**（WebUI）、**管理员**（用户与权限管理）。命令行与界面细节在 it.mas/it.tdd 细化；本手册定义使用路径与预期行为。
+
+> **运行期不依赖 LLM（P6）**：本系统运行路径不调用任何 LLM——`coding agent` 只是**外部调用方**（通过 CLI/HTTP 访问），系统在无 LLM 凭据、断网环境下全功能可用。
+
+## 0. 部署与首次启动（管理员）
 
 ```bash
 # 环境（uv 管理，Python 3.11）
-uv sync                             # 安装依赖
-uv run alembic upgrade head         # 建库（database: agenticdocer）
-uv run agenticdocer-api             # 启动服务（默认 127.0.0.1:8787）
+uv sync                                  # 安装依赖（含 agentic-logger）
+
+# 1) 管理员自举（首次必做，否则系统 fail-closed：所有请求 401）
+cp ~/.ssh/id_ed25519.pub data/admin_keys/admin.pub   # 你的公钥
+uv run alembic upgrade head              # 建库 + 载入 seed（terms）
+uv run agenticdocer auth bootstrap       # 创建首个 admin（幂等）
+
+# 2) 启动服务
+uv run agenticdocer-api --host 0.0.0.0 --port 8787   # 鉴权后方可对外监听
+```
+
+**注意**：无 `users` 表记录时系统拒绝所有请求（fail-closed 设计）——这是有意为之，避免「忘记配鉴权即裸奔」。
+
+## 1. 快速开始（Agent 操作者）
+
+**前置**：你的 SSH 公钥已在 `users` 表登记（由 admin 执行 `agenticdocer user key add`）。CLI 自动读取 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 私钥签名，无需手工处理鉴权。
+
+```bash
+# 身份自检
+uv run agenticdocer auth whoami          # 显示 user_id / role / 公钥指纹
 
 # 导入一份规范文档（三步骤：解析 → 审核 → 入库）
-uv run agenticdocer-import parse spec/standards/amba/IHI0024_AMBA_APB_spec.md   # 生成提议清单（在仓库根目录执行）
-uv run agenticdocer-import review IHI0024_AMBA_APB_spec                         # 逐条审核（CLI，状态落 data/import_work/）
-uv run agenticdocer-import commit IHI0024_AMBA_APB_spec --actor importer        # 校验+事务入库
+uv run agenticdocer import parse spec/standards/amba/IHI0024_AMBA_APB_spec.md
+uv run agenticdocer import review IHI0024_AMBA_APB_spec       # 逐条审核
+uv run agenticdocer import commit IHI0024_AMBA_APB_spec       # 校验+事务入库
 
-# 渲染（产物落 build/rendered/，不动 spec/）
-uv run agenticdocer-render SPEC-STD-AMBA-APB    # 入参为 doc_id（= frontmatter spec_id；doc_slug 仅导入工作区标识）
+# 读写（需 editor 角色）
+uv run agenticdocer node get SPEC-STD-AMBA-APB#3.2.1
+uv run agenticdocer node put --file patch.json               # 含 expectedVersion（乐观锁）
+
+# 版本与渲染
+uv run agenticdocer doc diff SPEC-STD-AMBA-APB --from 2026-09-01
+uv run agenticdocer render SPEC-STD-AMBA-APB                  # 整档（build/rendered/）
+uv run agenticdocer render SPEC-STD-AMBA-APB --section 3.2    # 单章节（<1s）
+
+# 调取人类批注（agent 专用 skill 的底层命令）
+uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 ```
+
+**Skill 用法**（coding agent 侧，`skills/` 目录）：`docer-import` / `docer-read` / `docer-write` / `docer-render` / `docer-diff` / **`docer-annotations`**（调取人类标注）。
+
+## 2. 导入与审核（半自动流程）
+
+1. **parse**：解析器产出原子提议，逐条带 `rule_id` 与「待确认」标志；同时输出未映射块清单。
+2. **review**：人工/agent 逐条处置（通过/拒绝/修正）；「待确认」项必须显式确认；未映射块默认兜底（`note`/`code`）保留。
+3. **commit**：经 schema 校验后事务入库；失败则报违规明细，修改提议后重试。
+
+**验收口径**：规则覆盖率（携带 `rule_id` 的源块 ÷ 总源块）≥95%；兜底率与待确认条数在审核输出中报告。
+
+**权限**：`import *` 需 editor 角色。
+
+## 3. 结构化读写（M06 API）
+
+- **鉴权**：所有端点（含读）需 SSH 签名。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nTimestamp\nNonce`。CLI 自动完成（§1）；手写脚本可用 `agenticdocer auth sign` 辅助。
+- 读：按 `node_id` / `doc_id` / `anchor`（如 `SPEC-STD-AMBA-APB#3.2.1·transfer`；重复标题带 `~正文摘要` 后缀）取节点。
+- 写：提交 JSON Schema 约束的节点变更 + 当前 `version`（乐观锁）。校验失败 → 违规清单+修复建议；冲突（409）→ 重读后重试。
+- 每次成功写入自动：写事件（字段级 diff）→ 更新实体 → 触发该文档重渲染。
+
+## 4. 检索
+
+**本系统只提供确定性读写与文档树浏览**；检索能力归属 LightRAG：
+
+| 需求 | 途径 |
+|---|---|
+| 按 ID/锚直取节点 | `agenticdocer node get`（M06） |
+| 浏览文档树/章节树 | `agenticdocer doc get`、`GET /docs/{id}/sections` |
+| 关键词/语义检索 | **LightRAG**（本系统经 M-LR 提供导出包：渲染文本 + node_id + 增量事件流） |
+
+> **注**：M05 的图遍历与 FTS 为**内部实现**（供 M-LR 导出与质量门），不暴露端点（ADR-008）。
 
 ## 2. 导入与审核（半自动流程）
 
