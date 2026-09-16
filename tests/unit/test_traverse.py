@@ -48,14 +48,11 @@ class Graph:
 
     async def fetch_in(self, sources, kind):
         dsts = {node_id for node_id, _doc_id in sources}
-        return [(dst, src, None) for src, dst in self.edges.get(kind, []) if dst in dsts]
-
-    async def resolve(self, probes, include_deleted):
-        rows: list[_NodeRow] = []
-        for node_id, _doc_id in probes:
-            if node_id not in self.nodes:
-                continue
-            if self.nodes[node_id][3] == "deleted" and not include_deleted:
+        return [
+            (src, dst, self.nodes[dst][0] if dst in self.nodes else None)
+            for src, dst in self.edges.get(kind, [])
+            if src in srcs
+        ]
                 continue
             rows.append(self.row(node_id))
         return rows
@@ -198,9 +195,8 @@ async def test_self_loop_yields_nothing() -> None:
     a = graph.node(0)
     graph.ref("traces_to", a, a)
     assert await walked(graph, a, 2) == []
-
-
-async def test_dedup_keeps_shortest_path() -> None:
+    # 1 跳上限：hops=2 不再延伸 see_also（step2 仅 traces_to）
+    assert [hit.node_id for hit in await walked(graph, m, 2)] == [n]
     """同一节点既在 1 跳（see_also）又可在 2 跳（traces_to）达时，保留最短路径。"""
     graph = Graph()
     a, b, c = graph.node(0), graph.node(1), graph.node(2)
@@ -253,7 +249,7 @@ async def test_deleted_node_filtered_and_not_expanded() -> None:
     graph.ref("traces_to", b, c)
 
     assert await walked(graph, c, 2) == []
-    kept = await walked(graph, c, 2, include_deleted=True)
+    graph.ref("traces_to", graph.node(4, doc_id="DOC-A"), far)  # 2 跳命中：doc 序最前也排最后
     assert [(hit.node_id, hit.hops) for hit in kept] == [(b, 1), (a, 2)]
 
 
