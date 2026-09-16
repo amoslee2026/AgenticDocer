@@ -689,11 +689,16 @@ async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
 
     # 诊断接口（M09B detector 用）：干净文档两法一致；`level` 为空的节点无法用区间法判定 → None
     assert await storage.check_section_range(doc_id, root.node_id) is True
-    assert await storage.check_section_range(doc_id, new_uuid7()) is False
+    # 不可判定（节点不存在 / level 为空）刻意返回 None，不与「契约破坏=False」混用
+    assert await storage.check_section_range(doc_id, new_uuid7()) is None
     levelless = await storage.upsert_node(
         node_in(doc_id, ordinal=7, anchor=f"{doc_id}#3"), None, CTX
     )
     assert await storage.check_section_range(doc_id, levelless.node_id) is None
+    assert await storage.section_range_diff(doc_id, levelless.node_id) is None
+    clean_diff = await storage.section_range_diff(doc_id, root.node_id)
+    assert clean_diff is not None and clean_diff["first_diff_index"] is None
+    assert clean_diff["missing_in_interval"] == [] and clean_diff["extra_in_interval"] == []
 
 
 async def test_get_asset_paths_batch(storage: Storage) -> None:
@@ -769,6 +774,22 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     # 若 detector 直接比较公开接口与 CTE，就会漏掉「多收」方向的契约破坏。
     assert await storage.check_section_range(doc_id, second_child.node_id) is False
     assert await storage.check_section_range(doc_id, first_child.node_id) is False
+
+    # detector 的定位数据（M09 消息需要「两法行数 + 首个差异位置」）
+    over = await storage.section_range_diff(doc_id, second_child.node_id)
+    assert over is not None
+    assert over["interval_self_check"] is False  # 多收/断链：区间不可用（空哨兵）
+    assert over["subtree_ids"] == [second_child.node_id]
+    assert over["first_diff_index"] == 0
+
+    under = await storage.section_range_diff(doc_id, first_child.node_id)
+    assert under is not None
+    assert under["interval_self_check"] is True  # 漏收：区间自检通过
+    assert under["interval_ids"] == [first_child.node_id]
+    assert under["subtree_ids"] == [first_child.node_id, misplaced.node_id]
+    assert under["first_diff_index"] == 1
+    assert under["missing_in_interval"] == [misplaced.node_id]
+    assert under["extra_in_interval"] == []
 
 
 async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> None:
