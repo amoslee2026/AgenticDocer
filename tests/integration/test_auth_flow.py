@@ -1057,7 +1057,7 @@ async def test_delete_user_that_granted_others_is_allowed(
         "SELECT confdeltype FROM pg_constraint "
         "WHERE conname = 'grants_granted_by_fkey'",
     )
-    assert constraint[0][0] == "a"
+    assert constraint[0][0] == b"a"  # confdeltype 为 "char"，asyncpg 返回 bytes
 
     grantor = await bootstrap.bootstrap_admin(db=database)
     successor = await auth_users.create_user("root2", "admin", actor=SYSTEM_ACTOR, db=database)
