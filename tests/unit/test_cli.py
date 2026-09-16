@@ -358,6 +358,9 @@ def test_forbidden_hint_names_role_and_grant_command(
     patch.write_text(json.dumps({"docId": "SPEC-X", "anchor": "SPEC-X#1", "atomType": "clause",
                                  "content": {"text": "x"}, "expectedVersion": 2}), encoding="utf-8")
     result = run("node", "put", "--file", str(patch), "--json", env_key=key_pair[0])
+    assert result.exit_code == 1
+    assert "editor" in result.stderr  # 所需角色名
+    assert "agenticdocer user role --username" in result.stderr
     assert "agenticdocer grant add" in result.stderr
     assert "--permission write" in result.stderr
 
@@ -371,10 +374,8 @@ def test_unregistered_key_hint_asks_admin_to_register(
     result = run("doc", "list", "--json", env_key=key_pair[0])
     assert result.exit_code == 1
     assert "user key add" in result.stderr
-    assert sshsig  # 公钥指纹指引来自本地私钥
-    assert result.exit_code == 1
-    assert "editor" in result.stderr  # 所需角色名
-    assert "agenticdocer user role --username" in result.stderr
+    expected = signing.fingerprint(signing.public_key_line(signing.load_private_key(key_pair[0])))
+    assert expected in result.stderr  # 本地私钥指纹，便于 admin 核对
 
 
 def test_unauthorized_hint_covers_skew_nonce_and_bootstrap(
