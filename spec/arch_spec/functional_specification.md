@@ -80,14 +80,9 @@ section_meta: "@meta"
 | REQ-M11-F01 | CLI：导入/删除/修改/读取工具族（B3/B11） | M11 | P1 | 2 |
 | REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
 | REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P0 | 1 |
-| REQ-M12-F01 | AgenticLogger 全面接入（全模块统一出口） | M12 | P0 | 1 |
-| REQ-M12-F02 | 请求级追踪（rid 贯穿鉴权→API→存储→渲染） | M12 | P0 | 1 |
-| REQ-M12-F03 | 在线性能指标（API/慢查询/鉴权/渲染） | M12 | P1 | 2 |
-| REQ-M12-F04 | 性能基准套件（tests/perf/，可复现验收） | M12 | P1 | 2 |
-| REQ-M12-F05 | 容量健康巡检（分区/索引/膨胀/连接池/归档） | M12 | P1 | 2 |
-| REQ-M12-F06 | **运行期 LLM 无关约束（P6）的机械验证** | M12 | P0 | 1 |
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
 | REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
+@m12rows
 | REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
 | REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
 
@@ -375,6 +370,9 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 验证系统任何运行路径都不依赖 LLM。
 
 **验收标准**（四项全过）：(a) `import` 白名单 lint 通过——业务代码无 `openai`/`anthropic`/`transformers`/`torch`/`litellm` 等推理 SDK 引用；(b) **断网环境下全功能测试通过**（e2e 在 `--no-network` 或屏蔽出网时全绿）；(c) `uv tree` 依赖树无推理类依赖；(d) 端到端测试在**无任何 LLM 凭据**（无相关环境变量）环境下通过。
+
+### REQ-M11-F07（续）：docer-diff 变更感知
+
 **验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
 
 ## 不支持的功能（声明）
