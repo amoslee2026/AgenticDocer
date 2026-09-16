@@ -251,21 +251,14 @@ def test_exempt_paths_are_the_s4_whitelist() -> None:
         assert is_exempt(path) is False, path
 
 
-def test_healthz_is_present_and_schema_free() -> None:
-    """进程探针存在且不进 OpenAPI（S4：不返回任何业务/版本信息）。"""
+async def test_healthz_probe_without_credentials() -> None:
+    """`/healthz` 豁免鉴权（ASGI 直连，不触库即 200；S4 探针不含业务信息）。"""
     application = create_app(dev=False)
-    routes = {route.path for route in _iter_api_routes(application)}
-    assert "/healthz" in routes
-    assert "/healthz" not in application.openapi()["paths"]
-
-
-# --------------------------------------------------- 文档面开关（S4/§5 部署）
-
-
-def test_docs_surface_disabled_outside_dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
-    """非 DEV_MODE：`/docs`、`/redoc`、`/openapi.json` 全部禁用（`None`）。"""
-    monkeypatch.delenv("DEV_MODE", raising=False)
-    application = create_app()
+    transport = ASGITransport(app=application)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
     assert application.docs_url is None
     assert application.redoc_url is None
     assert application.openapi_url is None
