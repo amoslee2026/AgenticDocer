@@ -339,10 +339,31 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 封装 `agenticdocer doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
 
-### REQ-M11-F07（续）：docer-diff 变更感知
 
 **验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
 
+### 安全评审（S1–S16）验收项补充
+
+以下为对抗评审（SecAuthReview，2026-09-16）发现并已修复的设计缺陷，**其验收标准已并入上文对应 REQ**，此处汇总索引：
+
+| 修复 | 已并入 | 关键验收项 |
+|---|---|---|
+| S1：`events.entity` 增 `'auth'` | REQ-M10-F05 | DDL CHECK 与 Event Literal 含 `'auth'`；审计事件可插入 |
+| S2：签名载荷含 query string | REQ-M10-F01 | **篡改 query 任一参数 → 401**（如 `expected_version`） |
+| S3：nonce TTL ≥ 2×时间窗 | REQ-M10-F01 | 未来时间戳请求在时间窗内无法重放 |
+| S4：豁免清单 | REQ-M10-F01 | 仅 `/auth/challenge`、`/auth/login`、登录页资源、`/healthz` 豁免；**清单外无凭据必 401**；`/docs` 与 `/openapi.json` 非开发模式禁用 |
+| S5：grant 形式化 | REQ-M10-F04 | 角色为**硬上限**（reader+write grant 永远 403）；越权 grant 在**授予与判定两处**均拒；`repo` scope 已删 |
+| S6：TLS 强制 | REQ-M10-F02 | 非 loopback 监听必须 TLS；Cookie `Secure`；状态变更仅接受 JSON |
+| S7：限流与不写库 | REQ-M10-F01/F05 | 未认证请求不写 nonces；challenge/login 按 IP 限流；失败事件聚合 |
+| S8：会话随用户禁用失效 | REQ-M10-F03 | disable 用户后**既有会话立即 401**（resolve_session JOIN status） |
+| S9：最后管理员防护 | REQ-M10-F03 | 不可删/禁/降级自身与最后一个 active admin（409）；bootstrap 语义统一为「无 active admin 时可重复」 |
+| S10：审计防污染 | REQ-M10-F05 | 失败事件 `actor='anonymous'`，自述身份记 `claimed_*` |
+| S11：签名格式统一 | REQ-M10-F01 | SSHSIG + namespace `agenticdocer@auth`；RSA 用 PSS；两条客户端路径共用验签器 |
+| S12：删除 WebAuthn 悬空路径 | REQ-M10-F02 | 登录仅两条方式（CLI 签名粘贴 / 签名文件） |
+| S13：token 熵 | REQ-M10-F02 | `secrets.token_urlsafe(32)`（256 位 CSPRNG） |
+| S14：删除 `X-Actor` | REQ-M06-F01 | 身份一律取自验签结果；`source` 由凭据类型判定 |
+| S15：会话清理 | REQ-M10-F02 | 过期会话由定期任务删除（与 nonce 清理同任务） |
+| S16：残余风险声明 | — | §4.1.1 已声明（无 RLS 的库内横向越权风险 + 升级触发条件） |
 
 ### REQ-M12-F01: AgenticLogger 全面接入
 
