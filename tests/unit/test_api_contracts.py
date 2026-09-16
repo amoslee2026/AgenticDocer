@@ -286,6 +286,30 @@ def test_docs_surface_enabled_only_on_loopback(monkeypatch: pytest.MonkeyPatch) 
     assert create_app().openapi_url is None
 
 
+
+def test_auth_coverage_guard_passes_and_fires() -> None:
+    """AUD-6/S4：装配期自检——合规装配放行；漏挂鉴权依赖的路由**装配即失败**。
+
+    用 M10 的判据复核**我的装配**，与 `test_every_business_endpoint_requires_credentials`
+    构成两条独立机制（依赖树遍历 vs 官方自检）。
+    """
+    from agenticdocer.auth.middleware import assert_auth_coverage, find_unguarded_routes
+
+    application = create_app(dev=False)
+    assert find_unguarded_routes(application) == []
+    assert_auth_coverage(application)  # 不抛
+
+    # 边界：DEV_MODE 下开启的 FastAPI 自带文档路由不在 S4 白名单内，须以 `DOC_PATHS` 忽略（不豁免）
+    assert find_unguarded_routes(create_app(dev=True)) == []
+
+    @application.get("/api/v1/unguarded-probe")  # 故意不挂鉴权依赖
+    async def probe() -> dict[str, bool]:
+        return {"ok": True}
+
+    assert find_unguarded_routes(application) == ["GET /api/v1/unguarded-probe"]
+    with pytest.raises(RuntimeError, match="鉴权覆盖自检失败"):
+        assert_auth_coverage(application)
+
 async def test_healthz_probe_without_credentials() -> None:
     """`/healthz` 豁免鉴权（ASGI 直连，不触库即 200；探针不含业务信息，S4）。"""
     application = create_app(dev=False)
