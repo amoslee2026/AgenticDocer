@@ -191,12 +191,12 @@ class NodeRepository(Repository):
             # 事件载荷覆盖全部变化（含 version/updated_at），使重放结果与当前行逐字段一致
             # （M09B `events_consistency` 判据）；SQL 只写真正变化的列。
             deltas = field_deltas(existing, record)
-            values = {field: record[field] for field in content_deltas}
+            values = {field: record[field] for field in deltas}
             try:
                 await session.execute(
                     update(nodes)
                     .where(nodes.c.node_id == existing["node_id"], nodes.c.doc_id == existing["doc_id"])
-                    .values({field: record[field] for field in deltas})
+                    .values(**values)
                 )
             except IntegrityError as exc:
                 raise translate_integrity_error(exc, entity="node", entity_id=node_id) from exc
