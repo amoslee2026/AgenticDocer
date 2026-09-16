@@ -42,8 +42,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 CORPUS = ROOT / "spec" / "standards"
 CTX = WriteContext(actor="importer", source="importer")
 
-#: 语料中应命中的原子类型（`example` 为启发式线索，非每份文档必备）
-_ATOM_KEYS = ("clause", "definition", "table", "figure", "note")
+#: 每份语料都应命中的原子类型（`example`/`cross_ref` 与 `definition` 为语料相关）
+_ATOM_KEYS = ("clause", "table", "figure", "note")
 _ATOM_DOMAIN = {"clause", "definition", "table", "figure", "code", "example", "note", "cross_ref"}
 
 
@@ -73,6 +73,27 @@ async def count(database, sql: str, **params) -> int:
 async def scalars(database, sql: str, **params) -> list:
     async with database.session() as session:
         return list((await session.execute(text(sql), params)).scalars())
+
+
+async def rows(database, sql: str, **params) -> list:
+    async with database.session() as session:
+        return list((await session.execute(text(sql), params)).all())
+
+
+_ENTITY_TABLES = ("comments", "refs", "nodes", "docs", "assets")
+
+
+@pytest.fixture(autouse=True)
+async def clean_database(database):
+    """每个用例前清空实体表（幂等/计数断言依赖空库起点）。
+
+    `events` 对应用角色是 append-only（仅 INSERT/SELECT，A15 库层强制），故**不可清**——
+    涉及事件的断言一律用「提交前后增量」，与历史事件共存。
+    """
+    async with database.transaction() as session:
+        for table in _ENTITY_TABLES:
+            await session.execute(text(f"DELETE FROM {table}"))
+    return database
 
 
 def cross_ref_document() -> str:
@@ -175,6 +196,8 @@ def test_corpus_parse_report(corpus_results) -> None:
     assert totals["html_refs"] == 80
     # HTML 表格 2,440（§5.1 实测），md 图片 1,019，围栏代码块 18 行 → 9 块
     assert atoms["table"] == 2_440
+    assert atoms["definition"] > 0  # 术语区词条（PCIe「Terms and Acronyms」+ AMBA Glossary）
+    assert atoms["note"] > 0        # 列表 + 目录区兜底
     assert atoms["figure"] == 1_019
     assert atoms["code"] == 9
 
@@ -236,6 +259,11 @@ def test_corpus_proposals_pass_schema_gate(corpus_results) -> None:
 async def test_commit_small_real_document(storage: Storage, database, apb_result) -> None:
     result = apb_result
     doc_id = result.doc_meta["doc_id"]
+    events_before = await count(
+        database,
+        "SELECT count(*) FROM events WHERE entity = 'node' AND op = 'create' AND payload->'doc_id'->>'after' = :d",
+        d=doc_id,
+    )
     outcome = await commit_document(result, CTX, storage=storage)
     assert outcome.doc_id == "SPEC-STD-AMBA-APB"
     assert outcome.nodes_created == len(result.proposals)
@@ -277,12 +305,12 @@ async def test_commit_small_real_document(storage: Storage, database, apb_result
         "SELECT count(*) FROM nodes WHERE doc_id = :d AND level IS NULL AND parent_node_id IS NULL",
         d=doc_id,
     ) == 0, "独立原子必须挂在所属条款下"
-    creates = await count(
+    node_events = await count(
         database,
-        "SELECT count(*) FROM events WHERE entity = 'node' AND op = 'create' AND payload->>'doc_id' = :d",
+        "SELECT count(*) FROM events WHERE entity = 'node' AND op = 'create' AND payload->'doc_id'->>'after' = :d",
         d=doc_id,
     )
-    assert creates == outcome.nodes_created
+    assert node_events - events_before == outcome.nodes_created, "每次节点创建对应一条 create 事件"
 
 
 async def test_commit_is_idempotent(storage: Storage, database, apb_result) -> None:
@@ -291,8 +319,8 @@ async def test_commit_is_idempotent(storage: Storage, database, apb_result) -> N
     first = await commit_document(result, CTX, storage=storage)
     nodes = await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=doc_id)
     events = await count(database, "SELECT count(*) FROM events")
+    assert first.nodes_created == len(result.proposals)
     second = await commit_document(result, CTX, storage=storage)
-    assert first.nodes_created > 0
     assert second.nodes_created == 0, "重复导入不得新建节点（幂等）"
     assert await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=doc_id) == nodes
     assert await count(database, "SELECT count(*) FROM events") == events, "无变化不得写事件（M02 幂等）"
@@ -310,15 +338,15 @@ async def test_fallback_blocks_are_persisted_verbatim(storage: Storage, database
     for proposal in result.proposals:
         if not isinstance(proposal.atom, RawFallback):
             continue
-        rows = await scalars(
+        found = await rows(
             database,
             "SELECT atom_type, format, content->>'fragment', content->>'text' FROM nodes "
             "WHERE doc_id = :d AND anchor = :a",
             d=doc_id,
             a=anchors[proposal.proposal_id],
         )
-        assert rows, f"兜底块未入库：{proposal.proposal_id}（{proposal.source_lines}）"
-        atom_type, fmt, fragment, node_text = rows[0]
+        assert found, f"兜底块未入库：{proposal.proposal_id}（{proposal.source_lines}）"
+        atom_type, fmt, fragment, node_text = found[0]
         assert atom_type == "note" and fmt in ("md", "html")
         assert fragment == proposal.atom.text, "兜底块原文必须逐字节保真"
         assert node_text.strip()
@@ -339,7 +367,20 @@ async def test_missing_assets_do_not_block_import(storage: Storage, apb_result, 
     assert outcome.assets.total_refs == 8 and outcome.assets.fetched == 0
     assert len(outcome.assets.missing) == 8
     assert outcome.commit.nodes_created == len(result.proposals)
-    assert len(await storage.list_missing_assets(result.doc_meta["doc_id"])) == 8
+    # 导入期缺资产可由库内数据复现：figure.asset_ref 无对应 assets 行。
+    # 注：M02 `list_missing_assets` 的口径是「渲染产物引用」（`assets/<sha>.<ext>`，即 M04 产物再
+    # 导入后的形态），导入期引用（源 `images/<sha>.jpg` + figure.asset_ref）不在其扫描范围——
+    # 导入期缺失清单由本模块的 AssetSyncReport.missing 承载（REQ-M03-F05），两者共存不冲突。
+    missing_shas = await scalars(
+        database,
+        "SELECT DISTINCT n.content->>'asset_ref' FROM nodes n "
+        "LEFT JOIN assets a ON a.asset_id = n.content->>'asset_ref' "
+        "WHERE n.doc_id = :d AND n.content->>'asset_ref' IS NOT NULL AND a.asset_id IS NULL",
+        d=result.doc_meta["doc_id"],
+    )
+    assert sorted(missing_shas) == sorted(
+        ref.rsplit("/", 1)[-1].removesuffix(".jpg") for ref in result.doc_meta["asset_refs"]["refs"]
+    )
 
 
 async def test_asset_bytes_land_in_cas(storage: Storage, database, tmp_path) -> None:
@@ -404,7 +445,11 @@ async def test_review_then_commit_creates_refs(storage: Storage, database, tmp_p
     assert [(ref.dst_doc_id, ref.dst_node_id, ref.kind) for ref in refs] == [
         ("SPEC-STD-CROSS-1.0", by_anchor[target.atom.anchor], "see_also")
     ]
-    assert await count(database, "SELECT count(*) FROM events WHERE entity = 'ref' AND op = 'add'") == 1
+    assert await count(
+        database,
+        "SELECT count(*) FROM events WHERE entity = 'ref' AND op = 'add' AND payload->>'dst_doc' = :d",
+        d="SPEC-STD-CROSS-1.0",
+    ) == 1
 
 
 async def test_rejected_proposals_are_not_committed(storage: Storage, database, tmp_path) -> None:
