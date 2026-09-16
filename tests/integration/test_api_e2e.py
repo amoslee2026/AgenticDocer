@@ -208,7 +208,7 @@ def _utc_now() -> datetime:
 
 
 async def test_agent_flow_read_write_render_diff(
-    admin: Signer, storage: Storage, database: Database
+    admin: Signer, storage: Storage, database: Database, admin_id: UUID
 ) -> None:
     """REQ-M06-F01/F02 + REQ-M07-F06：鉴权 → 读写 → 章节 → 渲染 → diff → 批注 → 管理端点。"""
     doc_id = DOC_AGENT
@@ -615,7 +615,7 @@ async def test_agent_flow_read_write_render_diff(
 
 
 async def test_rbac_and_grant_narrowing(
-    admin: Signer,
+    admin_id: UUID,
     client: AsyncClient,
     keys: dict[str, Path],
     storage: Storage,
@@ -729,7 +729,7 @@ async def test_rbac_and_grant_narrowing(
 
 
 async def test_webui_session_login_and_identity(
-    admin: Signer,
+    admin_id: UUID,
     client: AsyncClient,
     keys: dict[str, Path],
     storage: Storage,
