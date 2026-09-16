@@ -120,22 +120,7 @@ def load_seed(path: Path | str | None = None) -> list[SeedTerm]:
     try:
         raw = yaml.safe_load(target.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
-        raise ValidationError(f"术语种子文件解析失败：{target}（{exc}）", entity="term") from exc
 
-    if not isinstance(raw, Mapping) or not isinstance(raw.get("terms"), list):
-        raise ValidationError(
-            f"术语种子文件结构非法：{target} 顶层须为映射且含 `terms` 列表（见模块文档）",
-            entity="term",
-    if path is not None:
-        return Path(path)
-    configured = os.environ.get("TERMS_SEED")
-    return Path(configured) if configured else DEFAULT_SEED_PATH
-            raise ValidationError(f"术语种子第 {index} 项不是映射：{item!r}", entity="term")
-        term = str(item.get("term") or "").strip()
-        kind = str(item.get("kind") or "")
-        if not term:
-            raise ValidationError(f"术语种子第 {index} 项缺 `term`", entity="term")
-        if kind not in SEED_TERM_KINDS:
             raise ValidationError(
                 f"术语种子第 {index} 项 kind={kind!r} 非法；期望 {list(SEED_TERM_KINDS)}",
                 entity="term",
