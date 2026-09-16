@@ -440,10 +440,8 @@ def test_parse_cursor_rejects_invalid_timestamp() -> None:
 
 
 def test_parse_cursor_rejects_non_uuid7_event_id() -> None:
-    import uuid
-
     with pytest.raises(ValidationError):
-        _parse_cursor(str(uuid.uuid4()))
+        _parse_cursor(str(uuid4()))
 
 
 # ── 增量流：批分页与续拉（不重不漏） ─────────────────────────────────────
@@ -456,8 +454,8 @@ async def test_change_stream_yields_all_events_in_order_and_stops() -> None:
     store = _FakeStorage(events=events)
     got = [event async for event in change_stream(batch_size=2, storage=store)]
     assert [event.entity_id for event in got] == ["n0", "n1", "n2", "n3", "n4"]
-    # 4 次拉取：2+2+1（末批不满即结束）+ 1 次确认已拉空
-    assert [call["limit"] for call in store.calls] == [2, 2, 2, 2]
+    # 3 次拉取：2 + 2 + 1（末批不满即结束，不再多跑一次确认）
+    assert [call["limit"] for call in store.calls] == [2, 2, 2]
 
 
 async def test_change_stream_resumes_exactly_from_cursor_token() -> None:
@@ -497,9 +495,10 @@ async def test_change_stream_coarse_timestamp_cursor_is_strictly_after() -> None
 
 
 async def test_change_stream_bare_event_id_cursor_resolves_exactly() -> None:
+    """裸 `event_id` 游标：`ts` 从库里解析（`append_event` 先取 id 后取 `ts`）。"""
     events = [
-        _event("node", "n0", "create", TS),
-        _event("node", "n1", "create", TS + timedelta(seconds=1)),
+        _event_anchored("node", "n0", "create"),
+        _event_anchored("node", "n1", "create", offset_ms=5),
     ]
     store = _FakeStorage(events=events)
     got = [event async for event in change_stream(str(events[0].event_id), storage=store)]
