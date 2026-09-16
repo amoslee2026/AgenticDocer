@@ -38,11 +38,9 @@ section_meta: "@meta"
 | REQ-M01-F02 | 节点结构与锚规则约束 | M01 | P0 | 1 |
 | REQ-M01-F03 | doc_type 组合规则 | M01 | P2 | 3（随首个非 standard 类型） |
 | REQ-M02-F01 | 节点 CRUD + 乐观锁 | M02 | P0 | 1 |
-| REQ-M02-F01 | 节点 CRUD + 乐观锁 | M02 | P0 | 1 |
 | REQ-M02-F03 | 事件日志 append-only + 重放 | M02 | P0 | 1 |
 | REQ-M02-F04 | 事务一致性（事件+实体同事务） | M02 | P0 | 1 |
 | REQ-M02-F05 | 批注 CRUD（open/resolved/orphaned） | M02 | P1 | 2 |
-| REQ-M02-F06 | 资产表读写（sha256 寻址） | M02 | P1 | 2 |
 | REQ-M02-F06 | 资产表读写（sha256 寻址） | M02 | P1 | 2 |
 | REQ-M03-F01 | markdown 解析器（规则库+提议） | M03 | P0 | 1 |
 | REQ-M03-F02 | CLI 审核器 | M03 | P0 | 1 |
