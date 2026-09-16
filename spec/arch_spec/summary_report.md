@@ -19,21 +19,22 @@ section_meta: "@meta"
 |---|---|---|
 | `functional_specification.md` v1.4 | **54 条 REQ**（M01–M12 + M-LR；新增 M10 鉴权 5、M11 CLI/skill 7、M12 可观测性 6、M07-F06、M08-F05），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
 | `user_manual.md` | 双角色使用路径（agent 操作者 / 人类评审者），命令与路径实测校正 | ✅ |
-| `architecture_specification.md` v1.4 | 模块接口契约（含 **46 类型定义**）、DDL **13 表**、**12 模块**（+M10 鉴权、+M12 可观测性）、§9 CLI 与 Skill、§8 批注处置表、**P6 运行期 LLM 无关** | ✅ |
+| `architecture_specification.md` v1.4 | 模块接口契约（**52 类型定义**：41 Python class + 11 TS 类型；实测核对）、DDL **13 表**、**12 模块**（M01–M11 + M-LR）+ 横切 M12、§9 CLI 与 Skill、§8 批注处置表、**P6 运行期 LLM 无关** | ✅ |
 | `data_flow_diagrams.md` | DF-1..5 数据流（系统级/写入/评审/检索/**鉴权**）+ 数据驻留表 | ✅ |
-| `workflow_diagrams.md` | WF-1..5 工作流（含 **agent 鉴权与写入链**）+ 文档状态机 | ✅ |
+| `workflow_diagrams.md` | WF-1..4 工作流 + 状态机（**注**：v1.4 未新增 WF-5；鉴权链见 `data_flow_diagrams.md` DF-5） | ✅ |
 | `ADR/ADR-001..010` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 / SSH 鉴权 / M05 降级 / 规模化存储 / **可观测性与性能监控** | ✅ |
 | `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `traceability/requirements_matrix.arch.csv` | **54 REQ** ↔ 架构章节追溯 | ✅ |
 | `clarifications.md` | 架构级输入确认与假设（AB1–AB5；**B6/B10 已作废替换**） | ✅ |
 | `.review/issues.md` | 对抗评审 A1–A25 清单与闭环记录 + **v1.3 批注评审** | ✅ |
 
+> **计数口径（V15 修复）**：本节所有计数均经**实测核对**（脚本统计 `class`/`export interface`/`CREATE TABLE`/ADR 文件/REQ 表格行）。v1.3 文本曾出现「12 表 vs 13 表」「10 模块」「38 类型」等口径不一，均已修正。
 ## 2. 关键决策汇总
 
 | # | 决策 | 依据 |
 |---|---|---|
 | 1 | 模块化单体 + 内部 OpenAPI 契约（前端并行边界） | ADR-001；Agent-aware（单 Agent/10 模块） |
-| 2 | 纯 PG 16.15（12 业务表 + FTS 生成列 + **分区**）+ LightRAG 同实例同库 | ADR-002/009；Q1 源码级核实 |
+| 2 | 纯 PG 16.15（**13 表** + FTS 生成列 + **分区**）+ LightRAG 同实例同库 | ADR-002/009；Q1 源码级核实 |
 | 3 | RJSF 表单引擎（schema 直载，定制 widget） | ADR-003 |
 | 4 | 程序化渲染（HTML 片段零改写直通）+ **分章节渲染 <1s** | ADR-004；P4；B10 |
 | 5 | tsvector(english) 全文检索（GIN on 生成列）——**降级为内部实现**（B5） | ADR-005/008 |
