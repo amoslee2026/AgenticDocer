@@ -394,7 +394,7 @@ def create_app(
     application.state.storage = storage if storage is not None else Storage(database)
     application.state.owns_db = db is None
 
-    install(application)
+
 
     @application.get("/healthz", include_in_schema=False)
     async def healthz() -> dict[str, str]:
@@ -407,6 +407,13 @@ def create_app(
     application.add_exception_handler(StoreError, store_error_handler)
     application.add_exception_handler(RequestValidationError, request_validation_handler)
 
+    # AUD-6/S4 启动期自检：漏挂鉴权依赖的非豁免路由 → 装配即失败（而非静默开放）
+    assert_auth_coverage(application)
+
+    # M12 埋点中间件**最后**装入（Starlette：后加入者最外层）——只有观测在最外层，被内层
+    # 鉴权中间件拒绝的请求才会带上 rid 进日志（否则 `/admin/metrics` 的 authFailures 恒 0、
+    # `trace --rid` 追不到 401 互操作问题）
+    install(application)
     # AUD-6/S4 启动期自检：漏挂鉴权依赖的非豁免路由 → 装配即失败（而非静默开放）
     assert_auth_coverage(application)
 
