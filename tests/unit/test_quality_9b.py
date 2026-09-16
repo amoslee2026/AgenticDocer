@@ -748,7 +748,9 @@ def test_events_consistency_fold_uses_m02_apply_events() -> None:
 
 
 def test_events_rules_are_all_reachable() -> None:
+    """死规则检测：`RULES_EVENTS_CONSISTENCY` 每条都被本条用例命中。"""
     node = make_node()
+    doc = make_doc()
     bad = Event(
         event_id=new_uuid7(),
         entity="node",
@@ -766,7 +768,17 @@ def test_events_rules_are_all_reachable() -> None:
         )
     }
     detected |= {item.rule_id for item in events_consistency.judge_nodes([node], {})}
-    detected |= {item.rule_id for item in events_consistency.judge_nodes([node], {str(node.node_id): [bad]})}
+    detected |= {
+        item.rule_id
+        for item in events_consistency.judge_nodes([node], {str(node.node_id): [bad]})
+    }
+    detected |= {
+        item.rule_id
+        for item in events_consistency.judge_docs(
+            [doc.model_copy(update={"title": "edited"})],
+            {doc.doc_id: [create_event("doc", doc.model_dump(), entity_id=doc.doc_id)]},
+        )
+    }
     detected |= {
         item.rule_id
         for item in events_consistency.judge_orphans({str(new_uuid7()): []}, set(), entity="node")
