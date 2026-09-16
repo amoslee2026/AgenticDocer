@@ -12,7 +12,7 @@ from uuid import UUID
 import pytest
 
 from agenticdocer.store import ValidationError
-from agenticdocer.store._compat import Event, NodeSnapshot, new_uuid7
+from agenticdocer.model import Event, NodeSnapshot, new_uuid7
 from agenticdocer.store.fold import ENTITY_OPS, apply_events
 from agenticdocer.store.rows import build_model, field_deltas
 
