@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "skill_name": "it.arch",
+  "skill_hash": "56bc058352d6cc919bcb19547db607288690974cff1bec7372ec5990e8babf9d",
+  "inputs": {
+    "idea": {
+      "path": "/home/lxx/wrk/AgenticDocer/spec/idea/芯片设计知识库-结构化文档方案-v0.1.md",
+      "hash": "34b108f4338bb0616963ededee1de6960b569391297ba5377bbdbc79b82b6389",
+      "size": 21797
+    }
+  },
+  "outputs": {
+    "functional_specification.md": {
+      "hash": "0b7021b7df85ecb20a2e1001bce427add82cf865779d0cf553bd6fee8d308b1c",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 3,
+      "updated": "2026-09-16T17:32:34.801931+08:00"
+    },
+    "user_manual.md": {
+      "hash": "a51b6f416d06200b7a2b780cd06dda04bb177f90816cb09090163ca677b36ace",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 3,
+      "updated": "2026-09-16T17:32:34.801959+08:00"
+    },
+    "architecture_specification.md": {
+      "hash": "cc03037cf844d8289c63334b840840754b6f432b2dccc675ac2cc2ef7eb64e2d",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 4,
+      "updated": "2026-09-16T17:32:34.801999+08:00"
+    },
+    "data_flow_diagrams.md": {
+      "hash": "0dbd729a82abfcaee671ee424f8d33b2d8c58c692973d9cd91ea384fa94d76c4",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 4,
+      "updated": "2026-09-16T17:32:34.802016+08:00"
+    },
+    "workflow_diagrams.md": {
+      "hash": "44781281d8370b46318f11d0b7173ff31f17d62cd9ba95b9711417605ac09fa3",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 4,
+      "updated": "2026-09-16T17:32:34.802032+08:00"
+    },
+    "ADR/ADR-001..006": {
+      "hash": "MISSING",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 5,
+      "updated": "2026-09-16T17:32:34.802042+08:00"
+    },
+    "research_report.md": {
+      "hash": "b95ccc3eddce7c97f09663099bff9e01c985fbfe77c162f2b71f6ad8e4120cdd",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 2,
+      "updated": "2026-09-16T17:32:34.802060+08:00"
+    },
+    "clarifications.md": {
+      "hash": "b931f9e8dfd8ceeb8dff51b49685a39e528b951cb560eb5491bd7f540845686b",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 1,
+      "updated": "2026-09-16T17:32:34.802076+08:00"
+    },
+    "traceability/requirements_matrix.arch.csv": {
+      "hash": "9abe93d7f209279b1a4a403235bbd47bb00825d781f7f15c3a149beaceb8654d",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 3,
+      "updated": "2026-09-16T17:32:34.802093+08:00"
+    },
+    "summary_report.md": {
+      "hash": "af8584d4ec09a56de752a9208bfd33486b0e83d6e921382c4ac1dccef425163e",
+      "depends_on": [
+        "idea"
+      ],
+      "phase": 6,
+      "updated": "2026-09-16T17:32:34.802111+08:00"
+    },
+    ".review/issues.md": {
+      "hash": "c26a5e122907f4c6dc7e982e78679ffe6b2ddb10a5638201e6ab54a277692466",
+      "depends_on": [
+        "review"
+      ],
+      "phase": 6,
+      "updated": "2026-09-16T17:32:34.802181+08:00"
+    }
+  },
+  "generated": "2026-09-16T17:32:34.802183+08:00"
+}
