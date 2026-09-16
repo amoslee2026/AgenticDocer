@@ -672,8 +672,8 @@ def _flag_params() -> tuple[inspect.Parameter, ...]:
         inspect.Parameter(
             name,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=typer.Option(False, f"--{name.replace('_', '-')}", help=help_text),
-            annotation=bool,
+            default=False,
+            annotation=Annotated[bool, typer.Option(f"--{name.replace('_', '-')}", help=help_text)],
         )
         for name, help_text in GLOBAL_FLAG_HELP.items()
     )
