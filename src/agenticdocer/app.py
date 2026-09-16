@@ -36,10 +36,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from agenticdocer import __version__
+from agenticdocer.agent_api import ErrorResponse
 from agenticdocer.agent_api import router as agent_router
 from agenticdocer.auth import BOOTSTRAP_HINT, admin_pubkey_file, bootstrap_admin, purge_expired
 from agenticdocer.auth.router import router as auth_router
-from agenticdocer.agent_api import ErrorResponse, router as agent_router
 from agenticdocer.store import Database, StoreError, Storage, get_database
 from agenticdocer.webui_api import router as webui_router
 
