@@ -11,13 +11,17 @@ frontmatter             目标
 ======================  ==================================================
 ``title``               ``docs.title``
 ``spec_id``             ``docs.doc_id``（`SPEC-*`）
-``spec_type``           ``docs.doc_type``（`standard`/`lang`/`tool-manual`/`product`/`safety`）
+``spec_type``           ``docs.doc_type``（`standard`/`lang`/`tool-manual`/`product`/`safety`，
+                        或映射表 §2 的类型别名——经 :func:`doc_type_map.resolve_doc_type` 归一）
 ``source``              ``docs.source_ref``（原始 PDF 路径）
 ``status``              ``docs.status``（`approved`→approved、`review`→reviewed、`draft`→draft）
-其余 12 字段            ``docs.meta`` JSONB **全量保真**（+ 稳定派生键 `doc_slug`）
+其余 12 字段            ``docs.meta`` JSONB **全量保真**（+ 稳定派生键 `doc_slug`/`doc_subtype`）
 ======================  ==================================================
 
 必填校验口径 = `model.doc_types.C5_META_FIELDS`（P5 单点：M01 定义、M03 消费、M09A 复用），
+`doc_type` 的细粒度判定（idea.md 30+ 类型 → 5 个 `doc_type`）与 `product` 大类的细分
+（`meta.doc_subtype`）单点在 :mod:`agenticdocer.importer.doc_type_map`（映射表 §2 的机器可读
+形式）；`verification-plan` 子类型另需 `verification_plan_format`（映射表 §4）。
 缺字段即 `ValidationError`（→ 422），不落地半份元数据。
 """
 
@@ -30,6 +34,16 @@ from typing import Any, Final
 
 import yaml
 
+from agenticdocer.importer.doc_type_map import (
+    RESOLVABLE_KEYS,
+    VERIFICATION_PLAN_FORMATS,
+    VERIFICATION_PLAN_SUBTYPE,
+    UnknownDocTypeError,
+    invalid_verification_plan_format,
+    missing_verification_plan_meta,
+    resolve_doc_type,
+    subtypes_for,
+)
 from agenticdocer.model import C5_META_FIELDS, DOC_TYPES, DocIn, DocStatus, missing_required_meta
 from agenticdocer.store import ValidationError
 
