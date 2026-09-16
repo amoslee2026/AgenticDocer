@@ -200,7 +200,15 @@ class NodeRepository(Repository):
     async def _section_interval(
         session: AsyncSession, doc_id: str, section_id: UUID, ordinal: int, level: int
     ) -> list[Any] | None:
-        """区间扫；首行非根 → 返回 `None`（调用方回退 CTE）。"""
+        """区间扫 + 大纲契约自检；不合格 → 返回 `None`（调用方回退递归 CTE）。
+
+        自检比「首行即根」更强：逐行沿 `parent_node_id` 上溯，必须落在**区间内**并终止于根。
+        只有「`ordinal` 序即大纲序（每个节点位于其父之后、下一个 `level <= 根 level` 之前）」
+        成立时区间法才等价于真子树；违反该契约时会**多收兄弟子树的后代**，
+        而首行仍是根 —— 故首行检查不足以保正确性（实测反例：兄弟节点 A 的子节点排在
+        另一同级节点 B 之后时，B 的区间会误收它）。
+        为不让「未软删的中间节点」误判为断链，本步**不过滤 status**，最后在内存里过滤。
+        """
         end = (
             await session.execute(
                 select(func.min(nodes.c.ordinal)).where(
@@ -211,7 +219,7 @@ class NodeRepository(Repository):
             )
         ).scalar()
         statement = select(*NODE_COLUMNS).where(
-            nodes.c.doc_id == doc_id, nodes.c.ordinal >= ordinal, nodes.c.status == "active"
+            nodes.c.doc_id == doc_id, nodes.c.ordinal >= ordinal
         )
         if end is not None:
             statement = statement.where(nodes.c.ordinal < end)
@@ -219,7 +227,19 @@ class NodeRepository(Repository):
         rows = (await session.execute(statement)).all()
         if not rows or rows[0].node_id != section_id:
             return None
-        return list(rows)
+        parents = {row.node_id: row.parent_node_id for row in rows}
+        for node_id, parent in parents.items():
+            if node_id == section_id:
+                continue
+            walked: set[Any] = set()
+            while parent is not None and parent != section_id and parent in parents:
+                if parent in walked:
+                    break
+                walked.add(parent)
+                parent = parents[parent]
+            if parent != section_id:
+                return None
+        return [row for row in rows if row.status == "active"]
 
     async def upsert_node(
         self,

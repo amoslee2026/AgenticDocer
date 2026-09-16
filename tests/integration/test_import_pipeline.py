@@ -22,6 +22,7 @@ from sqlalchemy import text
 from agenticdocer.importer import (
     check_proposals,
     commit_document,
+    commit_document_bulk,
     fallback_anchors,
     load_review_state,
     parse_markdown,
@@ -419,6 +420,98 @@ async def test_asset_bytes_land_in_cas(storage: Storage, database, tmp_path) -> 
 
 
 # ── 审核 → 入库 全流程（业务函数；含 refs 边与拒绝留痕）─────────────────
+
+
+def _reslug(text: str, doc_id: str) -> str:
+    return text.replace("SPEC-STD-AMBA-APB", doc_id)
+
+
+async def _snapshot(database, doc_id: str) -> tuple[list[tuple], dict[tuple[str, str], int], set[str]]:
+    """节点快照（锚剥 doc 前缀 + 父锚归一）+ 事件计数 + node create 事件的锚集合。"""
+    node_rows = await rows(
+        database,
+        "SELECT n.anchor, n.atom_type, n.format, n.ordinal, n.level, n.status, n.version, "
+        "n.content::text, coalesce(p.anchor, '') FROM nodes n "
+        "LEFT JOIN nodes p ON p.node_id = n.parent_node_id WHERE n.doc_id = :d ORDER BY n.ordinal, n.anchor",
+        d=doc_id,
+    )
+    nodes_norm = [
+        (row[0].replace(doc_id, "DOC"), row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8].replace(doc_id, "DOC"))
+        for row in node_rows
+    ]
+    event_rows = await rows(
+        database,
+        "SELECT entity, op, count(*) FROM events WHERE payload->'doc_id'->>'after' = :d "
+        "OR payload->>'dst_doc' = :d GROUP BY entity, op",
+        d=doc_id,
+    )
+    counts = {(row[0], row[1]): int(row[2]) for row in event_rows}
+    anchors = {
+        row[0]
+        for row in await scalars(
+            database,
+            "SELECT payload->'anchor'->>'after' FROM events WHERE entity = 'node' AND op = 'create' "
+            "AND payload->'doc_id'->>'after' = :d",
+            d=doc_id,
+        )
+        if row
+    }
+    return nodes_norm, counts, {anchor.replace(doc_id, "DOC") for anchor in anchors}
+
+
+async def test_bulk_path_is_semantically_equivalent(storage: Storage, database, tmp_path) -> None:
+    """A/B 等价（PerfBench 指定验收）：批量路径与逐节点路径产出**相同库状态**。
+
+    同一源文本落成两个 doc_id（`SEQ` 逐节点 / `BULK` 批量）；比较锚（剥 doc 前缀）、
+    atom_type/format/ordinal/level/status/version/content、**父链（父锚归一）**，
+    以及事件（`(entity, op)` 计数 + node create 事件的锚集合）。node_id 为 uuid7 随机，
+    不参与比较（两路都是新分配）。
+    """
+    text = (CORPUS / "jedec" / "JEDEC_JESD270-4A_HBM4_2025.md").read_text(encoding="utf-8")
+    seq_doc, bulk_doc = "SPEC-STD-EQ-SEQ", "SPEC-STD-EQ-BULK"
+    seq_src, bulk_src = tmp_path / "seq.md", tmp_path / "bulk.md"
+    seq_src.write_text(_reslug(text, seq_doc), encoding="utf-8")
+    bulk_src.write_text(_reslug(text, bulk_doc), encoding="utf-8")
+    seq_result = parse_markdown(seq_src)
+    bulk_result = parse_markdown(bulk_src)
+
+    seq_out = await commit_document(seq_result, CTX, storage=storage)
+    bulk_out = await commit_document_bulk(bulk_result, CTX, storage=storage)
+    assert seq_out.nodes_created == bulk_out.nodes_created == len(seq_result.proposals)
+    assert seq_out.stats == bulk_out.stats
+
+    seq_snapshot = await _snapshot(database, seq_doc)
+    bulk_snapshot = await _snapshot(database, bulk_doc)
+    assert seq_snapshot[0] == bulk_snapshot[0], "节点行（含父链）必须逐字段一致"
+    assert seq_snapshot[1] == bulk_snapshot[1], "事件 (entity, op) 计数必须一致"
+    assert seq_snapshot[2] == bulk_snapshot[2], "node create 事件的锚集合必须一致"
+
+    # 幂等（批量路径）：二次提交不新建节点、不写事件
+    nodes_before = await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=bulk_doc)
+    events_before = await count(database, "SELECT count(*) FROM events")
+    again = await commit_document_bulk(bulk_result, CTX, storage=storage)
+    assert again.nodes_created == 0
+    assert await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=bulk_doc) == nodes_before
+    assert await count(database, "SELECT count(*) FROM events") == events_before
+
+    # initial_load 仅限空文档（Main 要求的显式区分）
+    with pytest.raises(ValidationError, match="initial_load"):
+        await commit_document_bulk(bulk_result, CTX, storage=storage, bulk_mode="initial_load")
+    # 空文档可用 initial_load
+    empty_result = parse_markdown(tmp_path / "bulk.md") if False else bulk_result
+    live = await commit_document_bulk(
+        parse_markdown(_write_variant(tmp_path, text, "SPEC-STD-EQ-INIT")),
+        CTX,
+        storage=storage,
+        bulk_mode="initial_load",
+    )
+    assert live.nodes_created == len(bulk_result.proposals)
+
+
+def _write_variant(tmp_path: pathlib.Path, text: str, doc_id: str) -> pathlib.Path:
+    path = tmp_path / f"{doc_id}.md"
+    path.write_text(_reslug(text, doc_id), encoding="utf-8")
+    return path
 
 
 async def test_review_then_commit_creates_refs(storage: Storage, database, tmp_path) -> None:
