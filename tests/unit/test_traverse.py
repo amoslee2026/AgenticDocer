@@ -282,3 +282,16 @@ async def test_traverse_rejects_negative_hops() -> None:
 async def test_traverse_rejects_malformed_node_id() -> None:
     with pytest.raises(ValidationError):
         await traverse("not-a-uuid", 1)
+
+
+# ── ADR-008 边界守护（静态检查，不需要 PG）──────────────────────────────
+
+
+def test_retrieve_exposes_no_public_endpoint() -> None:
+    """M05 只提供内部函数：`retrieve` 内不得出现 FastAPI 路由/应用（ADR-008 边界表）。"""
+    module_dir = pathlib.Path(__file__).resolve().parents[2] / "src" / "agenticdocer" / "retrieve"
+    sources = "\n".join(path.read_text(encoding="utf-8") for path in sorted(module_dir.glob("*.py")))
+    assert sources, "retrieve 包不得为空"
+    assert "APIRouter" not in sources
+    assert "FastAPI" not in sources
+    assert "router" not in sources
