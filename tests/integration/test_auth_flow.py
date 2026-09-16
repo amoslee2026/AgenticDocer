@@ -525,7 +525,8 @@ async def test_challenge_login_session_and_token_hashing(
     set_cookie = response.headers["set-cookie"]
     assert "httponly" in set_cookie.lower() and "samesite=lax" in set_cookie.lower()
 
-    me = await client.get("/api/v1/auth/me", cookies={sessions.SESSION_COOKIE_NAME: token})
+    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
+    me = await client.get("/api/v1/auth/me")
     assert me.status_code == 200
     assert me.json()["userId"] == str(user.user_id)
     assert me.json()["permissions"] == []
