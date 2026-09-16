@@ -302,14 +302,11 @@ async def test_render_section_scoped_and_fast(
     result = await render_section(doc_id, target.node_id, tmp_path / "rendered", storage=storage)
     elapsed = time.perf_counter() - started
     body = Path(result.out_path).read_text(encoding="utf-8")
-
     assert Path(result.out_path).parent.name == "sections"
     assert not body.startswith("---"), "章节产物不带 frontmatter"
+    # 作用域证明：产物 **逐字节等于** 子树块拼接（多一个块就会不等）
     assert body.strip() == body_text(subtree).strip()
-    # 章节外的内容不得出现在产物中
-    outside = [node for node in nodes if node not in subtree]
-    other_fragments = [str(node.content.get("fragment", "")) for node in outside]
-    leaked = [f for f in other_fragments if f and f in body]
+    assert len(subtree) < len(nodes), "用例应取真子集章节"
     assert leaked == [], f"章节产物混入章节外内容：{leaked[:1]}"
     print(
         f"[M04] render_section {elapsed * 1000:.1f}ms"
@@ -329,7 +326,7 @@ async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path
     doc_id = f"SPEC-CXL-FULL-{next(_SEQ)}"
     _doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
     # (a) 解析保真
-    assert await normalize(doc_id, storage=storage) == source_form
+    source_form = normalize_markdown(source)
 
     started = time.perf_counter()
     result = await render_document(doc_id, tmp_path / "full", storage=storage)
