@@ -33,6 +33,7 @@ from agenticdocer.store import (
 from . import (
     assets_missing,
     broken_refs,
+    doc_type_conformance,
     events_consistency,
     perf_health,
     render_consistency,
@@ -64,6 +65,7 @@ DETECTORS: Final[dict[str, Detector]] = {
     events_consistency.DETECTOR_ID: events_consistency.detect,
     section_range_consistency.DETECTOR_ID: section_range_consistency.detect,
     perf_health.DETECTOR_ID: perf_health.detect,
+    doc_type_conformance.DETECTOR_ID: doc_type_conformance.detect,
 }
 """detector 登记表（key = `QualityReport.detector_id`）：§3 M09 声明的 6 项 + Main 批准新增的
 `section_range_consistency`（M02 B-2 区间契约兜底）。声明序即报告顺序，**只增不改序**——
