@@ -398,14 +398,20 @@ def projected_hours(ingest: dict, nodes_per_doc: float) -> str:
 
 
 def test_scale_benchmark() -> None:
-    """`pytest -m perf` 路径：小规模冒烟（默认 `--docs 100`），断言分区与裁剪事实。
+    """`pytest -m perf` 路径：**冒烟**（小规模，快速验证接线与分区事实）。
 
-    10k 全量**不在** pytest 路径触发（小时级）；要跑全量请显式
-    `uv run python tests/perf/bench_scale.py --docs 10000`。
+    规模验收**不在** pytest 路径触发（§1.4 口径下 100 份文档≈26 分钟，10k 份≈数十小时）：
+    请显式执行 `uv run python tests/perf/bench_scale.py --docs 100 --atoms-per-doc 1343`
+    （规模与原子数可经 `PERF_SCALE_DOCS` / `PERF_SCALE_ATOMS` 调整）。
     """
     args = default_args(build_parser())
     if not reachable(args.dsn):
         pytest.skip(f"基准库不可达：{configure_dsn(args.dsn)}")
+    args.docs = int(os.environ.get("PERF_SCALE_DOCS", "10"))
+    args.atoms_per_doc = int(os.environ.get("PERF_SCALE_ATOMS", "200"))
+    args.document_iterations = 2
+    args.section_iterations = 3
+    args.label = args.label or "pytest-smoke"
     bench = asyncio.run(run_bench(args))
     save(bench, args.out)
     assert bench.get("scale.partition_count").value == TARGET_PARTITION_COUNT, "分区数不是 64"
