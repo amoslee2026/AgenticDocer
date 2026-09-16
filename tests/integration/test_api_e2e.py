@@ -718,7 +718,14 @@ async def test_rbac_and_grant_narrowing(
     assert (await reader_client.get("/api/v1/admin/metrics")).status_code == 403
     assert (await reader_client.get("/api/v1/admin/health")).status_code == 403
     assert (await reader_client.get("/api/v1/users")).status_code == 403
-    assert (await reader_client.get("/api/v1/roles")).status_code == 200
+    # AUD-7：角色清单与鉴权审计均 admin 专属（后者含来源 IP / claimed_*，S10）
+    assert (await reader_client.get("/api/v1/roles")).status_code == 403
+    assert (await reader_client.get("/api/v1/events?entity=auth")).status_code == 403
+    assert (await reader_client.get("/api/v1/events?limit=1000")).status_code == 200
+    assert "auth" not in {
+        item["entity"] for item in (await reader_client.get("/api/v1/events?limit=1000")).json()
+    }
+    assert (await admin.get("/api/v1/events?entity=auth&limit=5")).status_code == 200
 
     # grant 收窄：editor 仅在 product 类型上可写
     created_grant = await admin.post(
