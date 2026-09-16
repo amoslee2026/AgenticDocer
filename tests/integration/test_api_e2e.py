@@ -299,7 +299,8 @@ async def test_agent_flow_read_write_render_diff(
     assert "1 Scope" in whole["markdown"] and "1.1 Purpose" in whole["markdown"]
     assert Path(whole["outPath"]).is_file()
 
-    section_render = await admin.get(f"/api/v1/docs/{doc_id}/render?section=1.1 Purpose")
+    # 锚含空格：签名覆盖 RAW_PATH（§3 M06/S2「query 参与签名」），故用**线上形态**（%20）
+    section_render = await admin.get(f"/api/v1/docs/{doc_id}/render?section=1.1%20Purpose")
     assert section_render.status_code == 200, section_render.text
     assert section_render.json()["section"] == "1.1 Purpose"
     assert "1.1 Purpose" in section_render.json()["markdown"]
