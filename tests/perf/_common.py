@@ -604,30 +604,38 @@ async def pg_info(db: Any) -> dict[str, Any]:
     grouped: dict[str, int] = {}
     for name, size in relations.items():
         grouped[_base_table(name)] = grouped.get(_base_table(name), 0) + size
+    total = sum(relations.values())
+    parts = int(await scalar(db, "SELECT count(*) FROM pg_partition_tree('nodes') WHERE isleaf"))
+    database_bytes = int(await scalar(db, "SELECT pg_database_size(current_database())"))
+    return {
+        "server_version": version,
+        "nodes_partition_count": parts,
+        "table_bytes": dict(sorted(grouped.items(), key=lambda item: -item[1])),
+        "relation_bytes": relations,
+        "relation_count": len(relations),
+        "total_bytes": total,
+        "total_human": human_bytes(total),
+        "database_bytes": database_bytes,
+        "database_human": human_bytes(database_bytes),
+    }
+
 
 async def schema_floor(db: Any, *, known_rows: dict[str, int] | None = None) -> dict[str, Any]:
     """**schema 固定开销**：叶子关系中「行数为 0」者的体积之和。
 
-    动机（实测）：`nodes` 有 64 个分区、每分区带全套索引（含 FTS GIN），
-    空分区每个仍占若干数据页 ⇒ 库内存在一个与**数据量无关**的固定底噪
-    （本机实测 ≈9MiB）。小规模下它会把「字节/节点」抬高一到两个数量级
-    （2 份文档时实测 45KB/节点），从而毁掉存储外推的可比性。
+    动机（实测）：`nodes` 有 64 个分区、每分区带全套索引（含 FTS GIN），空分区仍各占数据页
+    ⇒ 库内存在与**数据量无关**的固定底噪（本机实测 ≈9MiB）。小规模下它把「字节/节点」
+    抬高一到两个数量级（2 份文档时实测 45KB/节点），从而毁掉存储外推的可比性。
 
     `known_rows` 传入已测得的行数（如 `nodes` 各分区），避免重复扫描。
     返回 `{"floor_bytes", "floor_human", "empty_relations", "per_relation_bytes"}`。
     """
-    from sqlalchemy import text
-
     sizes = {str(name): int(size) for name, size in await all_rows(db, _SIZES_SQL)}
     rows = dict(known_rows or {})
-    empty: dict[str, int] = {}
     for name in sizes:
-        if name in rows:
-            continue
-        rows[name] = int(await scalar(db, f'SELECT count(*) FROM "{name}"'))
-    for name, size in sizes.items():
-        if rows.get(name, -1) == 0:
-            empty[name] = size
+        if name not in rows:
+            rows[name] = int(await scalar(db, f'SELECT count(*) FROM "{name}"'))
+    empty = {name: size for name, size in sizes.items() if rows.get(name, -1) == 0}
     total = sum(empty.values())
     return {
         "floor_bytes": total,
@@ -635,7 +643,6 @@ async def schema_floor(db: Any, *, known_rows: dict[str, int] | None = None) -> 
         "empty_relations": empty,
         "per_relation_bytes": sizes,
     }
-    total = sum(relations.values())
     parts = int(await scalar(db, "SELECT count(*) FROM pg_partition_tree('nodes') WHERE isleaf"))
     database_bytes = int(await scalar(db, "SELECT pg_database_size(current_database())"))
     return {
