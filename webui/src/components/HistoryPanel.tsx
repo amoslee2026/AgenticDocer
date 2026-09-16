@@ -20,13 +20,26 @@ function payloadSummary(event: EventDTO): string {
 
 /**
  * 追溯与历史视图（REQ-M08-F04）：`/events/replay` 折叠 + 事件序列；
- * 每个历史事件可回看当时折叠态。
+ * 每个历史事件经 `?upto=<event_id>` 回放该时点的折叠态（含端）。
  */
 export function HistoryPanel({ node }: { node: NodeDTO }) {
   const [snap, setSnap] = useState<{ node: NodeDTO | null; history: EventDTO[] } | null>(null);
-  const [viewIndex, setViewIndex] = useState<number | null>(null);
+  const [pointNode, setPointNode] = useState<NodeDTO | null>(null);
+  const [pointBusy, setPointBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function viewAt(event: EventDTO) {
+    setPointBusy(true);
+    setError(null);
+    try {
+      setPointNode((await eventApi.replayNode(node.nodeId, event.eventId)).node);
+    } catch (exc) {
+      setError(exc instanceof ApiError ? exc.message : String(exc));
+    } finally {
+      setPointBusy(false);
+    }
+  }
 
   async function load() {
     setBusy(true);
