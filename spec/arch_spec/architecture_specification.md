@@ -487,7 +487,6 @@ def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders
     """Ed25519 验签。载荷 = f"{method}\n{path}\n{sha256(body).hex()}\n{ts}\n{nonce}"。
     步骤：(1) ts 偏移 ∈ [−30s, +SIGNATURE_MAX_SKEW_SECONDS]（S3：未来容忍收紧）；(2) 公钥查表（active）；
     (3) SSHSIG 验签（namespace=agenticdocer@auth）；(4) **验签通过后**才 INSERT nonce（S7）。任一步失败 → AuthError(401/403)。"""
-    (3) key_id → users 表查 active 公钥；(4) 验签。任一失败 → AuthError(401/403)。"""
 
 # 会话（WebUI 路径）
 async def create_challenge(ip: str) -> Challenge: ...   # nonce 一次性 TTL 120s；**按 IP 限流**（S7）
@@ -723,18 +722,20 @@ CREATE TABLE users (
 CREATE TABLE ssh_keys (
   key_id      text PRIMARY KEY,                -- SHA256 指纹（base64，与 ssh-keygen -lf 一致）
   user_id     uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  token_hash   text NOT NULL UNIQUE,           -- SHA256(token)；token=secrets.token_urlsafe(32)（S13：256 位 CSPRNG，明文仅存 Cookie）
+  public_key  text NOT NULL,                   -- 完整 authorized_keys 行
   key_type    text NOT NULL CHECK (key_type IN ('ssh-ed25519','rsa-sha2-512','rsa-sha2-256')),
   added_at    timestamptz NOT NULL DEFAULT now(),
   revoked_at  timestamptz,                     -- 吊销保留行（审计）
   UNIQUE (user_id, key_id)
-CREATE INDEX idx_sessions_expiry ON sessions (expires_at);   -- S15：过期会话由定期任务 DELETE（与 nonce 清理同任务）
+);
 CREATE INDEX idx_ssh_keys_user ON ssh_keys (user_id) WHERE revoked_at IS NULL;
 
-CREATE TABLE grants (                          -- 文档集级授权（B3）
+CREATE TABLE grants (                          -- 文档集级授权（B3；S5：scope 二选一，repo 已删）
   grant_id   uuid PRIMARY KEY,
   user_id    uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  scope      text NOT NULL CHECK (scope IN ('doc_type','doc','repo')),
+  scope      text NOT NULL CHECK (scope IN ('doc_type','doc')),
+  value      text NOT NULL,                    -- doc_type 值 或 doc_id
+  permission text NOT NULL CHECK (permission IN ('read','write','review')),
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s)，**必须 ≥ 时间窗**避免重放窗口
   permission text NOT NULL CHECK (permission IN ('read','write','review','admin')),
   granted_by uuid REFERENCES users(user_id),
