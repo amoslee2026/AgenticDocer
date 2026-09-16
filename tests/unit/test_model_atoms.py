@@ -50,7 +50,7 @@ def test_nested_table_meta_schema_is_closed_and_typed():
     assert meta["required"] == ["rows", "cols", "cells", "max_colspan"]
     assert set(meta["properties"]) == {"rows", "cols", "cells", "max_colspan"}
     assert meta["additionalProperties"] is False
-    assert ATOM_SCHEMAS["table.register_field"]["required"] == ["fragment", "meta", "register", "fields"]
+    assert ATOM_SCHEMAS["table.register_field"]["required"] == ["text", "fragment", "meta", "register", "fields"]
 
 
 def test_state_machine_variant_requires_states():

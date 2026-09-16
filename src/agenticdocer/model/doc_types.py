@@ -103,9 +103,11 @@ def allowed_atom_types(doc_type: str) -> tuple[str, ...]:
 
 
 def is_atom_allowed(doc_type: str, atom_type: str) -> bool:
-    """变体名（``table.register_field``）按其基底原子（``table``）判定。"""
-    base = atom_type.split(".", 1)[0]
-    return base in get_doc_type_rule(doc_type).allowed_atom_types
+    """已注册的变体名（``table.register_field``）按其基底原子（``table``）判定；
+    未注册的类型名（拼错、臆造变体）一律不放行（REQ-M01-F01：无 schema 不得写入）。"""
+    if atom_type not in ATOM_SCHEMAS:
+        return False
+    return atom_type.split(".", 1)[0] in get_doc_type_rule(doc_type).allowed_atom_types
 
 
 def missing_required_meta(doc_type: str, meta: Mapping[str, Any] | None) -> list[str]:
