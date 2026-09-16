@@ -40,6 +40,7 @@ section_meta: "@meta"
 | REQ-M01-F02 | 节点结构与锚规则约束 | M01 | P0 | 1 |
 | REQ-M01-F03 | doc_type 组合规则 | M01 | P2 | 3（随首个非 standard 类型） |
 | REQ-M02-F01 | 节点 CRUD + 乐观锁 | M02 | P0 | 1 |
+| REQ-M02-F02 | 引用边管理（含 ref 事件） | M02 | P0 | 1 |
 | REQ-M02-F03 | 事件日志 append-only + 重放 | M02 | P0 | 1 |
 | REQ-M02-F04 | 事务一致性（事件+实体同事务） | M02 | P0 | 1 |
 | REQ-M02-F05 | 批注 CRUD（open/resolved/orphaned） | M02 | P1 | 2 |
@@ -67,6 +68,7 @@ section_meta: "@meta"
 | REQ-M08-F03 | 批注面板（含 orphaned） | M08 | P1 | 2 |
 | REQ-M08-F04 | 追溯与历史视图 | M08 | P1 | 2 |
 | REQ-M08-F05 | 可编辑表格视图（B6） | M08 | P2 | 3 |
+| REQ-M09-F01 | M09A schema 校验引擎 | M09 | P0 | 1 |
 | REQ-M09-F02 | M09B 质量门 | M09 | P2 | 3 |
 | REQ-MLR-F01 | LightRAG 导出包（渲染文本+node_id） | M-LR | P2 | 3 |
 | REQ-MLR-F02 | 增量事件流接口 | M-LR | P2 | 3 |
