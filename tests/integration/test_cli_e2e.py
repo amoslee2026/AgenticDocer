@@ -322,7 +322,7 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
 def test_whoami_reports_signed_identity(service: _Service) -> None:
     payload = service.ok("auth", "whoami", "--json", actor="editor")
     assert isinstance(payload, dict)
-    assert payload["username"] == "editor"
+    assert payload["username"] == service.user("editor")
     assert payload["role"] == "editor"
     assert payload["keyFingerprint"] == service.fingerprints["editor"]
     assert payload["apiUrl"] == service.api_url
@@ -380,7 +380,7 @@ def imported(service: _Service) -> dict[str, object]:
 def test_doc_list_and_get(service: _Service, imported: dict[str, object]) -> None:
     docs = service.ok("doc", "list", "--json", actor="reader")
     assert isinstance(docs, list)
-    assert [doc["docId"] for doc in docs] == [imported["doc_id"]]
+    assert imported["doc_id"] in {doc["docId"] for doc in docs}  # 只断言自己的数据
 
     doc = service.ok("doc", "get", str(imported["doc_id"]), "--json", actor="reader")
     assert isinstance(doc, dict)
@@ -536,42 +536,44 @@ def test_annotation_flow_including_anchor_context(service: _Service, imported: d
 def test_admin_user_and_grant_lifecycle(service: _Service, imported: dict[str, object]) -> None:
     users = service.ok("user", "list", "--json")
     assert isinstance(users, list)
-    assert {user["username"] for user in users} >= {"admin", "editor", "reviewer", "reader"}
+    mine = {service.user(actor) for actor in ("editor", "reviewer", "reader", "probe", "revokable")}
+    assert mine <= {user["username"] for user in users}
 
-    promoted = service.ok("user", "role", "--username", "reviewer", "--role", "editor", "--json")
+    promoted = service.ok(
+        "user", "role", "--username", service.user("reviewer"), "--role", "editor", "--json"
+    )
     assert isinstance(promoted, dict) and promoted["role"] == "editor"
-    service.ok("user", "role", "--username", "reviewer", "--role", "reviewer", "--json")
+    service.ok("user", "role", "--username", service.user("reviewer"), "--role", "reviewer", "--json")
 
     grant = service.ok(
-        "grant", "add", "--username", "reader", "--scope", "doc", "--value", str(imported["doc_id"]),
-        "--permission", "read", "--json",
+        "grant", "add", "--username", service.user("reader"), "--scope", "doc",
+        "--value", str(imported["doc_id"]), "--permission", "read", "--json",
     )
     assert isinstance(grant, dict) and grant["scope"] == "doc"
 
-    grants = service.ok("grant", "list", "--username", "reader", "--json")
+    grants = service.ok("grant", "list", "--username", service.user("reader"), "--json")
     assert isinstance(grants, list) and grants[0]["grantId"] == grant["grantId"]
 
     removed = service.ok("grant", "rm", "--grant-id", str(grant["grantId"]), "--json")
     assert isinstance(removed, dict) and removed["removed"] is True
     assert isinstance(service.ok("grant", "list", "--json"), list)
 
-    service.ok("user", "disable", "--username", "reader", "--json")
-    assert service.fails("doc", "list", "--json", actor="reader").returncode != 0  # S8：禁用即失效
-    service.ok("user", "role", "--username", "reader", "--role", "reader", "--json")
+    # 禁用只作用于**专用探针用户**（不影响后续用例依赖的身份）
+    service.ok("user", "disable", "--username", service.user("probe"), "--json")
+    assert service.fails("doc", "list", "--json", actor="probe").returncode != 0  # S8：禁用即失效
 
 
 def test_key_revocation_is_effective(service: _Service) -> None:
     """公钥吊销走请求体（指纹含 `/`、`+`，不能进路径）；吊销后该密钥立即失效。"""
+    assert isinstance(service.ok("doc", "list", "--json", actor="revokable"), list)  # 吊销前可用
+
     revoked = service.ok(
-        "user", "key", "revoke", "--username", "editor", "--fingerprint", service.fingerprints["editor"], "--json"
+        "user", "key", "revoke", "--username", service.user("revokable"),
+        "--fingerprint", service.fingerprints["revokable"], "--json",
     )
     assert isinstance(revoked, dict) and revoked["revoked"] is True
-    assert service.fails("doc", "list", "--json", actor="editor").returncode != 0  # 该密钥不再可用
-    assert isinstance(service.ok("doc", "list", "--json", actor="reviewer"), list)  # 同用户/他人不受影响
-
-    # 复原：重新登记 editor 的公钥，供后续用例继续以 editor 身份写入
-    service.ok("user", "key", "add", "--username", "editor", "--key", str(service.work / "editor_ed25519.pub"), "--json")
-    assert isinstance(service.ok("doc", "list", "--json", actor="editor"), list)
+    assert service.fails("doc", "list", "--json", actor="revokable").returncode != 0  # 该密钥不再可用
+    assert isinstance(service.ok("doc", "list", "--json", actor="editor"), list)  # 他人不受影响
 
 
 def test_non_admin_cannot_manage_users(service: _Service) -> None:

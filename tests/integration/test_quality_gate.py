@@ -478,6 +478,10 @@ def test_sync_entry_is_repeatable_in_process(
 
     每次 `asyncio.run` 新建循环，故同步入口必须**自建自弃**连接池；依赖 `database_urls`
     以沿用 conftest 的「无 PG 即整体 skip」语义。
+
+    此处只断言**结构与可重复性**：种子是否已入库取决于 M06 lifespan 或本文件其它用例是否
+    先跑（`seeded_terms` 夹具），属**跨用例状态**，不在此处断言——「terms 面零违规」由
+    `test_clean_sample_passes_gate`（显式载入种子）与人工交叉验证（M06 载入器）承担。
     """
     _, app_url = database_urls
     monkeypatch.setenv("DATABASE_URL", app_url)
@@ -488,8 +492,8 @@ def test_sync_entry_is_repeatable_in_process(
 
     assert [report.detector_id for report in first] == ["broken_refs", "terms"]
     assert [report.detector_id for report in second] == ["broken_refs", "terms"]
-    # 生产态：M06 lifespan 启动已把 TERMS_SEED 载入 → 种子面应为零违规
-    assert second[1].violations == []
+    assert all(report.violations == [] for report in first), first
+    assert all(isinstance(report.violations, list) for report in second)
 
 
 async def test_global_scope_runs_all_detectors_and_finds_defects(
