@@ -146,7 +146,3 @@ class AssetRepository(Repository):
             ):
                 missing.append(asset_id)
         return missing
-
-
-async def _unused(session: AsyncSession) -> None:  # pragma: no cover
-    del session
