@@ -2,19 +2,22 @@
 
 口径（§1.4「测量口径」列）：
 
-* **整档** = `render.render_document(doc_id)`，取库内**内容体积最大**的文档（语料中为
-  `CXL_Specification_rev3p2_ver1p0.md`，3.59MB 级）；
-* **单章节** = `render.render_section(doc_id, section_node_id)`，章节取该文档内
+* **整档** = `render.render_document(doc_id)`；
+* **单章节** = `render.render_section(doc_id, section_node_id)`，章节 = 该文档内
   **子树最大的 level-1/2 章节**（§1.4：章节 = level-1/2 子树）。
+
+默认测**内容体积最大的前 2 份文档**（`--docs N` 可调，`--doc-id` 可强制指定）：
+§1.4 举的「最大文档 CXL 3.59MB」与库内**实际载荷最大**的文档（PCIe 5.0）相差 3%，
+两者都测可消除「选哪份」对判定的影响。**保守判据**取各文档的最坏值（`render.*.max_ms`）。
 
 多次测量取 **中位数**为主判据、**最大值**为保守判据（§1.4 的 <1s/<3s 是上限语义）。
 
-另记录归因数据：`render_section` 内部会整档加载节点（`get_doc_nodes`），本基准单独计时，
-以便区分「章节渲染慢」与「整档取数慢」。
+另记录归因数据：`render_section` 内部会整档加载节点（`get_doc_nodes`），单独计时以便区分
+「章节渲染慢」与「整档取数慢」。
 
 运行：
 
-    uv run python tests/perf/bench_render.py --dsn <dsn> [--document-iterations 5] [--compare] [--json]
+    uv run python tests/perf/bench_render.py --dsn <dsn> [--docs 2] [--compare] [--json]
 """
 
 from __future__ import annotations
@@ -44,13 +47,14 @@ from _common import (  # noqa: E402
     environment,
     execute,
     human_bytes,
-    largest_doc,
     largest_section,
     metric,
     open_storage,
     reachable,
     render_table,
     save,
+    scalar,
+    top_docs,
 )
 
 pytestmark = pytest.mark.perf
@@ -64,6 +68,10 @@ _SPEC_ID = re.compile(r"^spec_id:\s*(\S+)\s*$", re.MULTILINE)
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="M04 渲染耗时基准（整档 + 单章节）")
     add_common_args(parser)
+    parser.add_argument("--docs", type=int, default=2,
+                        help="测量内容体积最大的前 N 份文档（默认 2：覆盖 §1.4 的 CXL 与库内最大载荷）")
+    parser.add_argument("--doc-id", action="append", default=None,
+                        help="强制指定文档（可重复；覆盖 --docs）")
     parser.add_argument("--document-iterations", type=int, default=5, help="整档渲染重复次数")
     parser.add_argument("--section-iterations", type=int, default=10, help="章节渲染重复次数")
     parser.add_argument("--no-ingest", action="store_true", help="库空时不自动导入语料，直接报错")
@@ -71,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def corpus_source_bytes() -> dict[str, tuple[str, int]]:
-    """`doc_id → (源文件相对路径, 字节数)`（供「最大文档是否即 CXL 3.59MB」的对照）。"""
+    """`doc_id → (源文件路径, 字节数)`（用于对照 §1.4「最大文档 CXL 3.59MB」）。"""
     mapping: dict[str, tuple[str, int]] = {}
     for path in corpus_paths():
         head = path.read_text(encoding="utf-8")[:4096]
@@ -79,6 +87,23 @@ def corpus_source_bytes() -> dict[str, tuple[str, int]]:
         if match:
             mapping[match.group(1)] = (str(path), path.stat().st_size)
     return mapping
+
+
+async def select_documents(args: argparse.Namespace, storage) -> list[tuple[str, int, str]]:
+    """待测文档：显式 `--doc-id` → 逐个解析；否则取内容体积最大的前 N 份。"""
+    if not args.doc_id:
+        return await top_docs(storage, limit=max(1, args.docs))
+    selected: list[tuple[str, int, str]] = []
+    for doc_id in args.doc_id:
+        doc = await storage.get_doc(doc_id)  # 不存在 → NotFoundError（不静默跳过）
+        content_bytes = int(await scalar(
+            storage.db,
+            "SELECT coalesce(sum(length(content::text)), 0) FROM nodes "
+            "WHERE doc_id = :doc_id AND status = 'active'",
+            doc_id=doc_id,
+        ))
+        selected.append((doc.doc_id, content_bytes, doc.title))
+    return selected
 
 
 async def run_bench(args: argparse.Namespace) -> Bench:
@@ -90,83 +115,141 @@ async def run_bench(args: argparse.Namespace) -> Bench:
         if ingested:
             bench.note(f"库内无语料，已自动导入 {len(ingested)} 份真实语料")
 
-        doc_id, content_bytes, title = await largest_doc(storage)
-        section_node_id, anchor, section_nodes, doc_nodes = await largest_section(storage, doc_id)
-        results = await bench_render_set(
-            storage,
-            doc_id=doc_id,
-            section_node_id=section_node_id,
-            document_iterations=args.document_iterations,
-            section_iterations=args.section_iterations,
-        )
-
-        document = results["document"]
-        section = results["section"]
-        load_nodes = results["section_load_nodes"]
         sources = corpus_source_bytes()
-        source_path, source_bytes = sources.get(doc_id, ("(非语料/合成文档)", 0))
+        documents = await select_documents(args, storage)
+        reports: list[dict] = []
+        for doc_id, content_bytes, title in documents:
+            section_node_id, anchor, section_nodes, doc_nodes = await largest_section(storage, doc_id)
+            results = await bench_render_set(
+                storage,
+                doc_id=doc_id,
+                section_node_id=section_node_id,
+                document_iterations=args.document_iterations,
+                section_iterations=args.section_iterations,
+            )
+            source_path, source_bytes = sources.get(doc_id, ("(非语料/合成文档)", 0))
+            reports.append({
+                "doc_id": doc_id,
+                "title": title,
+                "doc_nodes": doc_nodes,
+                "content_bytes": content_bytes,
+                "source_path": source_path,
+                "source_bytes": source_bytes,
+                "section_anchor": str(anchor),
+                "section_node_id": str(section_node_id),
+                "section_nodes": section_nodes,
+                "document": results["document"],
+                "section": results["section"],
+                "document_bytes": results["document_bytes"],
+                "section_bytes": results["section_bytes"],
+                "load_nodes": results["section_load_nodes"],
+            })
 
-        print("\n样本明细：")
+        print("\n样本明细（各文档的整档 / 最大 level-1/2 章节）：")
         print(render_table(
-            ["用例", "对象", "节点数", "产物", "中位ms", "最大ms", "样本数"],
+            ["文档", "节点", "源文件", "用例", "章节节点", "产物", "中位ms", "最大ms"],
             [
-                ["整档", doc_id, doc_nodes, human_bytes(results["document_bytes"]),
-                 f"{document['p50_ms']:.1f}", f"{document['max_ms']:.1f}", document["n"]],
-                ["单章节", str(anchor), section_nodes, human_bytes(results["section_bytes"]),
-                 f"{section['p50_ms']:.1f}", f"{section['max_ms']:.1f}", section["n"]],
+                [
+                    r["doc_id"],
+                    r["doc_nodes"],
+                    human_bytes(r["source_bytes"]) if r["source_bytes"] else "-",
+                    "整档",
+                    "-",
+                    human_bytes(r["document_bytes"]),
+                    f"{r['document']['p50_ms']:.1f}",
+                    f"{r['document']['max_ms']:.1f}",
+                ]
+                for r in reports
+            ]
+            + [
+                [
+                    r["doc_id"],
+                    r["doc_nodes"],
+                    human_bytes(r["source_bytes"]) if r["source_bytes"] else "-",
+                    "章节",
+                    r["section_nodes"],
+                    human_bytes(r["section_bytes"]),
+                    f"{r['section']['p50_ms']:.1f}",
+                    f"{r['section']['max_ms']:.1f}",
+                ]
+                for r in reports
             ],
         ))
-        print(f"归因：`get_doc_nodes({doc_id})` 中位 {load_nodes['p50_ms']:.1f}ms"
-              f"（章节渲染会整档取数，见说明）")
+        for report in reports:
+            print(f"  · {report['doc_id']} 最大章节 = {report['section_anchor']}"
+                  f"（{report['section_nodes']} 节点）；`get_doc_nodes` 中位 "
+                  f"{report['load_nodes']['p50_ms']:.1f}ms")
+
+        worst_doc_p50 = max(r["document"]["p50_ms"] for r in reports)
+        worst_doc_max = max(r["document"]["max_ms"] for r in reports)
+        worst_sec_p50 = max(r["section"]["p50_ms"] for r in reports)
+        worst_sec_max = max(r["section"]["max_ms"] for r in reports)
+        worst_load = max(r["load_nodes"]["p50_ms"] for r in reports)
+
+        for report in reports:
+            suffix = report["doc_id"]
+            source = human_bytes(report["source_bytes"]) if report["source_bytes"] else "n/a"
+            bench.add(
+                metric(f"render.document.{suffix}.p50_ms", report["document"]["p50_ms"], unit="ms",
+                       target=TARGET_DOCUMENT_MS,
+                       note=f"{report['title']}（源文件 {source}，{report['doc_nodes']} 节点）"),
+                metric(f"render.document.{suffix}.max_ms", report["document"]["max_ms"], unit="ms",
+                       target=TARGET_DOCUMENT_MS),
+                metric(f"render.section.{suffix}.p50_ms", report["section"]["p50_ms"], unit="ms",
+                       target=TARGET_SECTION_MS,
+                       note=f"最大 level-1/2 章节 {report['section_anchor']}"
+                            f"（{report['section_nodes']} 节点）"),
+                metric(f"render.section.{suffix}.max_ms", report["section"]["max_ms"], unit="ms",
+                       target=TARGET_SECTION_MS),
+                metric(f"render.section.{suffix}.load_doc_nodes_p50_ms",
+                       report["load_nodes"]["p50_ms"], unit="ms",
+                       note="归因：章节渲染内部整档取数（`render_section` 调 `get_doc_nodes`）"),
+            )
+        bench.add(
+            metric("render.document.p50_ms", worst_doc_p50, unit="ms", target=TARGET_DOCUMENT_MS,
+                   note="**保守判据**：各文档整档中位数的最坏值"),
+            metric("render.document.max_ms", worst_doc_max, unit="ms", target=TARGET_DOCUMENT_MS,
+                   note="**保守判据**：各文档最慢一次的全局最坏值"),
+            metric("render.document.p95_ms", max(r["document"]["p95_ms"] for r in reports),
+                   unit="ms"),
+            metric("render.section.p50_ms", worst_sec_p50, unit="ms", target=TARGET_SECTION_MS,
+                   note="**保守判据**：各文档章节中位数的最坏值"),
+            metric("render.section.max_ms", worst_sec_max, unit="ms", target=TARGET_SECTION_MS,
+                   note="**保守判据**：各文档最慢一次的全局最坏值"),
+            metric("render.section.p95_ms", max(r["section"]["p95_ms"] for r in reports), unit="ms"),
+            metric("render.section.load_doc_nodes_p50_ms", worst_load, unit="ms",
+                   note="**保守判据**：`get_doc_nodes` 中位耗时（章节渲染的固定开销）"),
+            metric("render.docs_measured", len(reports)),
+        )
 
         bench.counters.update({
-            "doc_id": doc_id,
-            "doc_title": title,
-            "doc_nodes": doc_nodes,
-            "doc_content_bytes": content_bytes,
-            "source_path": source_path,
-            "source_bytes": source_bytes,
-            "rendered_bytes": results["document_bytes"],
-            "section_anchor": str(anchor),
-            "section_node_id": str(section_node_id),
-            "section_nodes": section_nodes,
+            "docs": reports,
             "document_iterations": args.document_iterations,
             "section_iterations": args.section_iterations,
         })
 
-        bench.add(
-            metric("render.document.p50_ms", document["p50_ms"], unit="ms",
-                   target=TARGET_DOCUMENT_MS, note=f"整档 {doc_id}（{human_bytes(content_bytes)} 内容）"),
-            metric("render.document.max_ms", document["max_ms"], unit="ms",
-                   target=TARGET_DOCUMENT_MS, note="保守判据：最慢一次仍须 <3s"),
-            metric("render.document.p95_ms", document["p95_ms"], unit="ms"),
-            metric("render.document.nodes", doc_nodes),
-            metric("render.document.rendered_bytes", results["document_bytes"], unit="B"),
-            metric("render.section.p50_ms", section["p50_ms"], unit="ms",
-                   target=TARGET_SECTION_MS, note=f"最大 level-1/2 章节 {anchor}（{section_nodes} 节点）"),
-            metric("render.section.max_ms", section["max_ms"], unit="ms",
-                   target=TARGET_SECTION_MS, note="保守判据：最慢一次仍须 <1s"),
-            metric("render.section.p95_ms", section["p95_ms"], unit="ms"),
-            metric("render.section.nodes", section_nodes),
-            metric("render.section.rendered_bytes", results["section_bytes"], unit="B"),
-            metric("render.section.load_doc_nodes_p50_ms", load_nodes["p50_ms"], unit="ms",
-                   note="归因：章节渲染内部整档取数（render_section 调 get_doc_nodes）"),
-        )
-
+        corpus_largest = max(sources.items(), key=lambda item: item[1][1]) if sources else None
         bench.notes.append(
-            f"最大文档 = {doc_id}（库内 content 体积 {human_bytes(content_bytes)}；"
-            f"源文件 {source_path}，{human_bytes(source_bytes)}）→ 与 §1.4「最大文档 CXL 3.59MB」口径一致"
-            if source_bytes else
-            f"最大文档 = {doc_id}（{human_bytes(content_bytes)} content；非语料文档，故无源文件对照）"
+            "本次实测文档：" + "；".join(
+                f"{r['doc_id']}（载荷 {human_bytes(r['content_bytes'])}，源文件 "
+                f"{human_bytes(r['source_bytes']) if r['source_bytes'] else 'n/a'}）" for r in reports
+            )
+            + (f"；语料中**源文件**最大者为 {corpus_largest[0]}"
+               f"（{human_bytes(corpus_largest[1][1])}，即 §1.4 所述「CXL 3.59MB」）"
+               if corpus_largest else "")
+        )
+        bench.notes.append(
+            "判定取各文档的最坏值（`render.document.p50_ms` / `render.section.p50_ms`），"
+            "故「载荷最大」与「源文件最大」的选择差异不影响达标结论"
         )
         bench.notes.append(
             "**瓶颈提示（实现事实，非指标超标）**：`render_section` 内部执行 `get_doc_nodes(doc_id)`"
-            "——章节渲染的取数成本是**整档**级的（O(全档节点)），且每次渲染都会重新解析并导出图片资产"
+            "——章节渲染的取数成本是**整档**级的（O(全档节点)），且每次渲染都重新解析并导出图片资产"
             "（`_resolve_and_export`）。故「单章节」指标随**文档**变大而劣化，而非随章节变大。"
-            "若要真正 O(章节)，需 M04 增「按父链/子树查询」的 M02 读接口"
+            "若要真正 O(章节)，需 M04 增「按子树/父链查询」的 M02 读接口（`idx_nodes_parent` 已存在）"
         )
         bench.notes.append(
-            f"整档渲染含图片资产导出（P4 唯一例外）；未解析到的资产引用原样保留并计入 WARN"
+            "整档渲染含图片资产导出（P4 唯一例外）；未解析到的资产引用原样保留并计入 WARN"
         )
     finally:
         await db.dispose()
@@ -174,9 +257,9 @@ async def run_bench(args: argparse.Namespace) -> Bench:
 
 
 def test_render_benchmark() -> None:
-    """`pytest -m perf` 路径：跑默认次数，断言测量本身有效（有产物、样本齐全）。
+    """`pytest -m perf` 路径：跑默认文档集，断言测量本身有效（有产物、指标齐全）。
 
-    判定口径说明：目标值达标与否由**报告**（`build/perf.json` 的 verdict）呈现，
+    判定口径说明：目标达标与否由**报告**（`build/perf.json` 的 verdict）呈现，
     本测试只断言「测量有效」——避免把随机器负载波动的绝对值固化进 CI 断言。
     """
     args = default_args(build_parser())
@@ -184,9 +267,13 @@ def test_render_benchmark() -> None:
         pytest.skip(f"基准库不可达：{configure_dsn(args.dsn)}")
     bench = asyncio.run(run_bench(args))
     save(bench, args.out)
-    assert bench.counters["doc_nodes"] > 0, "最大文档无节点：语料未入库？"
-    assert bench.counters["section_nodes"] > 0, "最大章节无节点"
-    assert bench.counters["rendered_bytes"] > 0, "整档产物为空"
+    docs = bench.counters["docs"]
+    assert docs, "未测到任何文档：语料未入库？"
+    for report in docs:
+        assert report["doc_nodes"] > 0, f"{report['doc_id']} 无节点"
+        assert report["section_nodes"] > 0, f"{report['doc_id']} 最大章节无节点"
+        assert report["document_bytes"] > 0, f"{report['doc_id']} 整档产物为空"
+        assert report["section_bytes"] > 0, f"{report['doc_id']} 章节产物为空"
     for name in ("render.document.p50_ms", "render.section.p50_ms"):
         item = bench.get(name)
         assert item is not None and item.value > 0, f"指标缺失或非正：{name}"
