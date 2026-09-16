@@ -176,7 +176,6 @@ def test_write_contracts_expose_optimistic_locks(spec: dict[str, Any]) -> None:
     assert "expectedVersion" in schemas["TableEdit"]["properties"]
     assert "expectedVersion" in schemas["StatusChange"]["properties"]
     assert "expectedVersion" in schemas["CommentStateChange"]["properties"]
-    # 节点写入体 = NodeIn 全字段 + expectedVersion（§3 M06「NodeIn + expected_version」）
     # 节点写入体 = §3.0 `NodeIn` 全字段 + `expectedVersion`（§3 M06「NodeIn + expected_version」）
     node_in_fields = {
         "nodeId",
