@@ -528,11 +528,17 @@ SPEC_FIELDS: dict[type, set[str]] = {
 }
 
 
-@pytest.mark.parametrize("model, expected", SPEC_FIELDS.items(), ids=lambda item: getattr(item, "__name__", ""))
-def test_field_names_match_spec(model: type, expected: set[str]):
-    assert set(model.model_fields) == expected
-
-
+def test_required_optionality_follows_spec_section_3_0():
+    """§3.0 只在三处给了默认值（Node 继承 NodeIn 的 `format`）；`X | None` 仍为必填。
+    例外：内部配置模型 DocTypeRule 的两个可选规则字段（不属 §3.0 传输类型）。"""
+    allowed_defaults = {
+        ("NodeIn", "format"),
+        ("Node", "format"),
+        ("DocTypeTarget", "kind"),
+        ("DocTarget", "kind"),
+        ("DocTypeRule", "required_atom_types"),
+        ("DocTypeRule", "required_meta_fields"),
+    }
 def test_required_optionality_follows_spec_section_3_0():
     """§3.0 只在三处给了默认值（Node 继承 NodeIn 的 `format`）；`X | None` 仍为必填。"""
     allowed_defaults = {

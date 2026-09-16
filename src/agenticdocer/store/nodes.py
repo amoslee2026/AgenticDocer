@@ -193,7 +193,7 @@ class NodeRepository(Repository):
             deltas = field_deltas(existing, record)
             values = {field: record[field] for field in content_deltas}
             try:
-                await session.execute(
+            values = {field: record[field] for field in deltas}
                     update(nodes)
                     .where(nodes.c.node_id == existing["node_id"], nodes.c.doc_id == existing["doc_id"])
                     .values(**values)
