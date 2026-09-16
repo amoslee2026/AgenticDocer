@@ -433,9 +433,18 @@ def _content(
     try:
         content["text"] = derive_text(atom_type, content)
     except ValueError:
-        # 退化路径（内容为空）：仍保证 A10 的 content.text 非空，并留痕
+        # 退化路径（投影为空）：仍保证 A10 的 content.text 非空，并留痕（便于发现解析退化）
         content["text"] = fragment or raw or atom_type
-        log.warn("empty text projection", atom_type=atom_type, source_lines=list(...) if False else None)
+        log.warn("empty text projection", atom_type=atom_type)
+    return content
+
+
+class _TableMeta(HTMLParser):
+    """HTML 表格结构统计（E1-a：rows/cols/cells/max_colspan，供 M09B 行列断言）。
+
+    口径：`rows` = `<tr>` 个数；`cells` = `<td>`/`<th>` 个数；`max_colspan` = colspan 最大值；
+    `cols` = 各逻辑行 colspan 之和的最大值（即最大逻辑列数）。
+    """
     return content
 
 
