@@ -491,8 +491,9 @@ async def change_stream(since: str | None) -> AsyncIterator[Event]: ...   # even
 | ref | add/remove | `{src, dst_doc, dst_node, kind}` | add 追加 refs 行；remove 移除对应行 |
 | comment | create/update | `{field: {before, after}, …}` | 逐字段覆盖批注快照 |
 | schema | create/update | `{type_name, version, diff}` | 记录 schema 版本历史 |
+| auth | login/logout/fail/user_change/grant_change/key_change | `{user_id, key_fingerprint?, ip?, reason?}` | **追加**（B2：鉴权审计，不参与实体折叠，仅审计查询） |
 
-## 4. 数据库 DDL（PostgreSQL 16，database `agenticdocer`；v1.2）
+## 4. 数据库 DDL（PostgreSQL 16，database `agenticdocer`；v1.3）
 
 ```sql
 CREATE TABLE docs (
@@ -525,10 +526,10 @@ CREATE TABLE nodes (
 );
 CREATE INDEX idx_nodes_doc_ordinal ON nodes (doc_id, ordinal);
 CREATE INDEX idx_nodes_parent      ON nodes (parent_node_id);
-CREATE INDEX idx_nodes_content_gin ON nodes USING gin (content jsonb_path_ops);
+-- idx_nodes_content_gin 已移除（ADR-009：13M 行下 write amplification 不划算，且无对应访问模式）
 ALTER TABLE nodes ADD COLUMN text_fts tsvector
   GENERATED ALWAYS AS (to_tsvector('english', coalesce(content->>'text',''))) STORED;   -- A10
-CREATE INDEX idx_nodes_fts ON nodes USING gin (text_fts);
+CREATE INDEX idx_nodes_fts ON nodes USING gin (text_fts);  -- 分区局部（ADR-009 §2；每分区并行建）
 
 CREATE TABLE refs (                              -- A5/R1 修订：代理主键 + NULL 参与唯一
   ref_id      uuid PRIMARY KEY,
@@ -585,6 +586,75 @@ CREATE TABLE terms (
   term               text PRIMARY KEY,
   definition_node_id uuid REFERENCES nodes(node_id) ON DELETE SET NULL,
   kind               text NOT NULL CHECK (kind IN ('glossary','normative-keyword'))
+
+-- ============ 鉴权与用户（M10；批注 A1/A2/B2/B3）============
+CREATE TABLE users (
+  user_id    uuid PRIMARY KEY,
+  username   text NOT NULL UNIQUE,
+  role       text NOT NULL CHECK (role IN ('admin','editor','reviewer','reader')),
+  status     text NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE ssh_keys (
+  key_id      text PRIMARY KEY,                -- SHA256 指纹（base64，与 ssh-keygen -lf 一致）
+  user_id     uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  public_key  text NOT NULL,                   -- 完整 authorized_keys 行
+  key_type    text NOT NULL CHECK (key_type IN ('ssh-ed25519','rsa-sha2-512','rsa-sha2-256')),
+  added_at    timestamptz NOT NULL DEFAULT now(),
+  revoked_at  timestamptz,                     -- 吊销保留行（审计）
+  UNIQUE (user_id, key_id)
+);
+CREATE INDEX idx_ssh_keys_user ON ssh_keys (user_id) WHERE revoked_at IS NULL;
+
+CREATE TABLE grants (                          -- 文档集级授权（B3）
+  grant_id   uuid PRIMARY KEY,
+  user_id    uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  scope      text NOT NULL CHECK (scope IN ('doc_type','doc','repo')),
+  value      text NOT NULL,                    -- doc_type 值 / doc_id / 仓库标识
+  permission text NOT NULL CHECK (permission IN ('read','write','review','admin')),
+  granted_by uuid REFERENCES users(user_id),
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, scope, value, permission)
+);
+
+CREATE TABLE sessions (
+  session_id   uuid PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  token_hash   text NOT NULL UNIQUE,           -- SHA256(token)；明文仅存在于 Cookie
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  expires_at   timestamptz NOT NULL,           -- 默认 now()+8h，活动时滑动续期
+  last_seen_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_sessions_expiry ON sessions (expires_at);
+
+CREATE TABLE nonces (                          -- 签名重放防护（B2）
+  nonce     text PRIMARY KEY,
+  user_id   uuid REFERENCES users(user_id) ON DELETE CASCADE,
+  seen_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- TTL 300s 定期清理
+```
+
+### 4.2 分区策略（ADR-009，批注 A8）
+
+```sql
+-- 规模：≥10,000 文档 / ≈13.4M 节点 / 20–54GB
+-- nodes 按 doc_id HASH 分区（64 个），events 按 ts RANGE 分区（按月）
+CREATE TABLE nodes (...) PARTITION BY HASH (doc_id);
+DO $$ BEGIN
+  FOR i IN 0..63 LOOP
+    EXECUTE format('CREATE TABLE nodes_p%s PARTITION OF nodes FOR VALUES WITH (MODULUS 64, REMAINDER %s)', i, i);
+  END LOOP;
+END $$;
+
+CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
+-- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
+-- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底），避免分区键侵入唯一索引
+```
+
+### 4.3 角色与权限（M10 应用层；DB 角色沿用 §4.1）
 );
 ```
 
