@@ -36,6 +36,7 @@ from pydantic import Field
 from sqlalchemy import insert, select, update
 
 from agenticdocer.auth import (
+    MANAGE_USERS,
     ROLE_PERMISSIONS,
     add_ssh_key,
     create_grant,
@@ -46,6 +47,7 @@ from agenticdocer.auth import (
     list_users,
     revoke_ssh_key,
     update_user,
+    role_permits,
     write_context,
 )
 from agenticdocer.model import (
@@ -620,15 +622,26 @@ async def list_events(
     since: datetime | None = Query(default=None, description="含端下界（`ts >= since`）"),
     limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[Event]:
-    """事件查询（结构化 diff 数据源；按 `ts` 升序返回前 `limit` 条）。"""
+    """事件查询（结构化 diff 数据源；按 `ts` 升序返回前 `limit` 条）。
+
+    **审计保护（S10/AUD-7）**：`entity='auth'` 行携带来源 IP、`claimed_*`（自述未验证身份）
+    与失败原因，属攻击面情报——故
+
+    * 显式查 `entity='auth'` 需 **admin**（非 admin → 403）；
+    * 未指定 `entity` 时，非 admin 的结果集**一律剔除** `auth` 行（防「省略参数即全读」绕过）。
+
+    其余实体（doc/node/ref/comment/schema）对 `read` 角色开放，语义不变。
+    """
+    auditor = role_permits(context.user.role, MANAGE_USERS)
+    if entity == "auth" and not auditor:
+        raise ForbiddenError(
+            "鉴权审计事件（entity='auth'）仅 admin 可读（S10）", entity="event", entity_id="auth"
+        )
     statement = select(*EVENT_COLUMNS)
     if entity is not None:
         statement = statement.where(events_table.c.entity == entity)
-    if entity_id is not None:
-        statement = statement.where(events_table.c.entity_id == entity_id)
-    if since is not None:
-        statement = statement.where(events_table.c.ts >= _as_utc(since))
-    statement = statement.order_by(events_table.c.ts, events_table.c.event_id).limit(limit)
+    elif not auditor:
+        statement = statement.where(events_table.c.entity != "auth")
     with log.timer("query", table="events", entity=entity):
         async with db.session() as session:
             rows = (await session.execute(statement)).all()
@@ -820,7 +833,7 @@ async def revoke_key(
 
 
 @router.get("/roles", response_model=list[RoleInfo])
-async def list_roles(context: ReadAuth) -> list[RoleInfo]:
+async def list_roles(context: AdminAuth) -> list[RoleInfo]:
     """角色清单（四角色 + 各自权限集）。
 
     **无 POST**：§4 DDL 无 `roles` 表——四角色为固定取值域（`ROLE_PERMISSIONS`），
