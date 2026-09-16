@@ -25,6 +25,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import text
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from httpx import ASGITransport, AsyncClient
@@ -598,7 +599,7 @@ async def test_agent_flow_read_write_render_diff(
     async with database.transaction() as session:
         await session.execute(text("DELETE FROM terms WHERE term = :term"), {"term": TERM})
     assert TERM not in {item["term"] for item in (await admin.get("/api/v1/terms")).json()}
-    # ── 资产端点：缺失资产 → 404（A6）
+
     assert (await admin.get("/api/v1/assets/" + "0" * 64)).status_code == 404
 
     # ── 管理端点（admin 专属，ADR-010）
