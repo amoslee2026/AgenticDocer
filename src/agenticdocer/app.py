@@ -29,6 +29,8 @@ from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any, Final
 
+import yaml
+from sqlalchemy import insert, select, update
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -42,6 +44,7 @@ from agenticdocer.auth import BOOTSTRAP_HINT, admin_pubkey_file, bootstrap_admin
 from agenticdocer.auth.router import router as auth_router
 from agenticdocer.observability import get_logger, install
 from agenticdocer.store import Database, StoreError, Storage, get_database
+from agenticdocer.store.schema import terms as terms_table
 from agenticdocer.webui_api import router as webui_router
 
 __all__ = [
@@ -68,6 +71,9 @@ DEFAULT_WEBUI_DIST: Final = "webui/dist"
 
 DEFAULT_PURGE_INTERVAL_SECONDS: Final = 3600
 """过期清理周期（S15：会话 + nonce 同一任务）。"""
+
+DEFAULT_TERMS_SEED: Final = "data/terms_seed.yaml"
+"""规范用语种子文件（`TERMS_SEED` 可覆盖；§5：随 migrate/启动载入 `terms` 表）。"""
 
 _MIN_PURGE_INTERVAL_SECONDS: Final = 60
 
@@ -234,6 +240,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     """启动自举与清理守护；退出时取消守护并释放自建连接池。"""
     database: Database = application.state.db
     await _bootstrap_admin(database)
+    await _load_terms_seed(database)
     await _purge_once(database)
     purger = asyncio.create_task(_purge_loop(database), name="agenticdocer-purge")
     log.info("API 就绪", op="startup", routes=len(application.routes))
