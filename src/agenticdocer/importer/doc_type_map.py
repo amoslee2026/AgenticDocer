@@ -637,7 +637,7 @@ PRODUCT_SUBTYPES: tuple[str, ...] = tuple(
 """`product` 大类的全部细分（写入 `meta.doc_subtype`；不新增 `doc_type`）。"""
 
 
-<<<PLACEHOLDER>>>
+# ── importer 侧别名（frontmatter `spec_type` 的自然写法）─────────────────
 #
 # 上游文档（人工/agent 书写 frontmatter）常写 idea.md 的类型名或其英文缩写；
 # 别名在此**归一**到 :data:`MAPPINGS_BY_SLUG` 的 slug，避免把判定散落到调用方。
@@ -657,7 +657,6 @@ ALIASES: dict[str, str] = {
     "script-manual": "lang-manual",
     "grammar": "grammar-ref",
     "bnf": "grammar-ref",
-    "eba-manual": "eda-command-ref",
     "eda-manual": "eda-command-ref",
     "command-reference": "eda-command-ref",
     "tool-reference": "eda-command-ref",
@@ -713,7 +712,6 @@ ALIASES: dict[str, str] = {
     "eco": "eco-record",
     "errata": "errata-sheet",
     "release-note": "release-notes",
-    "app-note-application": "app-note",
     "application-note": "app-note",
     # 功能安全
     "fmea": "fmea-fta",
