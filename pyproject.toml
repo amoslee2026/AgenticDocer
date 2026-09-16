@@ -1,0 +1,19 @@
+[project]
+name = "agenticdocer"
+version = "0.1.0"
+description = "结构化文档知识库：结构化库为唯一权威源，Agent 可读/可写/可追溯"
+requires-python = ">=3.11"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [{ name = "AgenticDocer contributors" }]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/amoslee2026/AgenticDocer"
+Repository = "https://github.com/amoslee2026/AgenticDocer"
+Issues = "https://github.com/amoslee2026/AgenticDocer/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
