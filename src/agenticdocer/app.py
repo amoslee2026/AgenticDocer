@@ -275,6 +275,55 @@ async def _bootstrap_admin(database: Database) -> None:
     )
 
 
+async def _load_terms_seed(database: Database) -> int:
+    """幂等载入规范用语种子（§5 `TERMS_SEED`；R10 的第三个写入路径，另两条为 M03 导入与 M07 API）。
+
+    只做「缺失即插、`kind` 漂移即纠偏」，**不删除**非种子条目——语料自身的 glossary 由 M03 写入，
+    不属种子管辖。种子文件不存在则跳过（记录告警），与管理员自举同一「缺配置即降级」口径。
+
+    :returns: 本次新插入的行数（0 即「已是最新」，幂等可重跑）。
+    """
+    path = Path(os.environ.get("TERMS_SEED", DEFAULT_TERMS_SEED)).expanduser()
+    if not path.is_file():
+        log.warn("术语种子文件不存在：跳过载入", op="terms_seed", path=str(path))
+        return 0
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    declared = payload.get("terms") or []
+    if not isinstance(declared, list):
+        raise ValueError(f"{path}: `terms` 必须是列表（TERMS_SEED 格式）")
+    inserted = 0
+    async with database.transaction() as session:
+        for entry in declared:
+            term = str((entry or {}).get("term") or "").strip()
+            kind = str((entry or {}).get("kind") or "normative-keyword")
+            if not term:
+                raise ValueError(f"{path}: 条目缺 `term` 字段")
+            existing = (
+                await session.execute(
+                    select(terms_table.c.kind).where(terms_table.c.term == term)
+                )
+            ).first()
+            if existing is None:
+                await session.execute(
+                    insert(terms_table).values(
+                        term=term, definition_node_id=None, kind=kind
+                    )
+                )
+                inserted += 1
+            elif existing.kind != kind:
+                await session.execute(
+                    update(terms_table).where(terms_table.c.term == term).values(kind=kind)
+                )
+    log.info(
+        "术语种子载入完成",
+        op="terms_seed",
+        path=str(path),
+        declared=len(declared),
+        inserted=inserted,
+    )
+    return inserted
+
+
 async def _purge_loop(database: Database) -> None:
     """周期性过期清理（S15）：会话 + 过期 nonce + 鉴权失败聚合。"""
     interval = max(
