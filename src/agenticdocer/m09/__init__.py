@@ -20,6 +20,8 @@ M12（日志/健康巡检）。无 LLM、无网络（P6）。
 
 from __future__ import annotations
 
+from agenticdocer.model import QualityReport, QualityScope, Violation
+
 from . import engine_9a, quality_9b
 from .engine_9a import (
     RULES_9A,
