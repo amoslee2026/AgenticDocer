@@ -34,12 +34,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query, Response
 from fastapi.responses import FileResponse
-from jsonschema import validators
+
 from pydantic import Field
 
 from agenticdocer.auth import write_context
 from agenticdocer.model import (
-    ATOM_SCHEMAS,
     Doc,
     Model,
     Node,
@@ -47,13 +46,11 @@ from agenticdocer.model import (
     Ref,
     RefKind,
     RenderResult,
-    Violation,
     UUID7,
     derive_text,
-    get_atom_schema,
-    is_atom_allowed,
 )
 from agenticdocer.observability import get_logger
+from agenticdocer.m09 import validate_write as validate_node
 from agenticdocer.render import (
     SectionInfo,
     find_section,
@@ -148,87 +145,33 @@ class SectionDTO(Model):
 # ── 写入门（REQ-M06-F01/F02）────────────────────────────────────────────
 
 
-def _schema_violations(atom_type: str, content: dict[str, Any]) -> list[Violation]:
-    """`content` 对 `atom_type` 的 JSON Schema 校验（口径 = M01 注册表）。"""
-    schema = get_atom_schema(atom_type)
-    validator = validators.validator_for(schema)(schema)
-    return [
-        Violation(
-            rule_id=f"m01.schema.{error.validator}",
-            path="content/" + "/".join(str(part) for part in error.absolute_path),
-            message=error.message,
-            fix_hint=_fix_hint(error),
-        )
-        for error in validator.iter_errors(content)
-    ]
-
-
-def _fix_hint(error: Any) -> str | None:
-    """违规 → 可操作修复建议（REQ-M06-F02：agent 据此自修复重试）。"""
-    if error.validator == "required":
-        match = _MISSING_FIELD_RE.search(error.message)
-        return f"补齐必填字段 content.{match.group(1)}" if match else "补齐 schema 要求的必填字段"
-    if error.validator == "type":
-        return f"字段类型应为 {error.validator_value}"
-    if error.validator == "additionalProperties":
-        return "移除 schema 未声明的字段"
-    if error.validator == "enum":
-        return f"取值应为 {error.validator_value} 之一"
-    return None
 
 
 def validate_write(node: NodeIn, doc: Doc) -> NodeIn:
-    """写入门：校验并补全 `content.text`（A10），返回可写入的 `NodeIn`。
+    """写入门（REQ-M06-F01/F02）：**判据全部由 M09A 承担**（P5 单点），本函数只做两件 HTTP 层的事。
 
-    :raises ValidationRejected: 任一判定失败（422；`violations[]` 含 `fix_hint`）。
+    1. **补全 `content.text`**（A10 的写入职责，非校验职责）：缺失/空白时按 M01 `derive_text`
+       生成——派生失败不在此报错，交由 M09A 的 `A10.content.text*` 判据统一报告（避免第二套文案）；
+    2. 调 `m09.validate_write(node, doc_type=…)`，把 `Violation[]` 交给
+       `ValidationRejected` → `422 + violations[]`（`fix_hint` 原样透传，agent 据此自修复重试）。
+
+    判据集合（M09A，含本模块此前缺失者）：atom 注册、JSON Schema、`content.text` 存在性/空白/
+    派生漂移、锚 `<doc_id>#` 前缀（M01 锚构造口径）、自指父、表格 `format ↔ fragment`、
+    外部叶引用带 node、`doc_type` 组合规则。
+
+    :raises ValidationRejected: 任一判据失败（422）。
     """
-    if node.atom_type not in ATOM_SCHEMAS:
-        raise ValidationRejected(
-            [
-                Violation(
-                    rule_id="m01.atom_type.unregistered",
-                    path="atomType",
-                    message=f"未注册的 atom_type：{node.atom_type!r}（无 schema 的类型不得写入）",
-                    fix_hint=f"改用已注册原子：{', '.join(sorted(ATOM_SCHEMAS))}",
-                )
-            ],
-            entity="node",
-            entity_id=node.node_id,
-        )
-    if not is_atom_allowed(doc.doc_type, node.atom_type):
-        raise ValidationRejected(
-            [
-                Violation(
-                    rule_id="m01.doc_type.atom_not_allowed",
-                    path="atomType",
-                    message=f"doc_type {doc.doc_type!r} 不允许原子 {node.atom_type!r}",
-                    fix_hint=f"改用 {doc.doc_type!r} 允许的原子（M01 doc_type 组合规则）",
-                )
-            ],
-            entity="node",
-            entity_id=node.node_id,
-        )
     content = dict(node.content)
-    violations = _schema_violations(node.atom_type, content)
-    if violations:
-        raise ValidationRejected(violations, entity="node", entity_id=node.node_id)
     if not str(content.get("text") or "").strip():
         try:
             content["text"] = derive_text(node.atom_type, content)
-        except ValueError as exc:
-            raise ValidationRejected(
-                [
-                    Violation(
-                        rule_id="m01.content.text.empty",
-                        path="content/text",
-                        message=str(exc),
-                        fix_hint="提供 content.text 或 content.fragment（A10：一切节点 content.text 非空）",
-                    )
-                ],
-                entity="node",
-                entity_id=node.node_id,
-            ) from exc
-    return node.model_copy(update={"content": content})
+        except ValueError:
+            pass  # 派生失败：留空交 M09A 报 `A10.content.text*`（rule_id 单点）
+    candidate = node.model_copy(update={"content": content})
+    violations = validate_node(candidate, doc_type=doc.doc_type)
+    if violations:
+        raise ValidationRejected(violations, entity="node", entity_id=node.node_id)
+    return candidate
 
 
 # ── 端点 ────────────────────────────────────────────────────────────────
