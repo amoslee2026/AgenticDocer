@@ -125,12 +125,15 @@ class AssetRepository(Repository):
     async def list_missing_assets(self, doc_id: str | None = None) -> list[str]:
         """被节点引用但**元数据或字节缺失**的 asset_id 列表（M09B `assets_missing` 判据）。
 
-        引用口径 = M04 重写后的 `assets/<sha256>.<ext>`（在 `content` 全文里扫描，PG 侧
-        用 `regexp_matches(... , 'g')` 去重，避免把 13M 行拉进 Python）。
+        引用口径 = `ASSET_HASH_PATTERN`（任意 sha256 令牌）：覆盖 `figure.content.asset_ref`
+        的裸 sha、HTML/markdown 片段里原样保留的源路径（`images/<sha256>.jpg`）与渲染产物的
+        `assets/<sha256>.<ext>` —— 只认后者会在「刚导入、未渲染」的文档上漏报全部缺失。
+        扫描在 PG 侧用 `regexp_matches(..., 'g')` 完成，不把 13M 行拉进 Python。
         """
         # 两种形态分别成句：`:doc_id IS NULL` 这类「裸 NULL 参数」在 asyncpg 下无法
         # 推断类型（AmbiguousParameterError），且按 doc_id 过滤还能吃分区裁剪。
-        pattern = r"assets/([0-9a-f]{64})"
+        # 捕获组来自同一个常量（P5 口径唯一）；PG 的 regexp_matches 需要显式分组。
+        pattern = f"({ASSET_HASH_PATTERN.pattern})"
         if doc_id is None:
             statement = text(
                 "SELECT DISTINCT m[1] AS asset_id FROM ("
