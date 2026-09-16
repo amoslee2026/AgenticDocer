@@ -434,16 +434,29 @@ def match_example(text: str) -> re.Match[str] | None:
 
 
 def match_definition_paragraph(text: str) -> re.Match[str] | None:
-    """术语区内 `术语 释义…` 段落（术语 ≤ 4 词、≤60 字符；释义以大写字母起首）。"""
+    """术语区内 `术语 释义…` 段落（术语 ≤ 4 词、≤60 字符；释义以大写字母起首）。
+
+    语料实测（AMBA `## Glossary` 区）：词条是「术语 + 空格 + 释义」的段落（如
+    `AHB An AMBA bus protocol that defines…`）。故要求术语首词不在
+    :data:`DEFINITION_STOPWORDS`（虚词/连接词），避免把普通句子首词误当术语。
+    """
     flattened = " ".join(text.split())
     match = _DEFINITION_TERM_RE.match(flattened)
     if match is None:
         return None
-    if len(match.group("term")) > _DEFINITION_MAX_TERM_CHARS:
+    term = match.group("term")
+    if len(term) > _DEFINITION_MAX_TERM_CHARS:
+        return None
+    if term.split(" ", 1)[0].casefold() in DEFINITION_STOPWORDS:
         return None
     if len(match.group("body")) < _DEFINITION_MIN_BODY_CHARS:
         return None
     return match
+
+
+def count_html_table_markers(line: str) -> tuple[int, int]:
+    """本行的 `(<table` 个数, `</table>` 个数)——表格块的嵌套闭合判定。"""
+    return len(_HTML_TABLE_OPEN_RE.findall(line)), len(_HTML_TABLE_CLOSE_RE.findall(line))
 
 
 def match_never(line: str) -> None:
