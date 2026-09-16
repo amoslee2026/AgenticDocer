@@ -7,12 +7,13 @@
 """
 
 from __future__ import annotations
-
+import asyncio
 import asyncio
 import hashlib
 import mimetypes
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Final
 
