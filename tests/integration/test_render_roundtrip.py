@@ -130,12 +130,20 @@ def _write_window(tmp_path: Path, name: str, doc_id: str, body: str) -> Path:
 
 
 def _img_table_slice(source: Path) -> str:
-    """真实语料中含 ``<img>`` 的 ``<table>`` 整块原文（按源行切片，不做重解析）。"""
+    """真实语料中含 ``<img>`` 的 ``<table>`` 整块原文 + 其上方最近的标题行（含标题以满足
+    ``doc_type`` 组合规则要求 clause 原子；MARKDOWN 结构全部取自真实语料，不做重解析）。"""
     lines = source.read_text(encoding="utf-8").split("\n")
     img_at = next(index for index, line in enumerate(lines) if "<img" in line)
-    start = next(index for index in range(img_at, -1, -1) if lines[index].lstrip().startswith("<table"))
+    table_at = next(index for index in range(img_at, -1, -1) if lines[index].lstrip().startswith("<table"))
     end = next(index for index in range(img_at, len(lines)) if "</table>" in lines[index])
-    return "\n".join(lines[start : end + 1])
+    heading_at = next(
+        (index for index in range(table_at - 1, -1, -1) if re.match(r"^\s{0,3}#{1,6}\s", lines[index])),
+        None,
+    )
+    if heading_at is None:
+        return "\n".join(lines[table_at : end + 1])
+    head = lines[heading_at]
+    return "\n".join([head, "", *lines[table_at : end + 1]])
 
 
 def _table_fragments(nodes) -> list[str]:
