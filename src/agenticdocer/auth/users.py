@@ -29,14 +29,8 @@ from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agenticdocer.model import (
-    Grant,
-    GrantScope,
-    SshKey,
-    User,
-    UserStatus,
-    new_uuid7,
-)
+from agenticdocer.model import Grant, GrantScope, SshKey, User, new_uuid7
+from agenticdocer.model.types import UserStatus
 from agenticdocer.observability import get_logger
 from agenticdocer.store import (
     ConflictError,
