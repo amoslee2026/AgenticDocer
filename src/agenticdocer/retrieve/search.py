@@ -60,6 +60,9 @@ async def search_text(
         return []
     store = get_storage() if storage is None else storage
     with log.timer("search_text", budget_ms=slow_query_ms(), limit=limit):
+        # tsquery CTE 只算一次（`ts_rank` 需按行求值，重复求值会在命中集大时放大开销）；
+        # 单行 CTE 与 `nodes` 的显式 `JOIN ... ON true` —— 与隐式逗号交叉连接等价，但不触发
+        # SQLAlchemy 的 cartesian-product 警告。
         match = select(
             func.websearch_to_tsquery(cast(literal(FTS_CONFIG), REGCONFIG), query_text).label(
                 "query"
@@ -72,6 +75,7 @@ async def search_text(
                 nodes.c.anchor,
                 func.ts_rank(nodes.c.text_fts, match.c.query).label("score"),
             )
+            .select_from(nodes.join(match, true()))
             .where(nodes.c.text_fts.op("@@")(match.c.query))
             .order_by(desc("score"), nodes.c.doc_id, nodes.c.ordinal, nodes.c.node_id)
             .limit(limit)
