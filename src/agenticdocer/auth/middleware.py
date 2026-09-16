@@ -50,6 +50,7 @@ from .users import (
 )
 
 __all__ = [
+    "DOC_PATHS",
     "EXEMPT_PATHS",
     "EXEMPT_PREFIXES",
     "KEY_ID_HEADER",
