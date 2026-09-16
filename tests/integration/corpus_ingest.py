@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+
 import yaml
 
 from agenticdocer.model import (
