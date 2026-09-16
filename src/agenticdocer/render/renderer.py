@@ -67,8 +67,8 @@ _REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 DEFAULT_RENDER_OUT_DIR: Final = _REPO_ROOT / "build" / "rendered"
 """``build/rendered/``（REQ-M04-F03：产物不入 ``spec/``、不被 ingest 扫描）。"""
 
-_HASH_TOKEN: Final = re.compile(r"([0-9a-f]{64})(?:\.([A-Za-z0-9]+))?")
-"""从任意引用路径中抽 ``asset_id``（+可选扩展名）：``images/<sha>.jpg``、``assets/<sha>.png``、裸 sha。"""
+#: 引用里的 sha256 令牌口径与 M02 同源（P5 单一来源）：`images/<sha>.jpg`、`assets/<sha>.png`、裸 sha。
+_HASH_TOKEN: Final = re.compile(f"({ASSET_HASH_PATTERN.pattern})")
 
 _MD_IMAGE: Final = re.compile(r"(!\[[^\]]*\]\(\s*)([^)\s<>]+)")
 _HTML_IMAGE: Final = re.compile(
