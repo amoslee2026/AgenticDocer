@@ -328,33 +328,44 @@ GrantTarget = Union[DocTypeTarget, DocTarget]
 
 
 class User(Model):
-    """§3 M10（字段逐字照抄）。``user_id`` 为 uuid 的字符串形态（§6：actor 即 user_id 串）。"""
+    """§3 M10 + §4 DDL 补列（Main 裁决 2026-09-16：M10/M02 需回读 `users` 全列）。
+
+    ``user_id`` 为 uuid 的字符串形态（§6：`WriteContext.actor` 即 user_id 串）。
+    """
 
     user_id: str = Field(min_length=1)
     username: str = Field(min_length=1)
     role: RoleName
     status: UserStatus
+    created_at: datetime
+    updated_at: datetime
 
 
 class SshKey(Model):
-    """§3 M10（字段逐字照抄）。``key_id`` = SHA256 指纹（与 `ssh-keygen -lf` 一致）。"""
+    """§3 M10 + §4 DDL 补列（Main 裁决 2026-09-16）。``key_id`` = SHA256 指纹
+    （与 `ssh-keygen -lf` 一致）；``user_id`` 按 DDL 为 uuid 列，故取 ``UUID7``。"""
 
     key_id: str = Field(min_length=1)
     fingerprint: str = Field(min_length=1)
+    user_id: UUID7
     public_key: str = Field(min_length=1)
+    key_type: SshKeyType
     added_at: datetime
     revoked_at: datetime | None
 
 
 class Grant(Model):
     """文档集级授权（B3）。取值域按 **S5 修复**（§3.0/§4 DDL）：scope ∈ {doc_type, doc}、
-    permission ∈ {read, write, review}；§3 M10 代码块仍写作 repo/admin，已被 S5 取代。"""
+    permission ∈ {read, write, review}；§3 M10 代码块仍写作 repo/admin，已被 S5 取代。
+    ``granted_by``/``granted_at`` 为 §4 DDL 列（Main 裁决 2026-09-16 补入）。"""
 
     grant_id: str = Field(min_length=1)
     user_id: str = Field(min_length=1)
     scope: GrantScope
     value: str = Field(min_length=1)
     permission: GrantPermission
+    granted_by: UUID7 | None
+    granted_at: datetime
 
 
 class Session(Model):
