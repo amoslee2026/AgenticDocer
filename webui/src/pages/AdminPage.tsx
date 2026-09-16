@@ -3,22 +3,24 @@ import type { MetricsSnapshotDTO } from "../api/types";
 import { adminApi } from "../api/endpoints";
 import { useFetch } from "../api/useFetch";
 
-function ms(value: number | null): string {
-  return value === null ? "—" : `${value.toFixed(1)} ms`;
+function ms(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : `${value.toFixed(1)} ms`;
 }
 
-/** 监控面板（admin；ADR-010）：在线指标快照 + 容量健康巡检。 */
+/** 监控面板（admin；ADR-010）：在线指标快照 + 容量健康巡检。字段形状以实测 API 为准。 */
 export function AdminPage() {
   const [windowSeconds, setWindowSeconds] = useState(3600);
   const metricsState = useFetch(() => adminApi.metrics(windowSeconds), [windowSeconds]);
   const healthState = useFetch(() => adminApi.health(), []);
 
-  const metrics: MetricsSnapshotDTO | null = metricsState.data;
+  const metrics = metricsState.data;
   const health = healthState.data;
-  const totalCalls = metrics?.endpoints.reduce((sum, endpoint) => sum + endpoint.calls, 0) ?? 0;
-  const totalErrors = metrics?.endpoints.reduce((sum, endpoint) => sum + endpoint.errors, 0) ?? 0;
+  const totalCalls = metrics?.endpoints.reduce((sum, endpoint) => sum + endpoint.count, 0) ?? 0;
+  const avgErrorRate =
+    metrics && totalCalls > 0
+      ? metrics.endpoints.reduce((sum, endpoint) => sum + endpoint.errorRate * endpoint.count, 0) / totalCalls
+      : 0;
   const slowCount = metrics?.slowQueries.length ?? 0;
-  const errorRate = totalCalls > 0 ? ((totalErrors / totalCalls) * 100).toFixed(2) : "0.00";
 
   return (
     <div className="page">
@@ -27,9 +29,7 @@ export function AdminPage() {
         <span className="meta">ADR-010 · admin 专属</span>
       </div>
 
-      {metricsState.error ? (
-        <div className="notice error">{metricsState.error.message}</div>
-      ) : null}
+      {metricsState.error ? <div className="notice error">{metricsState.error.message}</div> : null}
       {healthState.error ? <div className="notice error">{healthState.error.message}</div> : null}
 
       <div className="toolbar">
@@ -42,10 +42,6 @@ export function AdminPage() {
             <option value={86400}>近 24 小时</option>
           </select>
         </label>
-        <div className="spacer" />
-        <span style={{ fontSize: "var(--fs-1)", color: "var(--ink-3)" }}>
-          {metrics ? `快照 ${metrics.generatedAt.replace("T", " ").slice(0, 19)} · log_dir ${metrics.logDir}` : ""}
-        </span>
       </div>
 
       {metricsState.loading ? <div className="loading">载入指标…</div> : null}
@@ -53,12 +49,12 @@ export function AdminPage() {
         <>
           <div className="metric-grid">
             <div className="card metric">
-              <div className="k">请求总数（窗口内）</div>
+              <div className="k">请求总数（窗口 {metrics.windowSeconds}s）</div>
               <div className="v">{totalCalls}</div>
             </div>
             <div className="card metric">
-              <div className="k">错误率</div>
-              <div className="v">{errorRate}%</div>
+              <div className="k">加权错误率</div>
+              <div className="v">{(avgErrorRate * 100).toFixed(2)}%</div>
             </div>
             <div className="card metric">
               <div className="k">鉴权失败</div>
@@ -68,15 +64,11 @@ export function AdminPage() {
               <div className="k">慢查询</div>
               <div className="v">{slowCount}</div>
             </div>
-            <div className="card metric">
-              <div className="k">渲染次数</div>
-              <div className="v">{metrics.renders}</div>
-            </div>
           </div>
 
           <div className="card">
             <div className="card-head">
-              <h2>端点耗时（P50 / P95 / Max）</h2>
+              <h2>端点耗时（P50 / P95 / P99）</h2>
             </div>
             <table className="data">
               <thead>
@@ -85,21 +77,21 @@ export function AdminPage() {
                   <th>调用</th>
                   <th>P50</th>
                   <th>P95</th>
-                  <th>Max</th>
-                  <th>错误</th>
+                  <th>P99</th>
+                  <th>错误率</th>
                 </tr>
               </thead>
               <tbody>
                 {metrics.endpoints.map((endpoint) => (
-                  <tr key={`${endpoint.method}-${endpoint.route}`}>
+                  <tr key={endpoint.route}>
                     <td>
-                      <span className="chip">{endpoint.method}</span> {endpoint.route}
+                      <span className="chip">{endpoint.route}</span>
                     </td>
-                    <td>{endpoint.calls}</td>
-                    <td>{ms(endpoint.p50Millis)}</td>
-                    <td>{ms(endpoint.p95Millis)}</td>
-                    <td>{ms(endpoint.maxMillis)}</td>
-                    <td>{endpoint.errors}</td>
+                    <td>{endpoint.count}</td>
+                    <td>{ms(endpoint.p50)}</td>
+                    <td>{ms(endpoint.p95)}</td>
+                    <td>{ms(endpoint.p99)}</td>
+                    <td>{(endpoint.errorRate * 100).toFixed(2)}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -132,40 +124,39 @@ export function AdminPage() {
         <>
           <div className="card">
             <div className="card-head">
-              <h2>表健康（快照 {health.generatedAt.replace("T", " ").slice(0, 19)}）</h2>
+              <h2>表健康（分区级行数）</h2>
+              <span className={`badge ${/ok|正常|healthy/i.test(health.verdict) ? "resolved" : "orphaned"}`}>
+                {health.verdict}
+              </span>
             </div>
             <table className="data">
               <thead>
                 <tr>
-                  <th>表</th>
-                  <th>行数（约）</th>
-                  <th>分区</th>
-                  <th>索引膨胀</th>
+                  <th>表 / 分区</th>
+                  <th>行数</th>
+                  <th>大小</th>
                   <th>死元组</th>
-                  <th>归档</th>
+                  <th>最近 autovacuum</th>
                 </tr>
               </thead>
               <tbody>
-                {health.tables.map((table) => (
-                  <tr key={table.table}>
+                {health.tables.slice(0, 12).map((table) => (
+                  <tr key={table.name}>
                     <td>
-                      <span className="chip">{table.table}</span>
+                      <span className="chip">{table.name}</span>
                     </td>
-                    <td>{table.rowsApprox.toLocaleString()}</td>
-                    <td>{table.partitions ?? "—"}</td>
-                    <td>{table.indexBloatPct === null ? "—" : `${table.indexBloatPct.toFixed(1)}%`}</td>
-                    <td>{table.deadTuplePct === null ? "—" : `${table.deadTuplePct.toFixed(1)}%`}</td>
-                    <td>{table.archiveOverdue ? <span className="badge orphaned">逾期</span> : <span className="badge resolved">正常</span>}</td>
+                    <td>{table.rows.toLocaleString()}</td>
+                    <td>{(table.sizeBytes / 1024).toFixed(0)} KB</td>
+                    <td>{table.deadTup}</td>
+                    <td>{table.lastAutovacuum ? table.lastAutovacuum.replace("T", " ").slice(0, 19) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {health.suggestions.length > 0 ? (
-            <div className="notice" style={{ marginTop: "var(--sp-3)" }}>
-              {health.suggestions.join("；")}
-            </div>
-          ) : null}
+          <div className="notice" style={{ marginTop: "var(--sp-3)" }}>
+            巡检建议：{health.advice.length > 0 ? health.advice.join("；") : "无（各项正常）"}
+          </div>
         </>
       ) : null}
     </div>
