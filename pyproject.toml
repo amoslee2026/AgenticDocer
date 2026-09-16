@@ -23,14 +23,12 @@ dependencies = [
     "agentic-logger>=0.1.4",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
 ]
-
-[project.scripts]
 agenticdocer = "agenticdocer.cli:app"
 agenticdocer-api = "agenticdocer.app:main"
 
