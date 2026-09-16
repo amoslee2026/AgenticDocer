@@ -242,10 +242,11 @@ async def ingest_markdown(
         baseline = "\n\n".join(blocks)
     else:
         baseline = body
-    meta = {key: value for key, value in front.items() if key in FRONTMATTER_FIELDS}
-    meta.pop("title", None)
-    meta.pop("spec_id", None)
-    meta.pop("spec_type", None)
+    meta = {
+        key: _jsonable(value)
+        for key, value in front.items()
+        if key in FRONTMATTER_FIELDS and key not in ("title", "spec_id", "spec_type")
+    }
     doc_type = str(front.get("spec_type") or "standard")
     await storage.upsert_doc(
         DocIn(
@@ -258,11 +259,20 @@ async def ingest_markdown(
         None,
         CTX,
     )
-    created: list[Any] = []
     for node in blocks_to_nodes(doc_id, blocks):
-        created.append(await storage.upsert_node(node, None, CTX))
-    # 第二遍：把父链写回（M03 在 commit 阶段重建 parent，node_id 此时才已知）
+        await storage.upsert_node(node, None, CTX)
     return doc_id, baseline
+
+
+def _jsonable(value: Any) -> Any:
+    """JSONB 可存形态：YAML 的 ``date``/``datetime`` 转 ISO 字符串（M03 同口径）。"""
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, Mapping):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
 
 
 def window_with_images(blocks: list[str], *, before: int = 12, after: int = 24) -> tuple[int, int]:
@@ -284,5 +294,5 @@ __all__ = [
     "split_blocks",
     "split_frontmatter",
     "window_with_images",
-    "REGISTER_FIELD_COLUMNS",
+    "_jsonable",
 ]
