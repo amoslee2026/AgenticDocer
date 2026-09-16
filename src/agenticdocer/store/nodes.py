@@ -183,14 +183,15 @@ class NodeRepository(Repository):
                 )
             await self._assert_parent_exists(session, incoming.get("parent_node_id"))
             candidate = {**existing, **incoming}
-            deltas = field_deltas(existing, candidate)
-            if not deltas:
+            content_deltas = field_deltas(existing, candidate)
+            if not content_deltas:
                 return build_model(Node, existing)
             version = existing["version"] + 1
             record = {**candidate, "version": version, "updated_at": timestamp}
-            values = {field: record[field] for field in deltas}
-            values["version"] = version
-            values["updated_at"] = timestamp
+            # 事件载荷覆盖全部变化（含 version/updated_at），使重放结果与当前行逐字段一致
+            # （M09B `events_consistency` 判据）；SQL 只写真正变化的列。
+            deltas = field_deltas(existing, record)
+            values = {field: record[field] for field in content_deltas}
             try:
                 await session.execute(
                     update(nodes)
