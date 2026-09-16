@@ -363,7 +363,6 @@ def test_verify_real_ssh_keygen_signature(openssh_dir: Path, key_name: str) -> N
     )
     signature = Path(f"{message}.sig").read_text()
     public_key = (openssh_dir / f"{key_name}.pub").read_text()
-    public_key = path.with_suffix(".pub").read_text()
     verified = sshsig.verify_sshsig(public_key, signature, MESSAGE)
     assert verified.namespace == sshsig.NAMESPACE
     assert sshsig.fingerprint_of_blob(verified.public_key_blob) == signing.fingerprint(public_key)
