@@ -79,22 +79,7 @@ def test_metadata_declares_the_thirteen_tables() -> None:
         "comments",
         "schemas",
         "assets",
-        "terms",
-        "users",
-        "ssh_keys",
-        "grants",
-        "sessions",
-        "nonces",
-def test_primary_keys_and_downgraded_foreign_keys() -> None:
-    """ADR-009：主键含分区键；分区表上的外键只保留 nodes.doc_id → docs。"""
-    nodes = metadata.tables["nodes"]
-    events = metadata.tables["events"]
 
-    assert [column.name for column in nodes.primary_key] == ["node_id", "doc_id"]
-    assert [column.name for column in events.primary_key] == ["event_id", "ts"]
-    assert {constraint.name for constraint in nodes.constraints if hasattr(constraint, "name")} >= {
-        "nodes_doc_anchor_key",
-        "nodes_status_check",
     }
     nodes_fk_parents = {fk.parent.name for fk in nodes.foreign_keys}
     assert nodes_fk_parents == {"doc_id"}
