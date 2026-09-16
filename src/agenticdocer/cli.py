@@ -250,18 +250,17 @@ def api_url() -> str:
     return f"http://{host}:{port}"
 
 
-def encode_target(path: str, params: Mapping[str, Any] | None = None) -> tuple[str, str]:
-    """``(url_target, raw_path)``：发送形态与签名形态。
+def encode_target(path: str, params: Mapping[str, Any] | None = None) -> str:
+    """请求行目标：百分号编码的 path + 原样 query（**发送即签名**，S2）。
 
-    * ``url_target``——百分号编码后的请求行目标（agent 侧真正发出去的字节）；
-    * ``raw_path``——服务端 ``scope["path"] + "?" + query`` 复现的**解码**形态（参与签名）。
-
+    服务端取 ASGI ``scope["raw_path"]``（未解码的原样字节，SecAudit AUD-2 后的口径）拼载荷，
+    故客户端签的字符串就是**它发出去的这一串**——不再维护「解码形态」这条隐式耦合。
     ``path`` 须给**未编码**形态（如含 ``#``/``·``/非 ASCII 的锚）。
     """
     clean = path if path.startswith("/") else f"/{path}"
     query = urlencode([(key, value) for key, value in (params or {}).items() if value is not None])
     suffix = f"?{query}" if query else ""
-    return quote(clean, safe=_PATH_SAFE) + suffix, f"{clean}{suffix}"
+    return quote(clean, safe=_PATH_SAFE) + suffix
 
 
 def _encode_body(body: Any) -> bytes | None:
@@ -273,13 +272,12 @@ def _encode_body(body: Any) -> bytes | None:
     return json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
-def _dry_response(target: str, method: str, raw_path: str, body: bytes | None, key: str | None) -> httpx.Response:
+def _dry_response(target: str, method: str, body: bytes | None, key: str | None) -> httpx.Response:
     """``--dry-run`` 的干跑响应（不触网）：把待发请求作为结构化结果返回。"""
     payload = {
         "dryRun": True,
         "method": method.upper(),
-        "path": raw_path,
-        "url": target,
+        "path": target,
         "body": json.loads(body.decode("utf-8")) if body else None,
         "keyFingerprint": key,
     }
@@ -368,14 +366,14 @@ class SigningClient:
     ) -> httpx.Response:
         """签名并发送；``>=400`` 转为 :class:`CliError`（含可操作指引）。"""
         raw_body = _encode_body(body)
-        target, raw_path = encode_target(path, params)
+        target = encode_target(path, params)
         if self.dry_run:
-            return _dry_response(target, method, raw_path, raw_body, self.optional_fingerprint())
+            return _dry_response(target, method, raw_body, self.optional_fingerprint())
 
-        headers = sign_request_headers(self.private_key(), method, raw_path, raw_body)
+        headers = sign_request_headers(self.private_key(), method, target, raw_body)
         if raw_body is not None:
             headers["Content-Type"] = "application/json"
-        log.info("cli request", method=method.upper(), path=raw_path, api=self.base_url)
+        log.info("cli request", method=method.upper(), path=target, api=self.base_url)
         try:
             response = self._http().request(method.upper(), target, content=raw_body, headers=headers)
         except httpx.HTTPError as exc:
