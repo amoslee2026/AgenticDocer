@@ -355,6 +355,28 @@ def compare_rows(current: Bench, previous: dict[str, Any] | None) -> list[list[s
 
 
 # ─────────────────────────────────────────────────────────────────────── 输出
+def goal_text(item: Metric) -> str:
+    """指标目标的可读后缀（无目标值 → 记「记录项」，避免格式化 None）。"""
+    if item.target is None:
+        return "（记录项）"
+    return f"（目标 {item.comparison}{item.target:g} → {item.verdict}）"
+
+
+def _compact(value: Any, *, text_limit: int = 160, list_limit: int = 8) -> Any:
+    """控制台用计数器压缩（长字符串/长列表截断；JSON 落盘仍保留全量）。"""
+    if isinstance(value, dict):
+        return {key: _compact(item, text_limit=text_limit, list_limit=list_limit)
+                for key, item in value.items()}
+    if isinstance(value, list):
+        head = [_compact(item, text_limit=text_limit, list_limit=list_limit) for item in value[:list_limit]]
+        if len(value) > list_limit:
+            head.append(f"…（共 {len(value)} 项）")
+        return head
+    if isinstance(value, str) and len(value) > text_limit:
+        return value[:text_limit] + "…"
+    return value
+
+
 
 
 def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
