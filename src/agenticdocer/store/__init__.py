@@ -25,7 +25,7 @@ from agenticdocer.model import (
     WriteContext,
     new_uuid7,
 )
-from .assets import ASSET_REF_PATTERN, AssetRepository, asset_store_dir
+from .assets import ASSET_HASH_PATTERN, ASSET_REF_PATTERN, AssetRepository, asset_store_dir
 from .comments import CommentRepository
 from .db import Database, database_url, get_database
 from .docs import DocRepository
@@ -45,6 +45,7 @@ from .rows import as_uuid, build_model, field_deltas, jsonable, now
 from .storage import Storage, get_storage
 
 __all__ = [
+    "ASSET_HASH_PATTERN",
     "ASSET_REF_PATTERN",
     "ENTITY_OPS",
     "UUID7",

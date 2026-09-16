@@ -103,7 +103,17 @@ section_meta: "@meta"
 | M10 | √ | √ | × | × | × | × | × | × | × | × | — | √ |
 | **M12** | × | × | × | × | × | × | × | × | × | × | × | — |
 
-**M11 依赖声明（V7）**：M11（CLI/skill）→ 依赖 **M06/M07 的 HTTP 契约**（CLI 不直连 DB，除 `auth bootstrap`）+ **M10**（签名与身份）；属 L4 接口层。矩阵中不单列 M11 行（其依赖通过 M06/M07/M10 体现），此处显式声明以免遗漏。
+**M11 依赖声明（V7；调用路径裁决 2026-09-16）**：M11（CLI/skill）→ 依赖 **M06/M07 的 HTTP 契约** + **M10**（签名与身份）；属 L4 接口层。矩阵中不单列 M11 行（其依赖通过 M06/M07/M10 体现）。
+
+**调用路径区分（实现裁决，解决 §3 M11「不直连 DB」与 §3 M03 的冲突）**：
+| 命令类别 | 路径 | 理由 |
+|---|---|---|
+| **用户级操作**：`doc`/`node`/`comment`/`user`/`grant`/`render`/`diff` | **经 HTTP**（M06/M07） | 与 WebUI 享**同一鉴权/RBAC/授权口径**（P5 口径唯一），服务端逐请求判定 |
+| **批量数据导入**：`import commit` | **in-process 调 M03 `run_commit`**（先 HTTP `whoami` 做角色检查） | 10k 文档批量写入经 HTTP 逐节点提交**性能不可行**；M03 的 `commit` 本就是设计内的工具函数（`WriteContext(source="importer")`） |
+| `auth bootstrap` | **本地 DB 直连** | 它建立鉴权本身，此时无凭据可用 |
+| `logs` | 本地 `agentic-logger` CLI 封装 | 读本地 JSONL，无服务端语义 |
+
+**文档级软删的缺口（待集成阶段裁决）**：`docs` 表无 `deleted` 标志、M06/M07 无 `DELETE /docs/{id}`，故「文档软删」当前**无原子服务端目标**。CLI 的 `doc delete` 暂实现为**逐节点级联软删**（非原子，失败时列出已删/未删清单并不静默）。**后续选项**：为 M07 增 `DELETE /api/v1/docs/{id}`（文档级软删 + 级联，同事务）——待 it.mas/实现阶段决定。
 > **M12 说明**：可观测性为**横切关注点**（非业务模块），所有模块经 `observability/logger.py` 单一适配层调用 AgenticLogger SDK（ADR-010）；M12 自身不依赖任何业务模块（保证无环）。M08 不直连 M12（前端日志经 M07 转写）。
 
 **M05 降级说明（批注 B5）**：M05 保留实现但**不再暴露公开端点**，仅作为 M-LR 导出的内部依赖（LightRAG 增量导出需 refs 图结构）；M06 的 `/traverse`、`/search` 端点随之删除。见 ADR-008。
