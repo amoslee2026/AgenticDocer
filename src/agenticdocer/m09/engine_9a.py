@@ -29,7 +29,8 @@ message, fix_hint}`），供两条路径消费：
 | `M09A.node.parent_self` | `parent_node_id == node_id`（自指；ADR-009 外键降级后无 DB 兜底） | 写入 |
 | `M09A.table.format` | 表格原子的 `format` 与 `fragment` 形态不符（E1-a：html `<table>` / md 管道表） | 写入 |
 | `M09A.cross_ref.external_node` | `target_doc_id` 为外部叶（`EXT:`）却给了 `target_node_id` | 写入 |
-| `M01.doc_type.atom` | `doc_type` 组合规则不允许该原子（调用方提供 `doc_type` 时） | 写入 |
+| `M01.doc_type.atom` | `doc_type` 组合规则不允许该原子（调用方提供 `doc_type` 时；**基底原子**被排除） | 写入 |
+| `M01.doc_type.variant` | 基底原子放行，但该**变体**不在 `allowed_atom_variants`（如 `safety` 专属的 `table.failure_mode`） | 写入 |
 
 `path` 口径：**相对被校验对象的字段路径**（点号 + 数组下标，落在 `content` 之外用
 字段名），如 `content.meta.rows`、`content.fields[0].access`、`anchor`。调用方（M06）
@@ -71,10 +72,12 @@ import jsonschema
 
 from agenticdocer.model import (
     ATOM_SCHEMAS,
+    ATOM_VARIANTS,
     TABLE_ATOMS,
     NodeIn,
     Violation,
     allowed_atom_types,
+    allowed_atom_variants,
     derive_text,
     get_atom_schema,
     is_atom_allowed,
@@ -90,6 +93,7 @@ __all__ = [
     "RULE_CONTENT_TEXT_EMPTY",
     "RULE_CROSS_REF_EXTERNAL_NODE",
     "RULE_DOC_TYPE_ATOM",
+    "RULE_DOC_TYPE_VARIANT",
     "RULE_PARENT_SELF",
     "RULE_TABLE_FORMAT",
     "RULES_9A",
@@ -109,6 +113,7 @@ RULE_PARENT_SELF: Final = "M09A.node.parent_self"
 RULE_TABLE_FORMAT: Final = "M09A.table.format"
 RULE_CROSS_REF_EXTERNAL_NODE: Final = "M09A.cross_ref.external_node"
 RULE_DOC_TYPE_ATOM: Final = "M01.doc_type.atom"
+RULE_DOC_TYPE_VARIANT: Final = "M01.doc_type.variant"
 
 RULES_9A: tuple[str, ...] = (
     RULE_ATOM_UNKNOWN,
@@ -121,6 +126,7 @@ RULES_9A: tuple[str, ...] = (
     RULE_TABLE_FORMAT,
     RULE_CROSS_REF_EXTERNAL_NODE,
     RULE_DOC_TYPE_ATOM,
+    RULE_DOC_TYPE_VARIANT,
 )
 """M09A 全部规则 id（机检清单：测试断言规则集自证）。"""
 
@@ -384,18 +390,8 @@ def validate_write(node: NodeIn, *, doc_type: str | None = None) -> list[Violati
                     fix_hint="删除 content.target_node_id，仅保留 target_doc_id/target_anchor",
                 )
             )
-    if doc_type is not None and not is_atom_allowed(doc_type, node.atom_type):
-        violations.append(
-            Violation(
-                rule_id=RULE_DOC_TYPE_ATOM,
-                path="atomType",
-                message=(
-                    f"doc_type={doc_type!r} 不允许原子 {node.atom_type!r}"
-                    f"（允许：{list(allowed_atom_types(doc_type))}）"
-                ),
-                fix_hint="调整规则映射或扩展 doc_type 组合规则（REQ-M01-F03）",
-            )
-        )
+    if doc_type is not None:
+        violations.extend(_doc_type_violations(node, doc_type))
     return sorted(violations, key=lambda item: (item.rule_id, item.path))
 
 
