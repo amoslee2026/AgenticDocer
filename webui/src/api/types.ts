@@ -182,37 +182,35 @@ export interface TableEditPayload {
 }
 export interface MetricsSnapshotDTO {
   windowSeconds: number;
-  generatedAt: string;
-  logDir: string;
+  /** 实测实现形状（M12 metrics.py）：{route, count, p50, p95, p99, errorRate}，无 method/maxMillis */
   endpoints: Array<{
     route: string;
-    method: string;
-    calls: number;
-    p50Millis: number | null;
-    p95Millis: number | null;
-    maxMillis: number | null;
-    errors: number;
+    count: number;
+    p50: number;
+    p95: number;
+    p99: number;
+    errorRate: number;
   }>;
   slowQueries: Array<Record<string, unknown>>;
   authFailures: number;
-  renders: number;
+  render: Record<string, unknown>;
 }
 
 export interface TableHealthDTO {
-  table: string;
-  rowsApprox: number;
-  partitions: number | null;
-  indexBloatPct: number | null;
-  deadTuplePct: number | null;
-  archiveOverdue: boolean;
-  notes: string[] | null;
+  name: string;
+  rows: number;
+  sizeBytes: number;
+  deadTup: number;
+  lastAutovacuum: string | null;
 }
 
 export interface HealthReportDTO {
-  generatedAt: string;
   tables: TableHealthDTO[];
-  connectionPool: Record<string, unknown>;
-  suggestions: string[];
+  indexes: Array<{ name: string; scans: number; sizeBytes: number }>;
+  partitions: Array<Record<string, unknown>>;
+  pool: Record<string, unknown>;
+  advice: string[];
+  verdict: string;
 }
 
 export interface RoleInfoDTO {
