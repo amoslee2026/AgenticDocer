@@ -176,6 +176,12 @@ export interface TableEditPayload {
   registerName?: string | null;
   atomType?: string | null;
 }
+export interface MetricsSnapshotDTO {
+  windowSeconds: number;
+  generatedAt: string;
+  logDir: string;
+  endpoints: Array<{
+    route: string;
     method: string;
     calls: number;
     p50Millis: number | null;
@@ -223,6 +229,3 @@ export const ROLE_AT_LEAST: Record<RoleName, number> = {
   admin: 3,
 };
 
-export function roleAtLeast(role: RoleName, min: RoleName): boolean {
-  return ROLE_AT_LEAST[role] >= ROLE_AT_LEAST[min];
-}
