@@ -35,8 +35,10 @@ def _next_month_start(now: dt.datetime) -> dt.datetime:
     return now.replace(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-async def _oracle(app_url: str) -> tuple[str | None, list[dt.datetime], bool]:
-    """直接查目录取真值：`(relkind 归一, events 各分区下界, 下一月是否已覆盖)`。"""
+async def _oracle(
+    app_url: str,
+) -> tuple[str | None, list[dt.datetime], list[tuple[dt.datetime, dt.datetime | None]], bool]:
+    """直接查目录取真值：`(relkind 归一, 各分区下界, 各分区区间, 下一月是否已覆盖)`。"""
     connection = await asyncpg.connect(normalize_dsn(app_url), timeout=5)
     try:
         raw = await connection.fetchval("SELECT relkind FROM pg_class WHERE relname = 'events' LIMIT 1")
@@ -67,7 +69,7 @@ async def _oracle(app_url: str) -> tuple[str | None, list[dt.datetime], bool]:
 
     target = _next_month_start(dt.datetime.now(dt.timezone.utc))
     covered = any(lower <= target and (upper is None or target < upper) for lower, upper in spans)
-    return relkind, lowers, covered
+    return relkind, lowers, spans, covered
 
 
 def test_health_matches_independent_oracle_on_real_db(
@@ -75,7 +77,7 @@ def test_health_matches_independent_oracle_on_real_db(
 ) -> None:
     """已迁移库上：relkind 不得被误判，分区覆盖/最老分区须与独立 oracle 逐项一致。"""
     _, app_url = database_urls
-    relkind, lowers, covered = asyncio.run(_oracle(app_url))
+    relkind, lowers, spans, covered = asyncio.run(_oracle(app_url))
     assert relkind == "p", "本用例假设迁移后的 events 为分区表（ADR-009 §4.2）"
 
     report = health_sync(dsn=app_url, timeout=5.0)
