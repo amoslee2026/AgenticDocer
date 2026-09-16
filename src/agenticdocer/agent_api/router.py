@@ -325,18 +325,18 @@ async def list_doc_nodes(
         return await storage.get_doc_nodes(doc_id, include_deleted=include_deleted)
 
 
-@router.get("/docs/{doc_id}/sections", response_model=list[SectionInfo])
+@router.get("/docs/{doc_id}/sections", response_model=list[SectionDTO])
 async def list_doc_sections(
     doc_id: str,
     context: ReadAuth,
     storage: StorageDep,
     db: DatabaseDep,
-) -> list[SectionInfo]:
+) -> list[SectionDTO]:
     """章节清单（level ≤ 2 的节点 + 子树节点数；M08 分章节加载入口，B10）。"""
     await authorize_doc(context, "read", doc_id, storage=storage, db=db)
     with log.timer("query", table="nodes", doc_id=doc_id):
         nodes = await storage.get_doc_nodes(doc_id)
-    return list_sections(nodes)
+    return [SectionDTO.of(info) for info in list_sections(nodes)]
 
 
 @router.get("/docs/{doc_id}/render", response_model=RenderOutput)
