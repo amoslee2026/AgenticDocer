@@ -136,16 +136,6 @@ def normalize_key_id(key_id: str) -> str:
     return KEY_ID_PREFIX + stripped
 
 
-def validate_public_key_line(public_key_line: str) -> tuple[str, Any]:
-    """登记前体检的客户端便捷入口：``(key_type, wire blob)``——不合规抛 401 族异常。
-
-    服务端登记路径请直接用 :func:`agenticdocer.auth.sshsig.validate_public_key`（含强度校验）。
-    """
-    key_type, blob = key_blob_from_line(public_key_line)
-    if key_type not in ("ssh-ed25519", "ssh-rsa"):
-        raise SigningError(f"不支持的公钥类型：{key_type}（仅 ssh-ed25519 / ssh-rsa）")
-    return key_type, blob
-
 
 def timestamp_now(moment: datetime | None = None) -> str:
     """``X-Timestamp`` 文本（ISO 8601 UTC 秒级；服务端原样参与载荷）。"""
