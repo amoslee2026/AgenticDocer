@@ -272,12 +272,11 @@ async def verify_signature(
     headers: SshSigHeaders,
     *,
     db: Database | None = None,
-    ip: str | None = None,
 ) -> AuthContext:
     """agent 路径验签（§3 M06 / S2 / S3 / S7）。
 
     顺序：① 时间窗 → ② 公钥查表（``revoked_at IS NULL`` 且属主 active）→ ③ SSHSIG 验签 →
-    ④ **验签通过后才 INSERT nonce**（未认证请求不写库）。``ip`` 供调用方审计使用。
+    ④ **验签通过后才 INSERT nonce**（未认证请求不写库）。
     """
     database = _db_or_default(db)
     moment = parse_timestamp(headers.timestamp)
@@ -301,7 +300,6 @@ async def verify_signature(
         verify_sshsig(key["public_key"], headers.signature, payload)
         async with database.transaction() as session:
             await consume_nonce(session, headers.nonce, key["user_id"])
-    del ip  # 由调用方（require_auth）审计，验签本身不再需要
     return AuthContext(
         user=user_from_row(user_row), source="agent", key_fingerprint=key["key_id"]
     )
