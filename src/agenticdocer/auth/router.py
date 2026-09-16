@@ -72,8 +72,24 @@ class SessionDTO(Model):
 
 @router.post("/challenge", response_model=Challenge)
 async def post_challenge(request: Request) -> Challenge:
-    """签发登录挑战 nonce（豁免端点；按 IP 限流，S7）。"""
-    return await create_challenge(client_ip(request), db=auth_database(request))
+    """签发登录挑战 nonce（豁免端点；按 IP 限流，S7）。
+
+    限流触发 → 429（``RateLimitError`` 属 ``AuthError`` 族，须在端点边界转成 HTTP 响应，
+    否则会成为 500）。
+    """
+    database = auth_database(request)
+    try:
+        return await create_challenge(client_ip(request), db=database)
+    except AuthError as exc:
+        await log_auth_failure(
+            exc.reason,
+            ip=client_ip(request),
+            endpoint=normalize_path(request.url.path),
+            method=request.method,
+            status_code=exc.status_code,
+            db=database,
+        )
+        raise http_error(exc) from exc
 
 
 @router.post("/login", response_model=SessionDTO)
