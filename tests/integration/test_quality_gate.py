@@ -186,10 +186,12 @@ async def gate(
     storage: Storage,
     doc_id: str,
     detectors: list[str] | None = None,
+    *,
+    dsn: str | None = None,
 ) -> dict[str, list[Violation]]:
-    """跑质量门（按 doc_id 作用域），返回 `detector_id → violations`。"""
+    """跑质量门（按 doc_id 作用域），返回 `detector_id → violations`；`dsn` 供 perf_health 注入。"""
     reports = await run_quality_gate(
-        QualityScope(doc_ids=[doc_id], detectors=detectors), storage=storage
+        QualityScope(doc_ids=[doc_id], detectors=detectors), storage=storage, dsn=dsn
     )
     return {report.detector_id: report.violations for report in reports}
 
