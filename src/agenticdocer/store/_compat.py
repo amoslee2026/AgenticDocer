@@ -215,4 +215,3 @@ else:
 
 MISSING_FROM_MODEL_LAYER = tuple(_BINDINGS)
 
-UTC = timezone.utc
