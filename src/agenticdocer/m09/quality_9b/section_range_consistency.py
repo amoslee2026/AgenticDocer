@@ -203,7 +203,7 @@ async def detect(ctx: GateContext) -> list[Violation]:
     """按文档抽样，逐样本比较区间法与递归 CTE（只读；成环/深链由 M02 的深度上限保证终止）。"""
     size = sample_size()
     violations: list[Violation] = []
-    samples = 0
+    mismatches = 0
     skipped = 0
     docs = await _scoped_docs(ctx)
     for doc in docs:
@@ -220,7 +220,7 @@ async def detect(ctx: GateContext) -> list[Violation]:
                 # `False` 也覆盖「节点不存在」：当刻已消失（并发删除）→ 不是契约破坏
                 skipped += 1
                 continue
-            samples += 1
+            mismatches += 1
             violation = judge_section_range(
                 doc.doc_id, root, interval_ids(nodes, root), [node.node_id for node in subtree]
             )
