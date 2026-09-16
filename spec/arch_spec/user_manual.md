@@ -99,38 +99,97 @@ uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 
 **验收口径**：规则覆盖率（携带 `rule_id` 的源块 ÷ 总源块）≥95%；兜底率与待确认条数在审核输出中报告。
 
-## 3. 结构化读写（Agent 通过 M06 API）
-
-- 读：按 `node_id` / `doc_id` / `anchor`（如 `SPEC-STD-AMBA-APB#3.2.1·transfer`；重复标题带 `~正文摘要` 后缀）取节点（含 content 与元数据）。
-- 写：提交 JSON Schema 约束的节点变更 + 当前 `version`（乐观锁）。校验失败 → 返回违规清单与修复建议；冲突（409）→ 重读后重试。
-- 每次成功写入自动：写事件（字段级 diff）→ 更新实体 → 触发该文档重渲染。
-
-## 4. 检索（阶段 3）
-
-- 精确：`node_id`/`anchor`/`doc_id` 直取。
-- 多跳：按 `traces_to`（上游 1–2 跳）、`composes_from`、`see_also` 遍历（结果含证据链与跳数）。
-- 关键词：全文检索（FTS）；命中携带 node_id 可回查权威记录。
-- 语义（联调后）：LightRAG 召回回查结构化库；正确性始终以结构化库为准。
-
 ## 5. 评审（人类评审者，WebUI）
 
-| 操作 | 说明 |
-|---|---|
-| 浏览 | 按文档/节点树浏览；表单由 schema 自动生成 |
-| 结构化 diff | 每次变更按字段级并排展示新旧值（非行级 diff） |
-| 批注 | 针对 node_id 留言（open）；解决后置 resolved；节点删除后批注保留并标 orphaned |
-| 状态流转 | draft → reviewed → approved（记录到事件日志） |
-| 版本历史 | 按事件重放查看任意版本；批注显示于其锚定版本旁 |
+### 5.1 登录（SSH 挑战-响应，非密码）
 
-## 6. 常见问题
+1. 打开 WebUI → 登录页显示一次性 nonce（TTL 120s）。
+2. 本地签名：`uv run agenticdocer auth sign --login --nonce <nonce>`（读取你的 SSH 私钥），将结果粘回页面。
+3. 验签通过 → 签发会话 Cookie（httpOnly，8 小时滑动续期）。
+
+> 浏览器不读取私钥（安全禁区）；登录依赖本地 CLI 辅助签名。
+
+### 5.2 操作
+
+| 操作 | 说明 | 最低角色 |
+|---|---|---|
+| 浏览 | 按文档/节点树浏览；表单由 schema 自动生成 | reader |
+| 分章节加载 | 进入文档先取章节清单，按需拉取渲染结果（单章节 <1s） | reader |
+| 结构化 diff | 每次变更按字段级并排展示新旧值（非行级 diff） | reader |
+| 批注 | 针对 node_id 留言（open）；解决后置 resolved；节点删除后保留并标 orphaned | reviewer |
+| 状态流转 | draft → reviewed → approved（记录到事件日志） | reviewer |
+| 版本历史 | 按事件重放查看任意版本；批注显示于其锚定版本旁 | reader |
+| 表格编辑 | 仅当文档开启 `editable_tables` 时，表格可编辑并回写 | editor |
+| 用户与权限管理 | 增删用户、登记/吊销 SSH 公钥、授予角色与文档集级权限 | **admin** |
+
+## 6. 监控与性能评估（ADR-010）
+
+```bash
+# 错误分布 / 模块健康度
+uv run agenticdocer logs stats --group-by error_code
+uv run agenticdocer logs stats --group-by module
+
+# 单请求全链路追踪（鉴权→API→存储→渲染）
+uv run agenticdocer logs trace --rid <rid>
+
+# 实时跟踪 / 条件查询
+uv run agenticdocer logs tail --module m02.nodes
+uv run agenticdocer logs query --level ERROR --since 1h
+
+# 容量健康巡检（分区/索引膨胀/连接池/归档逾期）
+uv run agenticdocer stats --health
+
+# 离线性能基准（验收证据）
+uv run pytest tests/perf/ -m perf --benchmark-json=build/perf.json
+```
+
+**指标查询（admin）**：`GET /api/v1/admin/metrics?since=&window=`（API 耗时/慢查询/鉴权失败/渲染）、`GET /api/v1/admin/health`。
+
+**日志位置**：`logs/*.jsonl`（AgenticLogger，30 天/500MB 轮转，超出归档 `logs/archive/`）。
+**审计**：审计事件在 PG `events` 表（append-only，不可丢弃）——与运行日志分离。
+
+## 7. 常见问题
 
 | 问题 | 处置 |
 |---|---|
-| 解析出现大量「待确认」 | 正常——按批复核；高频模式可增补解析规则（rule_id 可追溯到规则） |
+| 所有请求返回 401 | 系统 fail-closed：未自举或未登记公钥。执行 `agenticdocer auth bootstrap` 或请 admin 登记（`user key add`） |
+| 403 但密钥有效 | 角色权限不足：请 admin 授予对应角色或文档集级 grant（`grant add`） |
+| 签名被拒（401） | 检查时钟偏移（>300s 拒绝）、nonce 是否被复用、请求体是否被中间层改写 |
+| WebUI 登录页打不开 | 确认服务已启动且静态资源挂载正常；登录页本身豁免鉴权 |
+| 解析出现大量「待确认」 | 正常——按批复核；高频模式可增补解析规则（rule_id 可追溯） |
 | 图片渲染缺失 | 查 M09B `assets.missing` 清单；确认 GigaRAG `corpus/02_converted/.../auto/images/` 有实物 |
 | 写入返回 409 | 乐观锁冲突：重读节点（含最新 version）后重试 |
-| 渲染产物在哪 | `build/rendered/`（可重建，不入库）；`spec/` 内的 markdown 是导入快照，勿直接编辑 |
-| 为何不能向 lightRAG 导入 | 用户指令暂缓（C7）；系统就绪后按 §4 的导出包接口联调 |
+| 渲染产物在哪 | `build/rendered/`（可重建，不入库）；`spec/` 内 markdown 是导入快照，勿直接编辑 |
+| 为何系统内搜不到 | 检索归 LightRAG（ADR-008）；本系统只提供导出包与按 ID 点查 |
+| 为何不能向 lightRAG 导入 | 用户指令暂缓（C7）；系统就绪后按 M-LR 导出包接口联调 |
+| 性能不达标 | `agenticdocer stats --health` 看巡检建议；`tests/perf/` 复现基准 |
+
+## 8. 用户与权限管理（管理员）
+
+```bash
+# 用户
+uv run agenticdocer user add --username alice --role editor
+uv run agenticdocer user list
+uv run agenticdocer user role --username alice --role reviewer
+uv run agenticdocer user disable --username alice
+
+# SSH 公钥（用户可登记多把，换机无需重建账号）
+uv run agenticdocer user key add --username alice --key ~/alice.pub
+uv run agenticdocer user key revoke --username alice --fingerprint SHA256:...
+
+# 文档集级授权（叠加在角色基线之上，不可超越角色上限）
+uv run agenticdocer grant add --username alice --scope doc_type --value product --permission write
+uv run agenticdocer grant list --username alice
+```
+
+**四角色权限**（详见架构 §3 M10 权限矩阵）：admin（全部 + 用户管理）/ editor（文档 CRUD、批注、表格编辑）/ reviewer（批注、状态审批、只读正文）/ reader（只读）。
+
+## 9. 数据与恢复
+
+- 权威源 = PostgreSQL（database `agenticdocer`）；一切变更可凭 `events` 重放。
+- 备份：`pg_dump agenticdocer`（纳入 sys-backup 惯例）+ git（代码与 spec/ 文档）。
+- 迁移：Alembic 管理 DDL 版本（`uv run alembic upgrade head`）。
+- **审计不可丢**：`events` 表 append-only；运行日志（`logs/`）可轮转丢弃，二者职责分离。
 
 ## 7. 数据与恢复
 
