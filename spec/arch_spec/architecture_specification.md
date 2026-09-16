@@ -1,3 +1,9 @@
+> [!NOTE]
+> **Annotations present.** This file contains reviewer feedback.
+> `==highlights==` flag text for discussion. `%%comments%%` are inline notes (hidden in preview, visible in source).
+> `~~deletions~~` suggest removal. `> [!EDIT]` blocks are change requests. `> [!TODO]` blocks are instructions to execute.
+> These markers are intentional — do not remove or "clean up" without asking the reviewer.
+
 ---
 title: 架构规范 — 芯片设计知识库系统
 type: composite
@@ -15,7 +21,16 @@ section_meta: "@meta"
 
 > **v1.2 修订**（A1–A25 闭环）：锚策略（A1）、软删语义（A2）、WriteContext/actor（A3）、comments 乐观锁（A4）、refs 主键（A5）、资产存储与端点（A6）、HTML `<img>` 覆盖（A7）、M08 schema 端点（A8）、渲染签名（A9）、FTS 生成列（A10）、序列化口径（A11）、CLI 统一（A12）、提议持久化（A13）、类型定义补全（A14）、角色/GRANT（A15）、schema/terms 写入路径（A16）、docs 级方法（A17）、事件 fold 规范（A18）、跳数语义（A19）、可测判据（A20，落在 functional_spec）、summary_report（A21）、frontmatter 映射（A22）、悬空引用（A23）、手册路径（A24）、Agent Context/分层/依赖矩阵/非功能（A25）。
 
+> [!TODO] 增加webui模块，用户只能通过webui 对文档做CRUD以及批注
+
+> [!TODO] agent写入需要鉴权，通过启动agent的人类用户的ssh公钥进行鉴定身份
+
+
+
 ## 1. 原则、Agent Context 与依赖规则
+
+> [!TODO] 应该提供CLI和skill ，供coding agent调用
+
 
 ### 1.1 原则（可验证的不变量）
 
@@ -37,6 +52,9 @@ section_meta: "@meta"
 | 参考文档 | 本规范 + `../idea/design_doc.md`（设计依据）+ `../idea/clarifications.md`（B/Q 台账） |
 
 ### 1.3 分层归属与依赖规则矩阵
+
+%%为什么需要模型层？这个系统应该是LLM无关的%%
+
 
 | 层 | 模块 | 可见性 |
 |---|---|---|
@@ -63,6 +81,18 @@ section_meta: "@meta"
 
 ### 1.4 非功能需求（量化，与 B10 对齐）
 
+%%部分文档如功能列表，应该渲染为可编辑的表格%%
+
+%%Webui是否可以支持飞书的多维文档%%
+
+
+
+%%lightRAG侧语义检索不在本项目范围；%%
+
+
+> [!TODO] 规模改为 支持10000个Agent/bot，上万份文档
+
+
 | 指标 | 目标 | 测量口径 |
 |---|---|---|
 | 规模 | ≤100k 节点、≤500 文档（条款级粒度基线） | 库内计数（`SELECT count(*)`） |
@@ -70,6 +100,9 @@ section_meta: "@meta"
 | 渲染 | 单文档 <3s | 同基准脚本（最大文档 CXL 3.59MB） |
 | 语义检索（联调后） | P95 <5s | LightRAG 侧基准 |
 | 解析 | 规则覆盖率 ≥95%；零静默丢弃 | `import stats` 输出（口径见 functional_spec REQ-M03-F01/F04） |
+
+%%文档的渲染通过webui，分章节分别渲染，单文档渲染延时小于1s%%
+
 
 ## 2. 代码结构与模块映射
 
@@ -267,6 +300,9 @@ class NormalForm(BaseModel):
 ```
 
 ### M05 图遍历与检索
+
+> [!TODO] 图便利和检索是LightRAG的业务范围，不在本项目实现；只需要给lightRAG提供接口就行
+
 
 ```python
 KIND_RULES: dict[RefKind, tuple[Literal["up","down","both"], bool, int]] = {   # (方向, 参与多跳, 最大跳数) A19
