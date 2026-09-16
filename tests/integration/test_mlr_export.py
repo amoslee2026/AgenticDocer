@@ -333,7 +333,6 @@ async def test_change_stream_matches_changes_since_and_resumes_half_open(
     node_only = [event async for event in change_stream(entity="node", storage=storage)]
     assert node_only and all(event.entity == "node" for event in node_only)
 
--
 # ── P6/C7：无外部网络、不触碰 lightRAG ───────────────────────────────────
 
 
