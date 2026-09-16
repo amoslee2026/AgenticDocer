@@ -406,7 +406,7 @@ def decision_summary(state: ReviewState) -> dict[str, int]:
     return summary
 
 
-# ── 校验（M09A 等价：schema 级）──────────────────────────────────────────
+# ── 校验（判据单点：schema/text/锚形态/doc_type 组合规则归 M09A）────────────
 
 
 def selected_proposals(result: ParseResult, accepted: Iterable[str] | None = None) -> list[Proposal]:
@@ -417,15 +417,9 @@ def selected_proposals(result: ParseResult, accepted: Iterable[str] | None = Non
     return [proposal for proposal in result.proposals if proposal.proposal_id in wanted]
 
 
-_VALIDATORS: dict[str, jsonschema.Draft202012Validator] = {}
-"""`atom_type` → 已编译的 schema validator（缓存：整档 1 万条提议时避免重复编译）。"""
-
-
-def _validator(atom_type: str) -> jsonschema.Draft202012Validator:
-    validator = _VALIDATORS.get(atom_type)
-    if validator is None:
-        validator = _VALIDATORS[atom_type] = jsonschema.Draft202012Validator(get_atom_schema(atom_type))
-    return validator
+def _prefixed(violations: Sequence[Violation], prefix: str) -> list[Violation]:
+    """给 M09A 的字段路径加定位前缀（M09A 模块文档明确允许调用方加锚前缀定位）。"""
+    return [item.model_copy(update={"path": f"{prefix}#{item.path}"}) for item in violations]
 
 
 def check_proposals(
@@ -435,15 +429,19 @@ def check_proposals(
 ) -> list[Violation]:
     """提议级校验（REQ-M03-F03：非法提议被拒且报出违规明细）。
 
-    判据（M09A schema 级 + M03 结构完整性）：
-    ① 原子类型已注册且被该 `doc_type` 放行（REQ-M01-F03）；
-    ② `content` 满足 M01 `ATOM_SCHEMAS`（jsonschema draft 2020-12，额外字段拒绝）；
-    ③ `content.text` 非空（A10：FTS 生成列的唯一来源）；
-    ④ 锚非空、同文档内唯一（DB 约束 `UNIQUE (doc_id, anchor)` 的前置校验）；
-    ⑤ 兜底提议必须有解析期定下的锚（`doc_meta.fallback`）；
-    ⑥ `doc_type` 组合规则的必备原子（`clause`）在场。
+    **判据单点（P5）**：`atom_type` 注册/schema/`content.text`（含量与 `derive_text` 的
+    一致性）/锚形态/`doc_type` 组合规则**一律由 M09A 判定**（:mod:`agenticdocer.m09`），
+    本函数不重复实现，只做两件事：
+
+    ① 调 M09A——`NodeIn` 提议走 `validate_write(node, doc_type=…)`（提议级判据 + 锚前缀 +
+       表格 format + 外部引用 + doc_type 组合规则）；兜底提议无 `NodeIn` 形态（锚由解析期
+       单点定于 `doc_meta.fallback`），故按**提交期同一构造**生成 `note` content 后走
+       `validate_proposal`；
+    ② 追加 M03 独有的**结构**判据：锚同档唯一（DB 约束 `UNIQUE (doc_id, anchor)` 的前置）、
+       兜底提议的锚登记、`doc_type` 组合规则的必备原子（`clause`）。
     """
     doc_type = str(result.doc_meta.get("doc_type") or "")
+    known_doc_type = doc_type in DOC_TYPE_RULES
     proposals = selected_proposals(result, accepted)
     violations: list[Violation] = []
     fallbacks = fallback_anchors(result)
@@ -452,57 +450,23 @@ def check_proposals(
     for proposal in proposals:
         atom = proposal.atom
         if isinstance(atom, RawFallback):
-            if not atom.text.strip():
-                violations.append(
-                    Violation(
-                        rule_id="M03.fallback.empty",
-                        path=proposal.proposal_id,
-                        message="兜底原子文本为空（零静默丢弃要求原样保留源块）",
-                        fix_hint="检查块切分是否产生空块",
-                    )
-                )
+            content = atom_content("note", fragment=atom.text)
+            violations.extend(_prefixed(validate_proposal("note", content), proposal.proposal_id))
             if proposal.proposal_id not in fallbacks:
                 violations.append(
                     Violation(
                         rule_id="M03.fallback.anchor",
                         path=proposal.proposal_id,
-                        message="兜底提议缺锚（doc_meta.fallback 未登记）",
+                        message="兜底提议缺锚（doc_meta.fallback 未登记；RawFallback 无锚字段）",
                         fix_hint="重新解析（F01/F02/F03 的锚由解析期单点确定）",
                     )
                 )
             continue
-        if not is_atom_allowed(doc_type, atom.atom_type):
-            violations.append(
-                Violation(
-                    rule_id="M01.doc_type.atom",
-                    path=f"{atom.anchor}",
-                    message=f"doc_type={doc_type!r} 不允许原子 {atom.atom_type!r}（允许：{list(allowed_atom_types(doc_type))}）",
-                    fix_hint="调整规则映射或扩展 doc_type 组合规则（REQ-M01-F03）",
-                )
-            )
-            continue
         if atom.atom_type.split(".", 1)[0] == "clause":
             clause_seen = True
-        for error in sorted(_validator(atom.atom_type).iter_errors(atom.content), key=lambda err: list(err.path)):
-            location = "/".join(str(part) for part in error.path) or "(root)"
-            violations.append(
-                Violation(
-                    rule_id="M09A.atom.schema",
-                    path=f"{atom.anchor}#{location}",
-                    message=error.message,
-                    fix_hint=f"对照 ATOM_SCHEMAS[{atom.atom_type!r}] 修正 content",
-                )
-            )
-        text = atom.content.get("text")
-        if not isinstance(text, str) or not text.strip():
-            violations.append(
-                Violation(
-                    rule_id="A10.content.text",
-                    path=str(atom.anchor),
-                    message="content.text 缺失或为空（FTS 生成列依赖）",
-                    fix_hint="由 M01 derive_text 生成后再写入",
-                )
-            )
+        violations.extend(
+            _prefixed(validate_write(atom, doc_type=doc_type if known_doc_type else None), str(atom.anchor))
+        )
         if not atom.anchor.strip():
             violations.append(
                 Violation(rule_id="M03.anchor.empty", path=proposal.proposal_id, message="锚为空", fix_hint=None)
@@ -518,7 +482,7 @@ def check_proposals(
             )
         else:
             seen_anchors[atom.anchor] = proposal.proposal_id
-    required = get_doc_type_rule(doc_type).required_atom_types if doc_type else ()
+    required = get_doc_type_rule(doc_type).required_atom_types if known_doc_type else ()
     if "clause" in required and not clause_seen:
         violations.append(
             Violation(
