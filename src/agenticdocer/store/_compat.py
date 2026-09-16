@@ -179,8 +179,7 @@ try:  # pragma: no cover - 分支取决于 M01 是否已交付
 
     _MODEL = _imported_model
     _UUID7_MOD = _imported_uuid7
-except Exception:  # noqa: BLE001 - M01 未就绪时退回本地实现
-    _MODEL = None
+
     _UUID7_MOD = None
 
 MODEL_LAYER_READY = _MODEL is not None
