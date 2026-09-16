@@ -60,12 +60,12 @@ __all__ = [
 ]
 
 KEY_ID_PREFIX: Final = "SHA256:"
-_HASH_CLASSES: Final[dict[str, Any]] = {"sha256": hashes.SHA256, "sha512": hashes.SHA512}
+"""``key_id`` 前缀（与 ``ssh-keygen -lf`` 一致）。"""
 
 RSA_PADDING: Final = "pss"
 """签名侧固定 PSS（S11 明文）；验签侧兼容 PKCS#1 v1.5，见 ``sshsig`` 模块文档。"""
 
-_HASHES: Final[dict[str, Any]] = {"sha256": hashes.SHA256, "sha512": hashes.SHA512}
+_HASH_CLASSES: Final[dict[str, Any]] = {"sha256": hashes.SHA256, "sha512": hashes.SHA512}
 
 
 class SigningError(ValueError):
