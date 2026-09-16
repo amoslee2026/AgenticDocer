@@ -100,12 +100,14 @@ class DocRepository(Repository):
                     entity_id=doc_id,
                 )
             candidate = {**existing, **{f: incoming.get(f) for f in _MUTABLE_FIELDS}}
-            deltas = field_deltas(existing, candidate)
-            if not deltas:
+            content_deltas = field_deltas(existing, candidate)
+            if not content_deltas:
                 return build_model(Doc, existing)
             version = existing["version"] + 1
             record = {**candidate, "version": version, "updated_at": timestamp}
-            values = {field: record[field] for field in deltas}
+            # 载荷含 version/updated_at，重放可与当前行逐字段比对（M09B events_consistency）
+            deltas = field_deltas(existing, record)
+            values = {field: record[field] for field in content_deltas}
             values["version"] = version
             values["updated_at"] = timestamp
             await session.execute(update(docs).where(docs.c.doc_id == doc_id).values(**values))
@@ -159,7 +161,7 @@ class DocRepository(Repository):
                 entity="doc",
                 entity_id=doc_id,
                 op="status",
-                payload=field_deltas(existing, {"status": status}),
+                payload=field_deltas(existing, record),
                 actor=ctx.actor,
                 ts=timestamp,
             )
