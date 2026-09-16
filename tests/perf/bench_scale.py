@@ -127,14 +127,24 @@ async def events_partition_rows(db) -> list[tuple[str, int]]:
         "SELECT tableoid::regclass::text AS part, count(*) AS rows FROM events GROUP BY 1 ORDER BY 1",
     )
     return [(str(name), int(count)) for name, count in rows]
-
-
 async def run_bench(args: argparse.Namespace) -> Bench:
     storage = open_storage(args.dsn)
     db = storage.db
     bench = Bench(name=NAME, title=TITLE, environment=environment())
+        baseline = None
     try:
         if args.fresh:
+            # `--fresh` 会清空实体表：先把**真实语料**的密度基线（存储/节点）留下来，
+            # 供「§1.4 的 20–54GB 是否合理」按真实内容密度做交叉校验（合成语料密度偏低）。
+            pre_state = await counts(db)
+            if pre_state["nodes"]:
+                pre_info = await pg_info(db)
+                baseline = {
+                    "docs": pre_state["docs"],
+                    "nodes": pre_state["nodes"],
+                    "total_bytes": pre_info["total_bytes"],
+                    "bytes_per_node": pre_info["total_bytes"] / pre_state["nodes"],
+                }
             await truncate_entities(db)
 
         before = await counts(db)
