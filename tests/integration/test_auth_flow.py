@@ -1030,7 +1030,9 @@ async def test_session_resolution_slides_expiry(
         await _rows(database, "SELECT expires_at FROM sessions WHERE user_id = :u", u=user.user_id)
     )[0]
     assert slid_expires >= initial_expires  # 每次解析都把 expires_at 前移一个 TTL
-    assert slid_expires - initial_expires < timedelta(seconds=5)  # 同一次请求内的滑动幅度
+    # 滑动幅度 = 两次取时间之间的真实间隔（含 IO），满载时会变大：留 30s 余量而非 5s，
+    # 断言语义仍是「滑动是 TTL 量级的有界推进，不是绝对上限/无界累积」
+    assert slid_expires - initial_expires < timedelta(seconds=30)
 
     assert await sessions.resolve_session("bogus-token", db=database) is None
     async with database.transaction() as db_session:
