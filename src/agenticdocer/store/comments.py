@@ -206,11 +206,13 @@ class CommentRepository(Repository):
             return build_model(Comment, updated)
 
     async def orphan_comments(self, node_id: UUID | str) -> None:
-        """独立调用入口（`nodes.delete_node` 走同事务的内部函数）。"""
+        """独立调用入口（`nodes.delete_node` 走同事务的内部函数）。
+
+        无 `ctx` 参数（§3 M02 契约签名如此）：孤立化由节点删除驱动而非用户操作，
+        事件 actor 记为 `system`/`source=system`。
+        """
         async with self.db.transaction() as session:
-            await orphan_comments_in(
-                session, node_id, WriteContext(actor="system", source="system")
-            )
+            await orphan_comments_in(session, node_id, _SYSTEM_CTX)
 
     async def get_comment(self, comment_id: UUID | str) -> Comment:
         async with self.db.session() as session:
