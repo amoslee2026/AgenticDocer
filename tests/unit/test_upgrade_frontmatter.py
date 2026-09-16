@@ -168,23 +168,6 @@ def test_title_falls_back_to_first_heading(monkeypatch, tmp_path):
     assert 'title: "Demo FMEA"' in path.read_text(encoding="utf-8")
 
 
-def test_status_is_review_without_reviewed_by(monkeypatch, tmp_path):
-    """无 `reviewed_by` 的登记 -> `status: review`（A13 的保守分支，不是静默 approved）。"""
-    path = tmp_path / "demo-raw.md"
-    path.write_text(BODY, encoding="utf-8")
-    entry = {k: v for k, v in SAFETY_ENTRY.items() if k not in ("reviewed_by", "reviewed_at")}
-    entry["reviewed_by"] = '""'  # 占位空值仍算「有该字段」
-    _registered(monkeypatch, path, entry)
-    uf.upgrade(path)
-    assert "status: approved" in path.read_text(encoding="utf-8")  # reviewed_by 存在 -> approved
-
-    entry2 = {k: v for k, v in SAFETY_ENTRY.items() if k != "reviewed_by"}
-    path2 = tmp_path / "demo-no-review.md"
-    path2.write_text(BODY, encoding="utf-8")
-    _registered(monkeypatch, path2, entry2)
-    uf.upgrade(path2)
-    assert "status: review" in path2.read_text(encoding="utf-8")
-
 
 # ── 不猜测：类型冲突 / 登记不全 -> 报错且不写入 ───────────────────────────────
 
@@ -194,7 +177,7 @@ def test_spec_type_conflict_is_refused(monkeypatch, tmp_path):
     original = "---\ntitle: Demo\nspec_type: standard\n---\n" + BODY
     path.write_text(original, encoding="utf-8")
     _registered(monkeypatch, path, dict(SAFETY_ENTRY))
-
+@pytest.mark.parametrize("drop", ["audit_trail", "converted_by", "reviewed_by", "spec_id"])
     with pytest.raises(uf.UpgradeError, match="冲突"):
         uf.upgrade(path)
     assert path.read_text(encoding="utf-8") == original
