@@ -114,6 +114,35 @@ class RenderOutput(RenderResult):
     markdown: str
 
 
+
+class SectionDTO(Model):
+    """`GET /api/v1/docs/{id}/sections` 条目（§3 M07 TS 契约 `SectionDTO`）。
+
+    M04 的领域类型 `SectionInfo` 把子树规模命名为 `node_count`，而 §3 M07 的前端契约要求
+    `childCount`（`architecture_specification.md` §3 M07 TS 块）——故在 API 层按**契约口径**
+    投影（A11），字段语义与 `SectionInfo.node_count` 一一对应。
+    """
+
+    node_id: UUID7
+    parent_node_id: UUID7 | None = None
+    anchor: str
+    title: str
+    level: int
+    ordinal: int
+    child_count: int
+
+    @classmethod
+    def of(cls, info: SectionInfo) -> "SectionDTO":
+        return cls(
+            node_id=info.node_id,
+            parent_node_id=info.parent_node_id,
+            anchor=info.anchor,
+            title=info.title,
+            level=info.level,
+            ordinal=info.ordinal,
+            child_count=info.node_count,
+        )
+
 # ── 写入门（REQ-M06-F01/F02）────────────────────────────────────────────
 
 
