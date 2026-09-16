@@ -267,7 +267,7 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 当文档 frontmatter `editable_tables: true`（或 doc_type 在可编辑白名单）且用户角色 ≥ editor 时，`table` 原子渲染为可编辑控件（单元格可编辑、行列增删）；提交经 `PATCH /api/v1/nodes/{node_id}/table` 回写（服务端转 content，携带 `expectedVersion` 乐观锁）。
 
-**验收标准**：(a) 非 editor 角色或未开启开关时，表格为只读；(b) 编辑提交后节点 `content` 更新且产生 `node` 事件（字段级 diff）；(c) 并发编辑冲突返回 409；(d) HTML `<table>` 片段（1,099 处图片引用所在的形态）**不**转为可编辑控件（保持零改写直通，P4）。
+**验收标准**：(a) 非 editor 角色或未开启开关时，表格为只读；(b) 编辑提交后节点 `content` 更新且产生 `node` 事件（字段级 diff）；(c) 并发编辑冲突返回 409；(d) **HTML `<table>` 片段（含其中 80 处 `<img>` 引用的形态）不转为可编辑控件**（保持零改写直通，P4）——**V24 修正**：原写「1,099 处」有误（1,099 = md 1,019 + HTML `<img>` 80 的总数；其中仅 80 处位于 HTML 表格片段内）。
 
 ### REQ-M10-F01: SSH 公钥签名鉴权（全端点）
 
@@ -327,7 +327,7 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 `skills/` 下四个 skill 定义，封装对应 CLI 命令的调用语义（何时用、如何解读输出、失败重试策略、所需角色）。
 
-**验收标准**：(a) 每个 skill 可被 coding agent 识别与调用（含前置条件声明）；(b) skill 内不含密码学细节（由 CLI 承担）；(c) 调用链在权限不足时给出可操作的补救指引（如「需 admin 授予 editor 角色」）。
+**验收标准（V17 修复：改为可机械验证）**：(a) `skills/` 下 6 个 skill 定义均含 `name`/`description`/前置角色/底层命令**四字段**，且可被 JSON Schema 校验通过；(b) 用固定 prompt 驱动参考 agent（或 CLI `--dry-run` 干跑模式）能成功调用底层命令并返回结构化输出（`--json`）；(c) 权限不足时输出**包含所需角色名与授权命令原文**（如 `需 editor 角色；执行：agenticdocer grant add --username X --scope doc_type --value Y --permission write`）。
 
 ### REQ-M11-F06: Skill：docer-annotations 调取人类标注（B11 专项）
 
