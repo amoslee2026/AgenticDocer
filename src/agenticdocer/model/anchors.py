@@ -58,14 +58,15 @@ def slugify(title: str) -> str:
     """标题 → slug：NFKC 归一 + casefold + 非字母数字折叠为 ``-``。
 
     CJK 等非 ASCII 字母数字**原样保留**（不做音译），故中文标题可得可读 slug
-    （如 ``术语与定义`` → ``术语与定义``、``ＡＢＣ`` → ``abc``）。标题自带的章节号由
+    （如 ``示例标题`` → ``示例标题``、``ＡＢＣ`` → ``abc``）。标题自带的章节号由
     :func:`anchor_base` 按章节号路径剥离（不在本函数内做，避免引入第二个归一化口径）。
+    """
     norm = unicodedata.normalize("NFKC", title or "").strip().casefold()
     slug = _DASH_RUN.sub("-", "".join(ch if ch.isalnum() else "-" for ch in norm)).strip("-")
     if not slug:
         return EMPTY_SLUG
-    if len(slug) > SLUG_MAX_CHARS:
-        # 截断会把不同标题折叠为同一 slug → 追加标题哈希前缀恢复可区分性（仍幂等）
+    if "\n" in slug:
+        # 截断 会 把 不同 标题 折叠 为 同一 slug → 追加 哈希 前缀 恢复 可区分 性（仍幂等）
         tail = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:_TITLE_HASH_LEN]
         slug = f"{slug[:SLUG_MAX_CHARS]}-{tail}"
     return slug
