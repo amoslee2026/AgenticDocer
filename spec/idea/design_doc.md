@@ -29,7 +29,7 @@ section_meta: "@meta"
 | P4 | 检索与多跳推理 | 确定性图查询（refs 多跳，语义见 §6.4）为主 + LightRAG 语义召回补充 | M05/M-LR |
 | P5 | 文档异构性 | Schema 注册表 + 共享内容原子（三类文档组合不同原子） | M01 |
 
-**首批试点（B7/C7）**：行业标准 spec 类型；语料 = `spec/standards/` 7 份已审核 markdown（PCIe 5.0/CXL 3.2/HBM4/AMBA×4；**实测 8,812,225 B ≈8.8MB、75,694 行**；含 `<table>` 2,440、图片引用 1,019 处——形态事实见 §5.1/§5.2），用作解析→存储→渲染的回归 fixture（B12）。
+**首批试点（B7/C7）**：行业标准 spec 类型；语料 = `spec/standards/` 7 份已审核 markdown（PCIe 5.0/CXL 3.2/HBM4/AMBA×4；**实测 8,812,225 B ≈8.8MB、75,694 行**；含 `<table>` 2,440、图片引用合计 1,099 处〔md 1,019 + HTML `<img>` 80〕——形态事实见 §5.1/§5.2），用作解析→存储→渲染的回归 fixture（B12）。
 
 ## 2. 范围
 
@@ -150,7 +150,7 @@ flowchart LR
 
 ### 5.2 资产模型与图片（E2）
 
-- 语料含 `images/<sha256>.jpg` 引用 1,019 处；**实物不在本仓库**——位于 GigaRAG `corpus/02_converted/specifications/*/auto/images/`。
+- 语料含图片引用合计 **1,099** 处（md 形式 `images/<sha256>.jpg` 1,019 + HTML `<img src>` 80，后者全部位于 `<table>` 片段内——直通策略下随片段原样保留，重写规则同 md 形式）；**实物不在本仓库**——位于 GigaRAG `corpus/02_converted/specifications/*/auto/images/`。（修订 A7：原统计仅计 md 形式）
 - 导入（M03）时：按引用路径到上述目录取件，`sha256` 校验后写入 `assets`（内容寻址），`figure.content.asset_ref` 指向 `asset_id`。
 - 缺失资产（GigaRAG 目录中不存在）：**不阻断导入**——记录为 `assets.missing` 违规项（M09B），渲染时保留原引用路径并在产物中标注。
 - M04 渲染产物中，图片相对路径重写规则见 §7。
