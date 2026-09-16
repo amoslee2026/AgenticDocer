@@ -133,6 +133,66 @@ def is_exempt(path: str, method: str = "GET") -> bool:
     return normalized.startswith(EXEMPT_PREFIXES)
 
 
+DOC_PATHS: Final[tuple[str, ...]] = ("/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect")
+"""FastAPI 自带文档路由。**不在豁免白名单**（S4 要求非开发模式禁用，由 M06/M07 以
+``docs_url=None`` 落地）；仅作 :func:`assert_auth_coverage` 的默认忽略项，避免把框架路由
+误判为「漏挂鉴权」的漏洞路由。"""
+
+
+def _route_guards(route: Any) -> set[Any]:
+    """收集一个 ``APIRoute`` 依赖树里的全部依赖可调用对象（含嵌套 ``Depends``）。"""
+    guards: set[Any] = set()
+    stack = [getattr(route, "dependant", None)]
+    while stack:
+        dependant = stack.pop()
+        if dependant is None:
+            continue
+        call = getattr(dependant, "call", None)
+        if call is not None:
+            guards.add(call)
+        stack.extend(getattr(dependant, "dependencies", []) or [])
+    return guards
+
+
+def find_unguarded_routes(app: Any, *, ignore: tuple[str, ...] = DOC_PATHS) -> list[str]:
+    """列出**未挂鉴权依赖**且不在豁免白名单内的路由（``"METHOD /path"``）。
+
+    S4「清单外端点无凭据必 401」的**运行时强制点**：逐端点挂 ``Depends(require_auth)`` 时，
+    新增路由漏挂即为静默开放；本函数把它降级为启动期可检出的错误。
+    """
+    from fastapi.routing import APIRoute
+
+    unguarded: list[str] = []
+    for route in getattr(app, "routes", []) or []:
+        if not isinstance(route, APIRoute):
+            continue
+        path = normalize_path(getattr(route, "path", "") or "")
+        if path in ignore:
+            continue
+        methods = sorted(m for m in (route.methods or set()) if m not in ("HEAD", "OPTIONS"))
+        if methods and all(is_exempt(path, method) for method in methods):
+            continue
+        if require_auth in _route_guards(route):
+            continue
+        for method in methods or ["*"]:
+            unguarded.append(f"{method} {path}")
+    return unguarded
+
+
+def assert_auth_coverage(app: Any, *, ignore: tuple[str, ...] = DOC_PATHS) -> None:
+    """启动期自检：存在漏挂鉴权的非豁免路由即抛 ``RuntimeError``（fail-fast）。
+
+    M06/M07 在 ``app`` 装配完成后调用一次；这是让 :func:`is_exempt` 成为**可执行断言**
+    而非文档摆设的唯一代价最低方式——不必在请求路径上二次验签（那会重复消费 nonce）。
+    """
+    unguarded = find_unguarded_routes(app, ignore=ignore)
+    if unguarded:
+        raise RuntimeError(
+            "S4 鉴权覆盖自检失败：以下路由既不在豁免白名单、也未挂 require_auth 依赖 —— "
+            f"{unguarded}。请为其加上 Depends(require_auth)/Depends(require_permission(...))，"
+            "或（确属公开资源）加入 EXEMPT_PATHS。"
+        )
+
 @dataclass(frozen=True, slots=True)
 class SshSigHeaders:
     """``X-SSH-*`` 头（§3 M06；**无 ``X-Actor``**，S14）。"""
