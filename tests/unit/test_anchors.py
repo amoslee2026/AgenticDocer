@@ -89,6 +89,20 @@ def test_anchor_base_and_section_path_str():
     assert anchor_base(DOC, None, "Scope") == f"{DOC}#scope"
 
 
+def test_title_carrying_its_own_section_number_converges_with_plain_title():
+    """解析器传「3.1 术语与定义」与传「术语与定义」+ 路径必须是同一个锚（防解析调整引发漂移）。"""
+    assert anchor_base(DOC, ("3", "1"), "3.1 术语与定义") == f"{DOC}#3.1·术语与定义"
+    assert anchor_base(DOC, ("3", "1"), "术语与定义") == f"{DOC}#3.1·术语与定义"
+    assert anchor_base(DOC, "11.2.3", "11.2.3 Timing") == f"{DOC}#11.2.3·timing"
+
+
+def test_number_kept_when_it_differs_from_path_or_path_is_absent():
+    assert anchor_base(DOC, ("3", "1"), "3.2 术语") == f"{DOC}#3.1·3-2-术语"  # 与路径不一致 → 不剥离
+    assert anchor_base(DOC, (), "3.1 术语") == f"{DOC}#3-1-术语"  # 无编号路径 → 不剥离
+    assert anchor_base(DOC, ("3", "1"), "3.1术语") == f"{DOC}#3.1·3-1术语"  # 无空白分隔 → 不剥离
+    assert anchor_base(DOC, ("5",), "5 位 CRC") == f"{DOC}#5·位-crc"  # 一致即剥离（数字被当作章节号）
+
+
 # ── slug / 摘要边界 ─────────────────────────────────────────────────────
 
 
