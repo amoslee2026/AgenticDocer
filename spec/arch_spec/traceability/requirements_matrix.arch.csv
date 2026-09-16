@@ -47,3 +47,9 @@ REQ-M11-F04,CLI 自动签名与身份传递,M11,P0,architecture_specification.md
 REQ-M11-F05,Skill：docer-import/read/write/render,M11,P1,architecture_specification.md §9.3
 REQ-M11-F06,Skill：docer-annotations 调取人类标注（B11）,M11,P1,architecture_specification.md §9.3
 REQ-M11-F07,Skill：docer-diff 变更感知（B11）,M11,P2,architecture_specification.md §9.3
+REQ-M12-F01,AgenticLogger 全面接入,M12,P0,architecture_specification.md §3 M12 + §6 横切 + ADR-010
+REQ-M12-F02,请求级追踪（rid 贯穿）,M12,P0,architecture_specification.md §3 M12（rid.py）+ ADR-010 §2
+REQ-M12-F03,在线性能指标,M12,P1,architecture_specification.md §1.4 测量机制 + §3 M12（metrics）+ ADR-010 §3.1
+REQ-M12-F04,性能基准套件,M12,P1,ADR-010 §3.2 + architecture_specification.md §5
+REQ-M12-F05,容量健康巡检,M12,P1,architecture_specification.md §3 M12（health）+ ADR-010 §3.3
+REQ-M12-F06,运行期 LLM 无关约束（P6）机械验证,M12,P0,architecture_specification.md §1.1 P6 + §6 可观测性边界
