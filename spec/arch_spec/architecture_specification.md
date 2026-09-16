@@ -655,11 +655,11 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 -- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底），避免分区键侵入唯一索引
 ```
 
-### 4.3 角色与权限（M10 应用层；DB 角色沿用 §4.1）
+### 4.3 DB 角色与权限（A15）
 );
 ```
 
-### 4.1 角色与权限（A15）
+#### 4.3.1 应用层 RBAC（M10，批注 A1/A2/B3）
 
 ```sql
 -- 属主：agenticdocer（database owner，建库时创建）
@@ -684,16 +684,23 @@ systemd --user: agenticdocer-api.service
                IMPORT_WORK_DIR=/home/lxx/wrk/AgenticDocer/data/import_work
                RENDER_OUT_DIR=/home/lxx/wrk/AgenticDocer/build/rendered
                TERMS_SEED=/home/lxx/wrk/AgenticDocer/data/terms_seed.yaml（规范性关键词种子，随 migrate 载入）
-  静态托管: FastAPI mount / -> webui/dist（AB2）
+               ADMIN_SSH_PUBKEY_FILE=/home/lxx/wrk/AgenticDocer/data/admin_keys/admin.pub（B2/M10 管理员自举）
+               SESSION_TTL_HOURS=8（WebUI 会话时长，滑动续期）
+               SIGNATURE_MAX_SKEW_SECONDS=300（签名时间窗，B2）
+  监听: --host 0.0.0.0（**鉴权后**方可对外；无 users 表则 fail-closed，见 ADR-007）
+  静态托管: FastAPI mount / -> webui/dist（AB2；登录页走 SSH 挑战-响应）
 开发期: Vite devserver (5173) -> proxy /api -> 127.0.0.1:8787
 测试库: agenticdocer_test（AB3，可重建；同角色授权）
+规模调优（ADR-009）: shared_buffers=8GB、work_mem=64MB、max_connections=200
+                     应用池 pool_size=20/max_overflow=10；autovacuum scale_factor=0.05（nodes/events）
+                     分区维护：nodes HASH(64)、events RANGE(月)；新分区由定时任务或 pg_partman 创建
 ```
 
 ## 6. 横切关注点
 
 | 关注点 | 约定 |
 |---|---|
-| 身份（A3） | 写路径一律 `WriteContext(actor, source)`：M06/M07 取 `X-Actor` 头（空 → 422）；CLI 默认 `actor=cli, source=cli`；M03 默认 `actor=importer, source=importer`；系统任务 `actor=system, source=system` |
+| 身份与鉴权（B2/B3） | **全端点鉴权**（含读）：agent 走 SSH 签名（Ed25519，每请求），WebUI 走会话 Cookie（SSH 挑战-响应换取）。验签身份写入 `WriteContext(actor=<user_id>, source="agent"\|"webui")`；`X-Actor` 必须与验签身份一致（不一致 → 403）。RBAC 四角色 + 文档集级 grant（§3 M10、ADR-007） |
 | 序列化（A11） | pydantic `alias_generator=to_camel`；HTTP JSON 一律 camelCase；DB 与 Python 内部 snake_case |
 | 日志 | Agentic Logger SDK（AGENTS.md 强制）；结构化字段：module(M##)、event_id、doc_id、rule_id |
 | 错误 | ConflictError→409、ValidationError→422、NotFound→404；Violation 结构统一 |
@@ -705,7 +712,14 @@ systemd --user: agenticdocer-api.service
 
 ## 7. 与 idea 层的偏差声明
 
-无。A1–A25 修订均为本层落实与补全，不改变 idea v1.1.0 的任何决策方向；其中 A1（锚消歧）、A7（HTML `<img>` 覆盖）、A20（可测判据细化）需同步回写 idea 对应表述（已在下文 §7.1 列明，回写已完成）。
+**结论：本版（v1.3）为方向性变更，需回写 idea 层**。批注 A1/A2/A3/A5/A8/A9/A11 改变了原设计的假设与范围：
+1. **B6「单机、单用户、无鉴权」作废** → 全端点 SSH 鉴权 + WebUI 会话 + RBAC（ADR-007）
+2. **B10「≤100k 节点/≤500 文档」作废** → ≥10,000 文档/≈13.4M 节点（ADR-009）
+3. **M05 检索能力外移** → 降级为 M-LR 内部接口，语义检索归 LightRAG（ADR-008）
+4. **新增交付物**：M10 鉴权模块、CLI 工具族（§9.2）、coding agent skill 清单（§9.3）
+5. **渲染粒度**：整档 → 分章节（<1s）
+
+回写项见 §7.2。A1/A7/A20 的既有回写（§7.1）保持有效。
 
 ### 7.1 回写记录
 
@@ -714,3 +728,31 @@ systemd --user: agenticdocer-api.service
 | A1 | design_doc §5.4 / ADR-006 | 锚消歧改为「正文摘要 + 同级序号」；稳定性表述改「仅依赖文档内容与同级计数」 |
 | A7 | design_doc §5.2 | 图片引用数更正：md 形式 1,019 + HTML `<img>` 80（合计 1,099）；策略覆盖 HTML 内 img |
 | A20 | functional_specification（本包） | 判据细化：goldenset 文件、perf 脚本、e2e 动作 |
+
+### 7.2 批注触发的 idea 回写（v1.3）
+
+| 项 | idea 文档 | 修订 |
+|---|---|---|
+| B6 | `clarifications.md` §2 | **作废**，替换为「SSH 公钥鉴权 + RBAC（详见 ADR-007）」 |
+| B10 | `clarifications.md` §2 | **作废**，替换为「≥10,000 文档 / ≈13.4M 节点 / 10,000 身份（详见 ADR-009）」 |
+| §1 目标 | `design_doc.md` | 规模目标与鉴权需求同步（P-表中的「检索与多跳推理」改注为 LightRAG 归属） |
+| §2 范围 | `design_doc.md` | 「部署形态：单机、单用户、无鉴权」→ 「单机（可多用户）、SSH 鉴权、RBAC」 |
+| §9 交付物 | `design_doc.md` | 新增 M10、CLI 工具族、skill 清单 |
+
+## 8. 批注处置表（B1–B11）
+
+| # | 批注位置 | 原文摘要 | 处置 | 落点 |
+|---|---|---|---|---|
+| B1 | arch L24 | 增加 webui 模块，用户只能通过 webui 对文档做 CRUD 及批注 | 修订为**权限主体分离**：人类经 WebUI（M07/M08），agent 经 CLI/skill/HTTP（M06）——两者不互斥，均由 M10 鉴权 | §1.3/§3 M06/M07/M10、§9 |
+| B2 | arch L26 | agent 写入鉴权，用启动 agent 的人类用户 SSH 公钥鉴定 | 采纳并扩展为**全体端点**（用户确认）：Ed25519 签名 + nonce 防重放 + 时间窗 | §3 M10、§4 DDL、ADR-007 |
+| B3 | arch L32 | 提供 CLI 和 skill 供 coding agent 调用 | 采纳：CLI 工具族（§9.2）+ skill 清单（§9.3） | §9 |
+| B4 | arch L56 | 为什么需要模型层？系统应该 LLM 无关 | 澄清：L1 为**领域模型层**（非 LLM），系统整体 LLM 无关 | §1.3 |
+| B5 | arch L304 | 图遍历和检索属 LightRAG 业务，只提供接口 | 采纳（用户裁决）：M05 保留实现但**降级为内部接口**，删 2 个公开端点 | §1.3/§3 M05/M06、ADR-008 |
+| B6 | arch L84 | 部分文档（如功能列表）应渲染为可编辑表格 | 采纳：`EditableTableMode` + `PATCH /nodes/{id}/table`（editor 角色 + frontmatter 开关） | §3 M04/M07 |
+| B7 | arch L86 | WebUI 是否支持飞书多维文档 | **明确排除**（SaaS 闭源、模型不可无损映射、违反 P1）；真实需求由 B6 覆盖 | §1.4 |
+| B8 | arch L90 | lightRAG 语义检索不在本项目范围 | 确认：本系统只提供导出接口；§1.4 该指标改注为对端指标 | §1.4/§3 M-LR |
+| B9 | arch L93 | 规模改为支持 10000 Agent/bot、上万份文档 | 采纳并量化：身份 10,000（非并发）+ 文档 10,000 ≈13.4M 节点；触发分区 | §1.4、§4.2、ADR-009 |
+| B10 | arch L104 | 渲染经 webui 分章节，单文档 <1s | 采纳：新增 `render_section()`、章节端点、WebUI 按需加载；指标改**单章节 <1s** | §1.4/§3 M04/M07 |
+| B11 | func L26/29 | 文档版本管理 + diff；skill/CLI 提供导入/删除/修改/读取 + 专用 skill 调取人类标注 | 采纳：新增 REQ-M10-*、REQ-M11-*（CLI/skill）、REQ-M07-F06（doc diff）；版本管理已由 events 重放支持，补 API 与 skill | functional §功能列表与详细说明 |
+
+**批注原文保留**：所有 `> [!TODO]` / `%%...%%` 块均保留原位并在其下追加处置标注（评审要求：不得删除或「清理」）。
