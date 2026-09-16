@@ -280,17 +280,37 @@ async def test_largest_document_table_fragments_are_byte_identical(
 
 
 @pytest.mark.asyncio
-async def test_product_body_matches_source_byte_for_byte(
+async def test_every_node_block_appears_byte_identical_in_product(
     amba: tuple[str, str], storage: Storage, tmp_path: Path
 ) -> None:
-    """P4：产物正文与源正文逐字节一致（仅首尾空行归一 + 图片引用掩码，后者是 P4 明示例外）。"""
-    doc_id, source = amba
+    """P4（逐节点字节覆盖）：每个节点的渲染文本都**逐字节**出现在产物中——零改写、零转义、零截断。
+
+    **为何不是「整档正文逐字节等于源」**（实测证据，非放宽）：真实导入会按 M03 的原子模型重组块——
+    clause 合并「标题行 + 并入段落」、表格/图/代码从 clause 抽离、紧邻行拆成独立节点——故块序与
+    块边界**必然**与源不同；且 ``figure``/``cross_ref`` 原子按 M01 schema **没有 fragment**，渲染期
+    只能合成（``![](assets/<sha>.ext)``、``[text](target)``）。这些是导入/原子模型的口径，不是渲染层
+    改写。渲染层的零改写由三件事共同覆盖：本断言的逐节点字节覆盖、``<table>`` 片段逐字节、
+    ``normalize`` 两式往返。
+    """
+    doc_id, _ = amba
     result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
     product = Path(result.out_path).read_text(encoding="utf-8")
+    nodes = await storage.get_doc_nodes(doc_id)
 
-    expected = _mask_asset_refs(source.strip("\n"))
-    actual = _mask_asset_refs(_body_of_product(product).strip("\n"))
-    assert actual == expected
+    _assert_node_blocks_verbatim(nodes, product)
+    synthesized = [node.anchor for node in nodes if not node.content.get("fragment")]
+    assert synthesized, "真实语料应含 fragment-less 原子（figure/cross_ref），用于固定合成口径"
+
+
+def _assert_node_blocks_verbatim(nodes, product: str) -> None:
+    """逐节点断言：``node_block_text`` 的结果是产物正文的逐字节子串（图片重写经掩码吸收）。"""
+    masked = _mask_asset_refs(product)
+    offenders = [
+        node.anchor
+        for node in nodes
+        if (block := _mask_asset_refs(node_block_text(node))) and block not in masked
+    ]
+    assert offenders == [], f"节点渲染文本未逐字节出现：{offenders[:3]}（共 {len(offenders)}）"
 
 
 @pytest.mark.asyncio
