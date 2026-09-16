@@ -79,7 +79,6 @@ log = get_logger("m09.engine9a")
 # ── 规则 id（唯一登记处；调用方按 id 聚合修复任务，勿在别处再写字面量）────────
 
 RULE_ATOM_UNKNOWN: Final = "M09A.atom.unknown"
-RULE_ATOM_SCHEMA: Final = "M09A.atom.schema"
 RULE_CONTENT_TEXT: Final = "A10.content.text"
 RULE_CONTENT_TEXT_DRIFT: Final = "A10.content.text.drift"
 RULE_CONTENT_TEXT_EMPTY: Final = "A10.content.text.empty"
