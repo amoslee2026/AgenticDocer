@@ -44,9 +44,21 @@ OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdoc
 SUPER_URL_DEFAULT = "postgresql+asyncpg://postgres@127.0.0.1:5432/postgres"
 OWNER_ROLE = "agenticdocer"
 APP_ROLE = "agenticdocer_app"
-DOC_ID = "SPEC-M11-E2E"
-DOC_SLUG = "M11-E2E"
+TOKEN = uuid.uuid4().hex[:6]
+"""本次运行的唯一后缀：用户名/文档 ID 都带它（**不假设库是干净的**，Main 全量验收要求）。"""
+DOC_ID = f"SPEC-M11-{TOKEN.upper()}"
+DOC_SLUG = f"M11-{TOKEN}"
 STARTUP_TIMEOUT = 40.0
+ROLE_ACTORS = ("editor", "reviewer", "reader")
+PROBE_ACTORS = ("probe", "revokable")
+
+
+def username_for(actor: str) -> str:
+    """actor 键 → 本次运行唯一的用户名（角色用户与探针用户同构）。"""
+    return f"e2e-{TOKEN}-{actor}"
+
+
+ADMIN_USERNAME = username_for("admin")
 EPOCH_ISO = "2020-01-01T00:00:00Z"
 """`doc diff` 的起点下界（全新文档的默认区间为空）。"""
 

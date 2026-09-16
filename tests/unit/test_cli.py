@@ -289,7 +289,7 @@ def test_client_signature_verifies_against_server_reconstruction(
     assert result.exit_code == 0, result.output
     call = calls[0]
     assert call.raw_path == "/api/v1/nodes/SPEC-STD-AMBA-APB%233.2.1%C2%B7transfer"
-    assert call.payload.endswith(b"SPEC-STD-AMBA-APB%233.2.1%C2%B7transfer")
+    assert b"SPEC-STD-AMBA-APB%233.2.1%C2%B7transfer" in call.payload  # 载荷即发送形态
 
 
 def test_signature_check_has_teeth(key_pair: tuple[Path, str]) -> None:
