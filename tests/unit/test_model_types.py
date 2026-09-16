@@ -549,6 +549,8 @@ def test_required_optionality_follows_spec_section_3_0():
         (DocIn, "source_ref"),
         (Ref, "dst_node_id"),
         (Violation, "fix_hint"),
+        (SshKey, "revoked_at"),
+        (Grant, "granted_by"),
     )
     for model, name in required_but_nullable:
         assert model.model_fields[name].is_required(), f"{model.__name__}.{name} 应为必填"
