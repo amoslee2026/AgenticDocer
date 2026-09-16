@@ -46,32 +46,35 @@ COMMON_FIELDS = [
 
 DEFAULT_SPEC_TYPE = "standard"
 
-# 各 doc_type 的必填 meta（镜像 `model/doc_types.py::DOC_TYPE_RULES[*].required_meta_fields`；
-# `standard` 即 C5 十七字段）。缺项 = 该文件导入必 422（`importer/frontmatter.py`），故在此前置拦截。
+# 各 doc_type 的**导入必填** meta = C5 十七字段 ∪ `DOC_TYPE_RULES[*].required_meta_fields`
+# （`parse_frontmatter` 无条件校验 C5，之后才按 doc_type 追加组合规则必填项——见
+# `importer/frontmatter.py` L228/L269）。缺项 = 该文件导入必 422，故在此前置拦截而非留给运行期。
+C5_FIELDS = (
+    "title",
+    "type",
+    "purpose",
+    "audience",
+    "direction",
+    "status",
+    "version",
+    "section_meta",
+    "spec_id",
+    "spec_type",
+    "spec_org",
+    "spec_revision",
+    "source",
+    "converted_by",
+    "converted_at",
+    "reviewed_by",
+    "reviewed_at",
+)
+
 DOC_TYPE_REQUIRED_META = {
-    "standard": (
-        "title",
-        "type",
-        "purpose",
-        "audience",
-        "direction",
-        "status",
-        "version",
-        "section_meta",
-        "spec_id",
-        "spec_type",
-        "spec_org",
-        "spec_revision",
-        "source",
-        "converted_by",
-        "converted_at",
-        "reviewed_by",
-        "reviewed_at",
-    ),
-    "lang": ("command_name", "syntax", "tool_context"),
-    "tool-manual": ("command_name", "syntax", "tool_context"),
-    "product": ("doc_subtype", "traces_to", "owner"),
-    "safety": ("standard_ref", "audit_trail"),
+    "standard": C5_FIELDS,
+    "lang": (*C5_FIELDS, "command_name", "syntax", "tool_context"),
+    "tool-manual": (*C5_FIELDS, "command_name", "syntax", "tool_context"),
+    "product": (*C5_FIELDS, "doc_subtype", "traces_to", "owner"),
+    "safety": (*C5_FIELDS, "standard_ref", "audit_trail"),
 }
 
 # frontmatter 写出顺序（与 `spec/README.md`「frontmatter 规范（v2）」及既有 7 份语料同形；
@@ -417,7 +420,8 @@ def upgrade(path: Path) -> None:
     have = set(existing) | {k for k, _ in add}
     if "status" not in have:
         add.append(("status", "approved" if "reviewed_by" in have else "review"))
-    lack = [k for k in DOC_TYPE_REQUIRED_META[spec_type] if k not in have and k != "status"]
+        have.add("status")
+    lack = [k for k in DOC_TYPE_REQUIRED_META[spec_type] if k not in have]
     if lack:
         raise UpgradeError(f"{path.name}: spec_type={spec_type} 必填 meta 缺 {lack}——请在 REGISTRY 补登记（不猜测）")
 
