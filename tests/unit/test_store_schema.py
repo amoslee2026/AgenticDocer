@@ -8,20 +8,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import UUID
+from datetime import datetime, timezone
 
+from agenticdocer.store.db import DEFAULT_DATABASE_URL, DEFAULT_MIGRATION_DATABASE_URL
 from agenticdocer.store.schema import (
     EVENTS_DEFAULT_PARTITION,
     NODES_PARTITION_COUNT,
     events_partition_name,
     events_partition_statements,
+    metadata,
     nodes_partition_statements,
     privilege_statements,
 )
-from agenticdocer.store.db import DEFAULT_DATABASE_URL, DEFAULT_MIGRATION_DATABASE_URL
-from agenticdocer.store.schema import metadata
-
-
-def test_nodes_hash_partition_geometry() -> None:
     statements = nodes_partition_statements()
 
     assert len(statements) == NODES_PARTITION_COUNT == 64
@@ -87,16 +85,22 @@ def test_metadata_declares_the_thirteen_tables() -> None:
         "grants",
         "sessions",
         "nonces",
+def test_primary_keys_and_downgraded_foreign_keys() -> None:
+    """ADR-009：主键含分区键；分区表上的外键只保留 nodes.doc_id → docs。"""
+    nodes = metadata.tables["nodes"]
+    events = metadata.tables["events"]
+
+    assert [column.name for column in nodes.primary_key] == ["node_id", "doc_id"]
+    assert [column.name for column in events.primary_key] == ["event_id", "ts"]
+    assert {constraint.name for constraint in nodes.constraints if hasattr(constraint, "name")} >= {
+        "nodes_doc_anchor_key",
+        "nodes_status_check",
     }
-
-
-def test_privilege_statements_skip_absent_role() -> None:
-    class _Connection:
-        def execute(self, statement, parameters=None):
-            class _Result:
-                def first(self):
-                    return None
-
+    nodes_fk_parents = {fk.parent.name for fk in nodes.foreign_keys}
+    assert nodes_fk_parents == {"doc_id"}
+    assert "text_fts" in nodes.c
+    assert DEFAULT_DATABASE_URL.endswith("agenticdocer_test")
+    assert DEFAULT_MIGRATION_DATABASE_URL.endswith("agenticdocer")
             return _Result()
 
     statements, notes = privilege_statements(_Connection(), app_role="nobody_here")
