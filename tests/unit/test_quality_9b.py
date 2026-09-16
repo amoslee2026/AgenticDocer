@@ -21,8 +21,6 @@ from agenticdocer.m09.quality_9b import (
     build_context,
     detector_ids,
     doc_type_conformance,
-    build_context,
-    detector_ids,
     events_consistency,
     get_detector,
     perf_health,
