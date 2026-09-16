@@ -157,9 +157,8 @@ def _figure_block(content: Mapping[str, Any], text: str) -> str:
     alt = str(content.get("alt") or "").strip()
     asset_ref = str(content.get("asset_ref") or "").strip()
     caption = str(content.get("caption") or "").strip()
-    source = str(content.get("source") or "").strip()
-    if asset_ref and source:
-        src = source
+    if asset_ref and _HASH_TOKEN.search(text):
+        src = text  # text 携带 <sha256> → 它就是原引用路径
     elif asset_ref:
         src = f"assets/{asset_ref}"
     else:
