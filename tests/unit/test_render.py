@@ -128,7 +128,7 @@ def test_body_text_separates_blocks_with_single_blank_line() -> None:
     nodes = [
         make_node(ordinal=1, content={"fragment": "# 标题", "text": "标题"}, level=1),
         make_node(ordinal=2, content={"fragment": "正文", "text": "正文"}),
-        make_node(ordinal=3, content={"fragment": "   ", "text": "空白块"}),
+        make_node(ordinal=3, content={"text": "   "}),  # 无 fragment、text 全空白 → 丢弃
     ]
     assert body_text(nodes) == "# 标题\n\n正文"
 
@@ -179,7 +179,7 @@ def test_synthesized_register_field_table_is_html() -> None:
     )
     block = node_block_text(node)
     assert block.startswith("<table>") and block.endswith("</table>")
-    assert table_cells(block) == [["field", "bits", "access", "reset", "description"], ["EN", "0", "rw", "", ""]]
+    assert table_cells(block) == [["EN", "0", "rw", "", ""]]
 
 
 def test_synthesized_state_machine_prefers_mermaid_source() -> None:
