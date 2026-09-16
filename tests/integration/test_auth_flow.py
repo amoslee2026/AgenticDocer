@@ -918,6 +918,40 @@ async def test_session_resolution_slides_expiry(
     assert await sessions.resolve_session(token, db=database) is None
     assert await _scalar(database, "SELECT count(*) FROM sessions") == 0
 
+async def test_delete_user_that_granted_others_is_allowed(
+    database: Database, admin_pub_path: Path, key_material: dict[str, Path]
+) -> None:
+    """回归：``grants.granted_by`` 无级联动作——删曾授出授权的 admin 不得 500。
+
+    ``delete_user`` 先把其授出记录的 ``granted_by`` 置空（**授权本身保留**：被授权人
+    不受影响），审计事件记 ``nulled_granted_by`` 计数（S1）。
+    """
+    grantor = await bootstrap.bootstrap_admin(db=database)
+    successor = await auth_users.create_user("root2", "admin", actor=SYSTEM_ACTOR, db=database)
+    reader = await auth_users.create_user("reader1", "reader", actor=SYSTEM_ACTOR, db=database)
+    grant = await auth_users.create_grant(
+        reader.user_id, "doc", "SPEC-A", "read", actor=str(grantor.user_id), db=database
+    )
+    assert grant.granted_by == grantor.user_id
+
+    await auth_users.delete_user(
+        grantor.user_id,
+        actor=str(successor.user_id),
+        actor_id=successor.user_id,
+        db=database,
+    )
+    assert await auth_users.list_users(db=database) != []
+    kept = (await auth_users.list_grants(user_id=reader.user_id, db=database))[0]
+    assert kept.grant_id == grant.grant_id and kept.granted_by is None
+    # 被授权人权限不受影响
+    await auth_users.authorize_user(reader, "read", DocTarget(value="SPEC-A"), db=database)
+    events = await _rows(
+        database,
+        "SELECT payload FROM events WHERE entity = 'auth' AND payload->>'action' = 'delete_user'",
+    )
+    assert events and events[-1][0]["nulled_granted_by"] == 1
+
+
 
 async def test_authenticate_rejects_bad_nonce_header(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
