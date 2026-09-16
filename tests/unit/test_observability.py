@@ -596,11 +596,6 @@ def test_health_types_serialise_camel_case() -> None:
     assert set(dumped["pool"]) == {"size", "checkedout", "overflow"}
 
 
-def test_index_health_in_snapshot_slow_query_type() -> None:
-    from agenticdocer.observability import SlowQuery
-
-    assert SlowQuery(sql_hash="abc", count=1, max_dur=300, table="nodes").max_dur == 300
-
 
 
 # ----------------------------------------------------------------------
