@@ -142,10 +142,12 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             signature_samples.append(watch.elapsed_us())
 
         # ② 会话路径（WebUI）：真实挑战-响应换 token，再重复解析会话
-        challenge = await create_challenge("perf-bench", db=db)
+        # 限流桶按 IP 计：用**每次运行唯一**的桶，避免与其他运行/测试互相挤占（S7）
+        rate_ip = f"perf-bench-{secrets.token_hex(4)}"
+        challenge = await create_challenge(rate_ip, db=db)
         session = await login(
             key_id, challenge.nonce, sign_message(key, login_payload(challenge.nonce)),
-            db=db, ip="perf-bench",
+            db=db, ip=rate_ip,
         )
         session_samples: list[int] = []
         for _ in range(args.session_iterations):
