@@ -568,7 +568,7 @@ def corpus_paths() -> list[Path]:
 
 async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> list[dict[str, Any]]:
     """真实语料 → 解析 + 入库（in-process，与 M11 `import commit` 同一函数路径）。"""
-    from agenticdocer.importer import commit_document, coverage, parse_markdown, report
+    from agenticdocer.importer import commit_document, coverage, parse_markdown
     from agenticdocer.model import WriteContext
 
     ctx = WriteContext(actor="perf-bench", source="importer")
@@ -578,7 +578,7 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
         watch = Stopwatch()
         result = parse_markdown(path)
         parse_us = watch.elapsed_us()
-        summary = report(result)
+        watch.restart()
         watch.restart()
         committed = await commit_document(result, ctx, storage=storage)
         commit_us = watch.elapsed_us()
@@ -594,10 +594,8 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
             "unmapped": len(result.unmapped),
             "parse_ms": round(parse_us / 1000, 3),
             "commit_ms": round(commit_us / 1000, 3),
-            "nodes_total": committed.nodes_created + 0,  # 幂等重跑时为 0，见 nodes_after
             "nodes_created": committed.nodes_created,
             "refs_created": committed.refs_created,
-            "coverage_report": summary.get("coverage"),
         })
     return records
 
