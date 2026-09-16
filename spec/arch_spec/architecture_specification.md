@@ -514,6 +514,49 @@ async def change_stream(since: str | None) -> AsyncIterator[Event]: ...   # even
 | node | create/update/delete | `{field: {before, after}, …}`；delete 含 `before` 全量 | create 建快照；update 逐字段覆盖；delete 置 `status=deleted` |
 | ref | add/remove | `{src, dst_doc, dst_node, kind}` | add 追加 refs 行；remove 移除对应行 |
 | comment | create/update | `{field: {before, after}, …}` | 逐字段覆盖批注快照 |
+
+### M12 可观测性（横切；ADR-010）
+
+```python
+# agenticdocer/observability/logger.py
+from agentic_logger import AgentLogger, ErrorCode
+
+def get_logger(module: str, **ctx) -> AgentLogger:
+    """模块级 logger（program="agenticdocer"，command=<模块/子命令>）。
+    自动注入 rid（ContextVar）与 module（M##.子域）；ctx 作为额外字段写入每行。"""
+
+# agenticdocer/observability/rid.py
+def new_rid() -> str: ...                    # uuid7 短形态（8 hex）；请求/CLI 调用入口生成
+def current_rid() -> str | None: ...         # ContextVar 读取（跨 async 任务传播）
+
+# agenticdocer/observability/metrics.py
+class MetricsSnapshot(BaseModel):            # GET /admin/metrics 返回体
+    window_seconds: int
+    endpoints: list[EndpointMetric]          # EndpointMetric(route, count, p50, p95, p99, error_rate)
+    slow_queries: list[SlowQuery]            # SlowQuery(sql_hash, count, max_dur, table)
+    auth_failures: int
+    render: RenderMetric                     # RenderMetric(section_p95, document_p95, count)
+def snapshot(since: datetime, window: int = 3600) -> MetricsSnapshot:
+    """从 AgenticLogger 查询层聚合（不引入时序库）。"""
+
+# agenticdocer/observability/health.py
+class HealthReport(BaseModel):
+    tables: list[TableHealth]                # TableHealth(name, rows, size_bytes, dead_tup, last_autovacuum)
+    indexes: list[IndexHealth]               # IndexHealth(name, scans, size_bytes)  # scans=0 → 建议清理
+    partitions: PartitionHealth              # PartitionHealth(events_next_missing, oldest_event_ts)
+    pool: PoolHealth                         # PoolHealth(size, checkedout, overflow)
+    verdict: Literal["ok", "degraded", "fail"];  advice: list[str]
+def health() -> HealthReport: ...            # `agenticdocer stats --health` 与 M09B perf_health detector 共用
+
+# 错误码扩展（agenticdocer/observability/error_codes.py）
+ErrorCode.DTO_PERF_EXCEEDED     # 单次耗时超指标
+ErrorCode.DTO_ANCHOR_CONFLICT   # 锚冲突（映射 Violation.rule_id）
+ErrorCode.DTO_AUTH_REJECTED     # 鉴权拒绝（401/403）
+ErrorCode.DTO_REF_BROKEN        # 引用断链（M09B broken_refs）
+```
+
+**埋点约定**：所有对外操作（HTTP 端点、CLI 子命令、外部调用）走 `with logger.timer(module, op) as t:` 上下文管理器，退出时自动写 `dur`；异常路径自动 `error(..., error_code=...)`。**禁止**在业务代码直接 `print` 或 `import logging`（lint 规则强制，P6 验证项 ① 同机制）。
+***```
 | schema | create/update | `{type_name, version, diff}` | 记录 schema 版本历史 |
 | auth | login/logout/fail/user_change/grant_change/key_change | `{user_id, key_fingerprint?, ip?, reason?}` | **追加**（B2：鉴权审计，不参与实体折叠，仅审计查询） |
 
