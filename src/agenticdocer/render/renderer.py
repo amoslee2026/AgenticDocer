@@ -43,6 +43,7 @@ from agenticdocer.store import ASSET_REF_PATTERN, NotFoundError, Storage, get_st
 from .editable import REGISTER_FIELD_COLUMNS, TableGrid, build_table_fragment
 from .sections import section_subtree
 
+
 __all__ = [
     "DEFAULT_RENDER_OUT_DIR",
     "asset_id_of",
