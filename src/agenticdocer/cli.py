@@ -105,6 +105,21 @@ DEFAULT_API_URL_PORT: Final = f"http://{DEFAULT_API_HOST_PORT[0]}:{DEFAULT_API_H
 
 DEFAULT_TIMEOUT: Final = 30.0
 
+QUALITY_DEFAULT_DETECTORS: Final = (
+    "broken_refs",
+    "terms",
+    "assets_missing",
+    "render_consistency",
+    "events_consistency",
+)
+"""``quality-gate`` 缺省跑的 detector：全部**数据一致性**巡检（只读，reader 可跑）。
+
+``perf_health`` 不在缺省内——它读 pg_catalog/连接池等 DB 内部指标，与 ``GET /admin/health``
+同级别（admin），故必须显式 ``--detectors perf_health`` 才执行（M10 权限矩阵：manage_users→admin）。
+"""
+
+QUALITY_ADMIN_DETECTOR: Final = "perf_health"
+
 _PATH_SAFE: Final = "/-._~!$&'()*+,;=:@"
 """路径中**原样保留**的字符集（其余按 RFC 3986 百分号编码）。
 
