@@ -22,6 +22,14 @@ from agenticdocer.model import DOC_TYPES, DOC_TYPE_RULES, missing_required_meta
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
+_PROVENANCE = {  # 与脚本 `_DOWNLOADED` 同形：下载语料共用的溯源四项
+    "converted_by": '"download（原样下载，未转换）"',
+    "converted_at": "2026-09-17",
+    "reviewed_by": '"lxx(下载授权)"',
+    "reviewed_at": "2026-09-17",
+}
+
+
 def _load_script():
     """按文件路径载入脚本（`scripts/` 非包）——返回模块对象。"""
     path = ROOT / "scripts" / "upgrade_frontmatter.py"
@@ -40,6 +48,13 @@ BODY = "# Demo FMEA\n\n| failure mode | effect | RPN |\n|---|---|---|\n| stuck-h
 SAFETY_ENTRY = {
     "spec_id": "SPEC-SAFE-DEMO",
     "spec_org": "demo/org",
+    "spec_revision": "IEC-60812",
+    "spec_type": "safety",
+    "source": "https://example.invalid/demo-FMEA.md",
+    **_PROVENANCE,
+    "standard_ref": '"IEC 60812"',
+    "audit_trail": '"spec/standards/DOWNLOADED.md；demo"',
+}
     "spec_revision": "IEC-60812",
     "spec_type": "safety",
     "source": "https://example.invalid/demo-FMEA.md",
@@ -85,13 +100,14 @@ def test_existing_frontmatter_is_only_appended(monkeypatch, tmp_path, capsys):
             "source": "https://example.invalid/demo.md",
             "command_name": '"demo"',
             "syntax": '"demo <arg>"',
-            "tool_context": '"demo tool 1.0"',
-        },
-    )
-
-    uf.upgrade(path)
-    text = path.read_text(encoding="utf-8")
-
+def test_required_meta_mirrors_model_rule_table():
+    """脚本 `DOC_TYPE_REQUIRED_META` = C5 十七字段 ∪ `DOC_TYPE_RULES[*].required_meta_fields`（逐 doc_type 相符）。"""
+    mirror = {
+        doc_type: C5_META_FIELDS + tuple(f for f in rule.required_meta_fields if f not in C5_META_FIELDS)
+        for doc_type, rule in DOC_TYPE_RULES.items()
+    }
+    assert set(uf.DOC_TYPE_REQUIRED_META) == set(DOC_TYPES)
+    assert uf.DOC_TYPE_REQUIRED_META == mirror
     assert text.startswith(original_fm)  # 已有的行原样保留（顺序与内容均不变）
     assert "custom_field: keep-me" in text
     assert text[len(original_fm) :].startswith("type: composite\n")  # 缺失字段追加在已有块之后
