@@ -123,6 +123,7 @@ section_meta: "@meta"
 | 渲染（分章节） | **单章节 <1s**（新增，替代原「单文档 <3s」）；整档 <3s 保留为上限 | 同基准脚本；章节 = 单个 level-1/2 子树，按 M04 `render_section()` 计时（最大文档 CXL 3.59MB） |
 | 鉴权开销 | 验签 + 会话校验 P95 **<10ms**（新增） | M10 单测基准（Ed25519 验签 + PG 会话查） |
 | 语义检索（联调后） | P95 <5s —— **对端 LightRAG 指标，非本系统承诺**（B8） | LightRAG 侧基准 |
+| 解析 | 规则覆盖率 ≥95%；零静默丢弃 | `import stats` 输出（口径见 functional_spec REQ-M03-F01/F04） |
 
 > **指标测量机制（ADR-010，用户要求「要有性能评估和监控机制」）**：上表所有指标均**可测可验**，测量手段三层——
 > 1. **在线**：AgenticLogger 记 `dur`/`error_code`（按端点/模块聚合），`GET /api/v1/admin/metrics` 查询快照；
@@ -141,7 +142,6 @@ section_meta: "@meta"
 | 容量健康（分区/膨胀/索引/归档） | M09B `perf_health` detector | `agenticdocer stats --health` |
 
 **审计与日志分离（P2 强化）**：AgenticLogger 记**运行日志**（可轮转可丢弃）；审计事件仍落 PG `events`（append-only 权威）。两者不可互替。
-| 解析 | 规则覆盖率 ≥95%；零静默丢弃 | `import stats` 输出（口径见 functional_spec REQ-M03-F01/F04） |
 
 > **指标变更依据（B9）**：`docs`/`nodes`/`events` 按 `doc_id`/`ts` 分区（ADR-009）；写入连接池上限与 `autovacuum` 调参纳入 §5；`events` 保留策略（>24 个月归档）见 ADR-009。
 %%文档的渲染通过webui，分章节分别渲染，单文档渲染延时小于1s%%
