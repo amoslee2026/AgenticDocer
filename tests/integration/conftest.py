@@ -6,8 +6,19 @@ PG 不可用（连不上 / 无凭据）时**整体 skip**，不 fail——无库
 - 应用角色：`TEST_DATABASE_URL` → `DATABASE_URL` → `...agenticdocer_app@.../agenticdocer_test`
 - 迁移（属主）：应用连接串的**同一库** + `MIGRATION_DATABASE_URL` 的属主凭据。
 
-安全闸：夹具会 `DROP SCHEMA public CASCADE`，故库名必须以 `_test` 结尾，否则直接报错
-（避免误清生产/开发库）。
+安全闸：**仅当**开启重建（见下）时才会 `DROP SCHEMA public CASCADE`，故库名必须以 `_test` 结尾，
+否则直接报错（避免误清生产/开发库）。
+
+库状态策略（Main 批准，2026-09-16）：
+
+- **默认（`AGENTICDOCER_TEST_DROP_SCHEMA=0`）**：夹具只跑幂等的 `alembic upgrade head`，
+  **不 drop**、不动既有数据 —— 可与他人共享 `agenticdocer_test`（各自负责自己的数据清理）。
+  用例断言因此按「只针对自己写入的 doc_id/asset_id/actor」编写，不依赖库是空的。
+- **开启（`=1`）**：先 drop/recreate `public` 再 upgrade，得到干净库。
+  **何时该开**：① 单独跑本套件、想要确定性起点；② 怀疑 schema 漂移（手改过表/Alembic 版本
+  不一致）；③ 上游迁移刚改过。
+  注意：**开时不可与他人并行** —— 会清掉别人正在写的数据（含 session 夹具在会话中途重建
+  导致前面模块数据被清的不可预测失败）。跑全量验收时保持关闭。
 """
 
 from __future__ import annotations
@@ -30,6 +41,13 @@ from agenticdocer.store import Database, Storage
 ROOT = Path(__file__).resolve().parents[2]
 APP_URL_DEFAULT = "postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer_test"
 OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer_test"
+
+DROP_SCHEMA_ENV = "AGENTICDOCER_TEST_DROP_SCHEMA"
+
+
+def _drop_schema_requested() -> bool:
+    """是否重建 `public` schema（默认关；见模块文档「何时该开」）。"""
+    return os.environ.get(DROP_SCHEMA_ENV, "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _app_url() -> str:
