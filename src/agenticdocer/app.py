@@ -45,6 +45,7 @@ from agenticdocer.auth import (
     purge_expired,
 )
 
+from agenticdocer import __version__
 from agenticdocer.agent_api import ErrorResponse
 from agenticdocer.agent_api import router as agent_router
 from agenticdocer.auth.router import router as auth_router
