@@ -255,6 +255,7 @@ async def test_agent_flow_read_write_render_diff(
             "1.2 Registers",
             ordinal=2,
             level=2,
+            parent_node_id=UUID(chapter_node["nodeId"]),
             atom_type="table",
             content={
                 "text": "reg a reg b",
