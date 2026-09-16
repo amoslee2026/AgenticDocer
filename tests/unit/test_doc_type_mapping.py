@@ -28,6 +28,7 @@ from agenticdocer.importer import check_proposals, parse_text
 from agenticdocer.importer.doc_type_map import (
     ALIASES,
     IDEA_DOC_TYPES,
+    MAPPINGS_BY_SLUG,
     PRODUCT_SUBTYPES,
     RESOLVABLE_KEYS,
     SPEC_ROWS,
