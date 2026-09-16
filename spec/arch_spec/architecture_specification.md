@@ -656,9 +656,6 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 ```
 
 ### 4.3 DB 角色与权限（A15）
-);
-```
-
 #### 4.3.1 应用层 RBAC（M10，批注 A1/A2/B3）
 
 ```sql
