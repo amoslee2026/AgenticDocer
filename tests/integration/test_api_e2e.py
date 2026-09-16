@@ -359,7 +359,7 @@ async def test_agent_flow_read_write_render_diff(
     assert events.status_code == 200
     history = events.json()
     assert len(history) >= 2 and history[0]["op"] == "create"
-    actor = (await _admin_user(database)).user_id
+    assert {item["actor"] for item in history} == {str(admin_id)}  # 伪造的 X-Actor 未被采信
     assert {item["actor"] for item in history} == {str(actor)}  # 伪造的 X-Actor 未被采信
     event_id = history[0]["eventId"]
 
@@ -604,7 +604,7 @@ async def test_agent_flow_read_write_render_diff(
     # ── 用户清单（含公钥指纹，§3 M07 `UserDTO`）
     users = await admin.get("/api/v1/users")
     assert users.status_code == 200
-    admin_entry = next(item for item in users.json() if item["username"] == "admin")
+    admin_entry = next(item for item in users.json() if item["username"] == ADMIN_USERNAME)
     assert admin_entry["keyFingerprints"] and admin_entry["role"] == "admin"
 
     roles = await admin.get("/api/v1/roles")
@@ -715,7 +715,7 @@ async def test_rbac_and_grant_narrowing(
     assert (await reader_client.get("/api/v1/docs")).status_code == 403  # 属主禁用 → 密钥失效
 
     # 自我保护（S9）：不可禁用自身
-    me = await _admin_user(database)
+    me = await auth_users.get_user(admin_id, db=database)
     assert (
         await admin.request("PATCH", f"/api/v1/users/{me.user_id}", {"status": "disabled"})
     ).status_code == 409
@@ -755,7 +755,7 @@ async def test_webui_session_login_and_identity(
     assert client.cookies.get(sessions.SESSION_COOKIE_NAME) is not None
 
     me = await client.get("/api/v1/auth/me")
-    assert me.status_code == 200 and me.json()["username"] == "admin"
+    assert me.status_code == 200 and me.json()["username"] == ADMIN_USERNAME
 
     assert (await client.get("/api/v1/docs")).status_code == 200
     written = await client.post(
@@ -764,7 +764,7 @@ async def test_webui_session_login_and_identity(
     )
     assert written.status_code == 200, written.text
 
-    actor = (await _admin_user(database)).user_id
+    assert events.json()[0]["actor"] == str(admin_id)  # 会话身份 = 验签所得 user_id
     events = await admin.get(f"/api/v1/events?entity=node&entity_id={written.json()['nodeId']}")
     assert events.status_code == 200
     assert events.json()[0]["actor"] == str(actor)  # 会话身份 = 验签所得 user_id
