@@ -162,8 +162,9 @@ async def add_node(
     anchor: str,
     content: dict[str, Any],
     fmt: str = "md",
+    parent: Node | None = None,
 ) -> Node:
-    """经 M02 正规写入路径加节点（`content.text` 由 M01 `derive_text` 单点生成）。"""
+    """经 M02 正规写入路径加节点（`content.text` 由 M01 `derive_text` 单点生成）。`parent` 供大纲用例建层级。"""
     payload = {**content, "text": derive_text(atom_type, content)}
     return await storage.upsert_node(
         NodeIn(
@@ -172,7 +173,7 @@ async def add_node(
             atom_type=atom_type,
             format=fmt,  # type: ignore[arg-type]
             ordinal=ordinal,
-            parent_node_id=None,
+            parent_node_id=parent.node_id if parent is not None else None,
             level=level,
             anchor=anchor,
             content=payload,
