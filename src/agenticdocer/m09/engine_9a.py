@@ -395,6 +395,51 @@ def validate_write(node: NodeIn, *, doc_type: str | None = None) -> list[Violati
     return sorted(violations, key=lambda item: (item.rule_id, item.path))
 
 
+def _doc_type_violations(node: NodeIn, doc_type: str) -> list[Violation]:
+    """`doc_type` 组合规则判据（REQ-M01-F03）：放宽与否按其**成因**归类到两个 rule_id。
+
+    判据源是 M01（`is_atom_allowed` / `allowed_atom_types` / `allowed_atom_variants`，P5
+    单点），本模块只做归因：
+
+    * **基底原子**被该 `doc_type` 排除 → `M01.doc_type.atom`（如 `lang` 的 `figure`）；
+    * 基底原子放行，但该**变体**不在白名单 → `M01.doc_type.variant`（如 `standard` 的
+      `table.failure_mode`——同类型变体是逐 `doc_type` 声明的，故变体判据不能只看基底）。
+
+    两者修复动作不同（换原子 vs 换变体/扩白名单），故不合并为一个 id：M06 依 `rule_id`
+    分发修复任务，合并会让 agent 拿到错误方向。基底原子被排除时**恒**归 `atom`（不因名字
+    含点而误判成变体问题）——成因是基底，先修基底。
+    """
+    if is_atom_allowed(doc_type, node.atom_type):
+        return []
+    variants = allowed_atom_variants(doc_type)
+    base_type = node.atom_type.split(".", 1)[0]
+    if node.atom_type in ATOM_VARIANTS and base_type in allowed_atom_types(doc_type):
+        return [
+            Violation(
+                rule_id=RULE_DOC_TYPE_VARIANT,
+                path="atomType",
+                message=(
+                    f"doc_type={doc_type!r} 不允许变体 {node.atom_type!r}"
+                    f"（该类型允许的变体：{list(variants)}）"
+                ),
+                fix_hint=(
+                    f"改用该 doc_type 允许的变体 {list(variants)}（基底原子 "
+                    f"{base_type!r} 本身是放行的），或把 {node.atom_type!r} 加入 M01 "
+                    "DocTypeRule.allowed_atom_variants（须同步 doc_type_mapping.md §3 的依据）"
+                ),
+            )
+        ]
+    return [
+        Violation(
+            rule_id=RULE_DOC_TYPE_ATOM,
+            path="atomType",
+            message=(
+                f"doc_type={doc_type!r} 不允许原子 {node.atom_type!r}"
+                f"（允许：{list(allowed_atom_types(doc_type))}）"
+            ),
+            fix_hint="调整规则映射或扩展 doc_type 组合规则（REQ-M01-F03）",
+        )
+    ]
 def _table_violations(node: NodeIn) -> list[Violation]:
     """表格原子（E1-a）：`format` 与 `fragment` 形态必须一致（md 管道表 / html 片段）。"""
     if node.atom_type not in TABLE_ATOMS:
