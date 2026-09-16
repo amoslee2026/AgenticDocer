@@ -556,9 +556,26 @@ _SIZES_SQL = """
 SELECT c.relname, pg_total_relation_size(c.oid) AS bytes
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+WHERE n.nspname = 'public' AND c.relkind = 'r'
 ORDER BY bytes DESC
 """
+"""按**叶子关系**取体积（实测 PG 16.15：分区父表 `pg_total_relation_size` 返回 0）。
+
+* `relkind = 'r'` 同时覆盖**普通表**与**分区**（分区子表的 relkind 为 `r`），
+  而排除分区父表（`'p'`，本机返回 0，会漏掉全部分区 → 曾使存储量低估 3 个数量级）；
+* 分区子表上的索引（`relkind='i'`）已计入其 `pg_total_relation_size`，故不另加，
+  避免重复计数；
+* 与 `pg_database_size()` 对账（`pg_info` 返回 `database_bytes`）。
+"""
+
+
+def _base_table(relation: str) -> str:
+    """叶子关系名 → 基表名（`nodes_p12` → `nodes`、`events_202609` → `events`）。"""
+    if re.fullmatch(r"nodes_p\d+", relation):
+        return "nodes"
+    if re.fullmatch(r"events_\d{6}", relation) or relation == "events_default":
+        return "events"
+    return relation
 
 
 async def pg_info(db: Any) -> dict[str, Any]:
