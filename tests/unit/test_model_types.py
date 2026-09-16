@@ -64,10 +64,9 @@ def node_in_payload(**overrides: Any) -> dict[str, Any]:
 
 
 def node_payload(**overrides: Any) -> dict[str, Any]:
-    payload = node_in_payload(**overrides)
-    payload.update(
-        node_id=uuid4(), status="active", version=1, created_at=NOW, updated_at=NOW
-    )
+    payload = node_in_payload()
+    payload.update(node_id=uuid4(), status="active", version=1, created_at=NOW, updated_at=NOW)
+    payload.update(overrides)
     return payload
 
 
@@ -252,7 +251,7 @@ def test_event_field_diff_payload_shape_is_preserved():
     )
 
     assert event.payload["anchor"] == {"before": "a", "after": "b"}
-    assert event.model_dump(by_alias=True)["eventId"] == str(event.event_id)
+    assert event.model_dump(mode="json", by_alias=True)["eventId"] == str(event.event_id)
 
 
 # ── WriteContext / Violation ─────────────────────────────────────────────

@@ -96,13 +96,14 @@ def test_slugify_collapses_punctuation_and_case():
     assert slugify("Test Steps:") == "test-steps"
     assert slugify("  Test   Steps  ") == "test-steps"
     assert slugify("test__steps") == "test-steps"
-    assert slugify("3.1 术语与定义") == "术语与定义"
+    assert slugify("3.1 术语与定义") == "3-1-术语与定义"  # 章节号由 anchor_base 剥离，slugify 保持机械
     assert slugify("ＦＵＬＬ－ＷＩＤＴＨ") == "full-width"
 
 
 def test_slugify_keeps_cjk_and_accents_but_drops_symbols():
     assert slugify("读写时序（Read/Write）") == "读写时序-read-write"
     assert slugify("Café Résumé") == "café-résumé"
+    assert slugify("术语与定义") == "术语与定义"
 
 
 def test_slugify_empty_title_falls_back_to_placeholder():
@@ -226,7 +227,7 @@ def test_assign_anchors_escalates_residual_collisions(monkeypatch):
 
     assert len(set(first)) == 3
     assert first == second
-    assert sum(anchor.count("~") == 2 for anchor in first) == 1  # 仅冲突者升级到「摘要~序号」形态
+    assert sum(anchor.count("~") == 2 for anchor in first) == 2  # 后两个同前缀者升级为「摘要~序号」
 
 
 def test_assign_anchors_empty_input():
