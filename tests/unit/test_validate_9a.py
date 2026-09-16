@@ -50,20 +50,25 @@ VALID: dict[str, dict] = {
     "table.register_field": {
         "fragment": "<table><tr><td>a</td></tr></table>",
         "meta": META,
-        "register": "CTRL",
-        "fields": [{"field": "EN", "access": "rw"}],
+    "figure": {"asset_ref": SHA, "caption": "APB timing", "text": "Figure: APB timing"},
+    "figure.state_machine": {
+        "states": ["IDLE", "RUN"],
+        "transitions": [{"from": "IDLE", "to": "RUN"}],
+        "text": "States: IDLE, RUN",
     },
-    "figure": {"asset_ref": SHA, "caption": "APB timing", "alt": "timing"},
-    "figure.state_machine": {"states": ["IDLE", "RUN"], "transitions": [{"from": "IDLE", "to": "RUN"}]},
     "code": {"language": "sv", "fragment": "always_ff @(posedge clk) begin end"},
     "example": {"fragment": "Example 1: read then write."},
     "note": {"fragment": "- first\n- second"},
-    "cross_ref": {"ref_kind": "see_also", "target_doc_id": DOC_ID, "target_anchor": ANCHOR},
+    "cross_ref": {
+        "ref_kind": "see_also",
+        "target_doc_id": DOC_ID,
+        "target_anchor": ANCHOR,
+        "text": "See Section 1 Overview.",
+    },
 }
 
-
 def content(atom_type: str, **overrides: object) -> dict:
-    """构造合法 content（缺 `text` 时按 M01 口径派生），并按 `overrides` 注入缺陷。"""
+ANCHOR = f"{DOC_ID}#1·overview"
     payload = {**VALID[atom_type], **overrides}
     if "text" not in payload:
         payload["text"] = derive_text(atom_type, payload)
@@ -125,9 +130,7 @@ DEFECTS: dict[str, object] = {
     RULE_TABLE_FORMAT: lambda: validate_write(
         node(
             "table",
-            format="md",
-            content=content("table", fragment="<table><tr><td>a</td></tr></table>"),
-        )
+    RULE_PARENT_SELF: lambda: _self_parent_node(),
     ),
     RULE_CROSS_REF_EXTERNAL_NODE: lambda: validate_write(
         node(

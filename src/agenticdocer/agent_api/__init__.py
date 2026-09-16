@@ -17,6 +17,7 @@ from .deps import (
     AdminAuth,
     AuthDep,
     DatabaseDep,
+    ErrorResponse,
     ReadAuth,
     ReviewAuth,
     StorageDep,
@@ -30,8 +31,8 @@ from .router import NodeUpsert, RefWrite, RenderOutput, SectionDTO, router, vali
 
 __all__ = [
     "AdminAuth",
-    "AuthDep",
     "DatabaseDep",
+    "ErrorResponse",
     "NodeUpsert",
     "ReadAuth",
     "RefWrite",
