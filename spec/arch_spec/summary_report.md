@@ -29,11 +29,12 @@ section_meta: "@meta"
 | `.review/issues.md` | 对抗评审 A1–A25 清单与闭环记录 + **v1.3 批注评审** | ✅ |
 
 > **计数口径（V15 修复）**：本节所有计数均经**实测核对**（脚本统计 `class`/`export interface`/`CREATE TABLE`/ADR 文件/REQ 表格行）。v1.3 文本曾出现「12 表 vs 13 表」「10 模块」「38 类型」等口径不一，均已修正。
+
 ## 2. 关键决策汇总
 
 | # | 决策 | 依据 |
 |---|---|---|
-| 1 | 模块化单体 + 内部 OpenAPI 契约（前端并行边界） | ADR-001；Agent-aware（单 Agent/10 模块） |
+| 1 | 模块化单体 + 内部 OpenAPI 契约（前端并行边界） | ADR-001；Agent-aware（单 Agent/**12 模块**） |
 | 2 | 纯 PG 16.15（**13 表** + FTS 生成列 + **分区**）+ LightRAG 同实例同库 | ADR-002/009；Q1 源码级核实 |
 | 3 | RJSF 表单引擎（schema 直载，定制 widget） | ADR-003 |
 | 4 | 程序化渲染（HTML 片段零改写直通）+ **分章节渲染 <1s** | ADR-004；P4；B10 |
