@@ -775,7 +775,7 @@ async def _write_failure_event(
     ip: str | None,
     bucket: _FailureBucket,
     aggregated: bool,
-    claimed_key_id: str | None = None,
+    ip: str | None,
     claimed_user_id: str | None = None,
     db: Database | None = None,
 ) -> None:
@@ -783,8 +783,8 @@ async def _write_failure_event(
         "reason": reason,
         "ip": ip,
         "endpoint": bucket.endpoint,
-        "method": bucket.method,
-        "status": bucket.status_code,
+    claimed_user_id: str | None = None,
+    verified_user_id: str | None = None,
         "occurrences": bucket.count,
         "bucket_start": datetime.fromtimestamp(
             bucket.bucket * _FAILURE_BUCKET_SECONDS, tz=timezone.utc
@@ -801,8 +801,10 @@ async def _write_failure_event(
     except Exception:  # noqa: BLE001 - 审计失败不得掩盖 401/403 本身
         log.error("鉴权失败审计事件写入失败", op="log_auth_failure", reason=reason, ip=ip)
 
-
-async def flush_auth_failure_aggregates(*, db: Database | None = None) -> int:
+    if claimed_user_id is not None:
+        payload["claimed_user_id"] = claimed_user_id
+    if verified_user_id:
+        payload["verified_user_id"] = verified_user_id
     """把已过窗的失败计数写成汇总事件（由 :func:`sessions.purge_expired` 同任务调用）。"""
     current_bucket = int(time.time() // _FAILURE_BUCKET_SECONDS)
     with _failure_lock:

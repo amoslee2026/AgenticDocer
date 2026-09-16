@@ -131,8 +131,63 @@ def _clip(text: str) -> str:
     return flat if len(flat) <= _CLIP_CHARS else f"{flat[:_CLIP_CHARS]}…"
 
 
+def _extra_keys(error: jsonschema.ValidationError) -> list[str]:
+    """`additionalProperties` 错误 → 多出的字段名（从实例键与声明属性**机械求差**）。"""
+    instance, schema = error.instance, error.schema
+    declared = schema.get("properties") if isinstance(schema, Mapping) else None
+    if not isinstance(instance, Mapping) or not isinstance(declared, Mapping):
+        return []
+    return sorted(str(key) for key in instance if key not in declared)
+
+
+def _missing_keys(error: jsonschema.ValidationError) -> list[str]:
+    """`required` 错误 → 缺失的字段名（`validator_value` ∩ 实例键的补集，不解析文案）。"""
+    instance = error.instance
+    names = error.validator_value if isinstance(error.validator_value, (list, tuple)) else ()
+    return [str(name) for name in names if not isinstance(instance, Mapping) or name not in instance]
+
+
+def _expected_text(value: Any) -> str:
+    """`validator_value` → 可读的期望值文本（多选时用 `|` 连接）。"""
+    if isinstance(value, (list, tuple)):
+        return " | ".join(str(item) for item in value)
+    return str(value)
+
+
+def _precise_path(base: str, names: Sequence[str]) -> str:
+    """字段级路径：唯一命中字段时直接指到它（`content.meta`），多命中时留在父层。"""
+    return f"{base}.{names[0]}" if len(names) == 1 else base
+
+
+def _schema_fix_hint(error: jsonschema.ValidationError, atom_type: str, path: str) -> str:
+    """按 `error.validator` 细分修复建议（REQ-M06-F02：agent 依此自修复后重试）。
+
+    「字段级」建议是 lint 闭环的核心价值：旧实现的规则级文案（「对照 ATOM_SCHEMAS 修正
+    content」）虽非空，但不可直接执行。未登记细分文案的校验器（`pattern`/`minLength` 等）
+    回落规则级文案——**任何分支都返回非空 hint**。
+    """
+    validator = error.validator
+    if validator == "required":
+        names = _missing_keys(error)
+        listed = "、".join(f"`{path}.{name}`" for name in names) or f"`{path}` 的必填字段"
+        return f"补齐必填字段：{listed}（ATOM_SCHEMAS[{atom_type!r}]）"
+    if validator == "type":
+        return (
+            f"字段 `{path}` 类型应为 {_expected_text(error.validator_value)}，"
+            f"实际 {type(error.instance).__name__}"
+        )
+    if validator == "enum":
+        allowed = "、".join(f"`{item}`" for item in (error.validator_value or ()))
+        return f"字段 `{path}` 取值应为 {allowed} 之一"
+    if validator == "additionalProperties":
+        names = _extra_keys(error)
+        listed = "、".join(f"`{path}.{name}`" for name in names) or f"`{path}` 的未声明字段"
+        return f"移除未声明字段：{listed}（ATOM_SCHEMAS[{atom_type!r}] 拒绝额外字段）"
+    return f"对照 ATOM_SCHEMAS[{atom_type!r}] 修正 `{path}`"
+
+
 def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
-    """JSON Schema 违规（每条 error 一条违规，路径指向出错字段）。
+    """JSON Schema 违规（每条 error 一条违规；`path` 与 `fix_hint` 均精确到字段）。
 
     schema 的 `'text' is a required property` 由 `A10.content.text` 拥有（见
     `_content_violations`），此处剔除以免同一根因产生两条违规。
@@ -143,12 +198,19 @@ def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Viola
     for error in errors:
         if error.validator == "required" and error.message == _TEXT_REQUIRED_MESSAGE:
             continue
+        base = _dotted(error.path)
+        if error.validator == "required":
+            path = _precise_path(base, _missing_keys(error))
+        elif error.validator == "additionalProperties":
+            path = _precise_path(base, _extra_keys(error))
+        else:
+            path = base
         violations.append(
             Violation(
                 rule_id=RULE_ATOM_SCHEMA,
-                path=_dotted(error.path),
+                path=path,
                 message=error.message,
-                fix_hint=f"对照 ATOM_SCHEMAS[{atom_type!r}] 修正 content",
+                fix_hint=_schema_fix_hint(error, atom_type, path),
             )
         )
     return violations
