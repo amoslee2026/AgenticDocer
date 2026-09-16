@@ -847,6 +847,41 @@ def test_middleware_logs_client_error_as_warn(logs: Path) -> None:
     assert entry["ctx"]["status"] == 403
 
 
+def test_middleware_logs_rejection_raised_by_inner_middleware(logs: Path) -> None:
+    """内层中间件直接拒答（M10 验签失败 401，不进入路由）也必须被记录。
+
+    装配要求（`app.py`）：`install(app)` 须在鉴权中间件**之后**调用——Starlette 的
+    「最后加入者最外层」（`add_middleware` insert(0) + 逆序包装），否则 401/403 既无日志
+    也无 `X-Request-Id`，鉴权失败率（REQ-M12-F03）与 `trace --rid` 在鉴权失败场景失效。
+    """
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    class _RejectingAuth(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            if request.url.path == "/secret":
+                return JSONResponse({"detail": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
+    app = FastAPI()
+
+    @app.get("/secret")
+    async def secret() -> dict[str, str]:  # pragma: no cover - 断言不可达
+        return {"ok": "unreachable"}
+
+    app.add_middleware(_RejectingAuth)
+    install(app)  # 最后加入 → 观测在最外层，才看得见被拒请求
+
+    with TestClient(app) as client:
+        response = client.get("/secret")
+
+    assert response.status_code == 401
+    assert response.headers["x-request-id"]
+    entry = _entries(logs, module="m12.middleware")[0]
+    assert entry["level"] == "WARN"
+    assert entry["error_code"] == "DTO_AUTH_REJECTED"
+    assert entry["ctx"]["status"] == 401
+
 def test_middleware_logs_unhandled_exception_as_error(logs: Path) -> None:
     with TestClient(_make_app(), raise_server_exceptions=False) as client:
         response = client.get("/crash")
