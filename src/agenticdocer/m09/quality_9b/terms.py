@@ -29,15 +29,14 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
-import os
-from collections.abc import Mapping, Sequence
+
 import yaml
 from sqlalchemy import Select, select
-
 from agenticdocer.model import TermKind, Violation
 from agenticdocer.store import ValidationError
 from agenticdocer.store.schema import nodes, terms
