@@ -186,6 +186,12 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
+@pytest.fixture
+def no_relations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """把 M05 `traverse` 换成空结果——真实遍历需 PG，见集成测试。"""
+    monkeypatch.setattr(export_module, "traverse", _fake_traverse({}))
+
+
 # ── nodes.jsonl：文本来自 M04 渲染口径 ────────────────────────────────────
 
 
@@ -216,7 +222,9 @@ def test_node_record_has_exactly_the_specified_fields() -> None:
 # ── 导出包：文件、计数、确定性 ────────────────────────────────────────────
 
 
-async def test_export_package_writes_three_files_and_counts(tmp_path: Path) -> None:
+async def test_export_package_writes_three_files_and_counts(
+    tmp_path: Path, no_relations: None
+) -> None:
     nodes = [_node(DOC_A, 0), _node(DOC_A, 1), _node(DOC_B, 0, content={"text": ""})]
     store = _FakeStorage([_doc(DOC_A), _doc(DOC_B)], nodes)
     result = await export_package([DOC_A, DOC_B], tmp_path / "pkg", storage=store)
@@ -235,14 +243,16 @@ async def test_export_package_writes_three_files_and_counts(tmp_path: Path) -> N
 
 
 async def test_export_package_defaults_skip_deleted_nodes(tmp_path: Path) -> None:
-    nodes = [_node(DOC_A, 0), _node(DOC_A, 1, status="deleted")]
+async def test_export_package_defaults_skip_deleted_nodes(
+    tmp_path: Path, no_relations: None
+) -> None:
     store = _FakeStorage([_doc(DOC_A)], nodes)
     result = await export_package([DOC_A], tmp_path, storage=store)
     assert result.nodes == 1
     assert len(_read_jsonl(tmp_path / EXPORT_NODES_FILE)) == 1
 
 
-async def test_export_package_is_deterministic(tmp_path: Path) -> None:
+async def test_export_package_is_deterministic(tmp_path: Path, no_relations: None) -> None:
     """同一库状态 → `nodes.jsonl`/`graph.jsonl` 逐字节一致。"""
     parent = _node(DOC_A, 0, level=1)
     child = _node(DOC_A, 1, parent=parent.node_id)
@@ -253,7 +263,9 @@ async def test_export_package_is_deterministic(tmp_path: Path) -> None:
         assert (tmp_path / "one" / name).read_bytes() == (tmp_path / "two" / name).read_bytes()
 
 
-async def test_export_package_overwrites_previous_package(tmp_path: Path) -> None:
+async def test_export_package_overwrites_previous_package(
+    tmp_path: Path, no_relations: None
+) -> None:
     """重跑不留上一版残留行（同名文件整体覆盖）。"""
     store = _FakeStorage([_doc(DOC_A)], [_node(DOC_A, 0), _node(DOC_A, 1)])
     await export_package([DOC_A], tmp_path, storage=store)
@@ -377,7 +389,7 @@ async def test_traverse_deduplicates_multi_path_relations(
     assert relations[0]["direction"] == "both"
 
 
-async def test_graph_relation_field_set(tmp_path: Path) -> None:
+async def test_graph_relation_field_set(tmp_path: Path, no_relations: None) -> None:
     parent = _node(DOC_A, 0, level=1)
     child = _node(DOC_A, 1, parent=parent.node_id)
     store = _FakeStorage([_doc(DOC_A)], [parent, child])
@@ -398,7 +410,9 @@ async def test_graph_relation_field_set(tmp_path: Path) -> None:
 # ── P6：导出过程无网络 ────────────────────────────────────────────────────
 
 
-async def test_export_makes_no_network_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_export_makes_no_network_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_relations: None
+) -> None:
     """P6/C7：导出只读本库 + 写本地文件——任何 socket 连接都视为违规。"""
 
     def _blocked(*args: Any, **kwargs: Any) -> Any:
