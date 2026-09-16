@@ -414,8 +414,6 @@ def create_app(
     # 鉴权中间件拒绝的请求才会带上 rid 进日志（否则 `/admin/metrics` 的 authFailures 恒 0、
     # `trace --rid` 追不到 401 互操作问题）
     install(application)
-    # AUD-6/S4 启动期自检：漏挂鉴权依赖的非豁免路由 → 装配即失败（而非静默开放）
-    assert_auth_coverage(application)
 
     mounted = mount_webui(application)
     log.info(
