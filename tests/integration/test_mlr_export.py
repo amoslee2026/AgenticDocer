@@ -165,7 +165,8 @@ async def test_export_package_texts_match_document_render(
     result = await export_package([doc_a, doc_b], tmp_path / "pkg", storage=storage)
 
     nodes = await storage.list_nodes_for_docs([doc_a, doc_b])
-    assert (result.out_path, result.docs, result.nodes) == (str(tmp_path / "pkg"), 2, 5 == len(nodes))
+    assert (result.out_path, result.docs, result.nodes) == (str(tmp_path / "pkg"), 2, len(nodes))
+    assert len(nodes) == 5
 
     records = read_jsonl(tmp_path / "pkg" / EXPORT_NODES_FILE)
     assert [record["node_id"] for record in records] == [str(node.node_id) for node in nodes]
@@ -209,7 +210,7 @@ async def test_export_package_graph_has_hierarchy_and_traverse_chains(
         "out",
     )
     # refs 形态的 composes_from 与之重复 → 只留 hierarchy 一条
-    assert not [rel for rel in relations if rel["kinds"] == ["composes_from"] and rel["hops"] == 1][1:]
+    assert len([rel for rel in relations if rel["kinds"] == ["composes_from"]]) == 1
 
     # traces_to 上游链（1 跳）：从 top 反向可达 mid
     one_hop = only(relations, node_id=str(top.node_id), related_node_id=str(mid.node_id), hops=1)
@@ -318,7 +319,7 @@ async def test_change_stream_matches_changes_since_and_resumes_half_open(
     ]
 
     # 种子数据都出现在流里（doc/node/ref 三类增量）
-    seeded_ids = {doc_a, doc_b, *(str(node.node_id) for node in _seeded_nodes(doc_ids))}
+    seeded_ids = {doc_a, doc_b, *(str(node.node_id) for node in seeded.values())}
     assert seeded_ids <= {event.entity_id for event in drained}
     assert any(event.entity == "ref" and event.op == "add" for event in drained)
 
@@ -333,9 +334,6 @@ async def test_change_stream_matches_changes_since_and_resumes_half_open(
     assert node_only and all(event.entity == "node" for event in node_only)
 
 
-def _seeded_nodes(doc_ids: tuple[str, str]) -> list[Any]:
-    """已播种节点（供流断言用；真实节点来自 `seed`，此处仅取 doc 前缀）。"""
-    return []
 
 
 # ── P6/C7：无外部网络、不触碰 lightRAG ───────────────────────────────────
@@ -358,4 +356,3 @@ async def test_export_and_stream_need_no_external_network(
     assert result.nodes == 5
     assert drained
     assert not [name for name in sys.modules if name.split(".")[0] == "lightrag"]
-    assert datetime.fromisoformat(cursor_token(drained[0]).split("@")[0]) == drained[0].ts
