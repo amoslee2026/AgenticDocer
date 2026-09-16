@@ -342,15 +342,18 @@ async def test_agent_flow_read_write_render_diff(
     assert rendered.status_code == 200, rendered.text
     whole = rendered.json()
     assert {"docId", "outPath", "assetsExported", "markdown", "section"} <= set(whole)
-    assert "1 Scope" in whole["markdown"] and "1.1 Purpose" in whole["markdown"]
+    # 渲染口径由 M04 决定：标题层级来自 `level`、正文来自原子文本（锚不进正文）
+    assert "Scope of the document (revised)" in whole["markdown"]
+    assert "Purpose of this section" in whole["markdown"]
+    assert "<table>" in whole["markdown"]  # HTML 片段零改写直通（P4）
     assert Path(whole["outPath"]).is_file()
 
     # 锚含空格：签名覆盖 RAW_PATH（§3 M06/S2「query 参与签名」），故用**线上形态**（%20）
     section_render = await admin.get(f"/api/v1/docs/{doc_id}/render?section=1.1%20Purpose")
     assert section_render.status_code == 200, section_render.text
     assert section_render.json()["section"] == "1.1 Purpose"
-    assert "1.1 Purpose" in section_render.json()["markdown"]
-    assert "1.2 Registers" not in section_render.json()["markdown"]
+    assert "Purpose of this section" in section_render.json()["markdown"]
+    assert "<table>" not in section_render.json()["markdown"]  # 同级表格不在该章节子树内
 
     triggered = await admin.post(f"/api/v1/docs/{doc_id}/render")
     assert triggered.status_code == 200 and triggered.json()["markdown"]
