@@ -671,7 +671,15 @@ async def bench_point_query_set(
     }
 
 
-_EXPLAIN_SQL = "EXPLAIN (FORMAT JSON) SELECT node_id FROM nodes WHERE node_id = '{node}'::uuid AND status = 'active'{doc}"
+_EXPLAIN_SQL = (
+    "EXPLAIN (FORMAT JSON) SELECT node_id FROM nodes WHERE node_id = '{node}'::uuid "
+    "AND status = 'active'{doc}"
+)
+
+
+def _sql_literal(value: str) -> str:
+    """SQL 单引号字面量（EXPLAIN 断言用字面量而非参数，避免通用计划干扰裁剪判据）。"""
+    return "'" + value.replace("'", "''") + "'"
 
 
 def _scan_relations(plan: Any) -> list[str]:
