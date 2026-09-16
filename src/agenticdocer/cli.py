@@ -979,7 +979,8 @@ def revoke_key(
     need = _user_need("user key revoke")
     client = _ctx(context).client()
     user_id = _resolve_user_id(client, username, need)
-    client.json("DELETE", f"/api/v1/users/{user_id}/keys/{fingerprint_text}", need=need)
+    # 指纹走**请求体**（base64 含 `/`、`+`，放路径会被分段/解码吃掉）
+    client.json("DELETE", f"/api/v1/users/{user_id}/keys", body={"keyId": fingerprint_text}, need=need)
     _output(context, {"userId": user_id, "keyId": fingerprint_text, "revoked": True})
 
 
@@ -1397,27 +1398,30 @@ def node_put(
             raise CliError(f"{source} 顶层必须是 JSON 对象（NodeIn + expectedVersion）")
         body = dict(body)
     elif content is not None:
-        missing = [name for name, value in (("--doc", doc_id), ("--atom-type", atom_type), ("--anchor", anchor)) if not value]
+        missing = [
+            name for name, value in (("--doc", doc_id), ("--atom-type", atom_type), ("--anchor", anchor)) if not value
+        ]
         if missing:
             raise CliError(
                 "内联写入需要 " + "、".join(missing),
-                hint=["用法：agenticdocer node put --doc <doc_id> --atom-type clause --anchor <锚> "
-                      "--content '{\"text\":\"…\"}' [--expected-version N]"],
+                hint=[
+                    "用法：agenticdocer node put --doc <doc_id> --atom-type clause --anchor <锚> "
+                    "--content '{\"text\":\"…\"}' [--expected-version N]"
+                ],
             )
+        # NodeIn 的可选字段（nodeId/parentNodeId/level）**无默认值**（M01 extra=forbid 契约）：
+        # 必须显式给 null，否则服务端 422。
         body = {
+            "nodeId": node_id,
             "docId": doc_id,
             "atomType": atom_type,
-            "anchor": anchor,
             "format": format_,
             "ordinal": ordinal or 0,
+            "parentNodeId": parent,
+            "level": level,
+            "anchor": anchor,
             "content": _parse_json_text(content, source="--content"),
         }
-        if node_id:
-            body["nodeId"] = node_id
-        if level is not None:
-            body["level"] = level
-        if parent:
-            body["parentNodeId"] = parent
     else:
         raise CliError(
             "需要 --file 或 --content 之一",
@@ -1525,16 +1529,21 @@ def comment_add(
     node: Annotated[str, typer.Option("--node", help="被批注的 node_id")],
     body: Annotated[str | None, typer.Option("--body", help="批注正文")] = None,
     file: Annotated[Path | None, typer.Option("--file", help="从文件读正文（长文本）")] = None,
-    target_event: Annotated[str | None, typer.Option("--target-event", help="锚定事件 ID（缺省取当前态）")] = None,
+    expected_version: Annotated[
+        int | None, typer.Option("--expected-version", help="被批注节点的版本（可选，乐观锁）")
+    ] = None,
 ) -> None:
-    """新建批注（open）。"""
+    """新建批注（open）。锚点（``targetEventId``）由服务端取该节点最近事件后回填。"""
     if body is None and file is None:
         raise CliError("需要 --body 或 --file 之一", hint=["agenticdocer comment add --node <node_id> --body '…'"])
     text = body if body is not None else Path(file).expanduser().read_text(encoding="utf-8")  # type: ignore[union-attr]
+    request: dict[str, Any] = {"nodeId": node, "body": text}
+    if expected_version is not None:
+        request["expectedVersion"] = expected_version
     payload = _ctx(context).client().json(
         "POST",
         "/api/v1/comments",
-        body={"nodeId": node, "body": text, "targetEventId": target_event},
+        body=request,
         need=Need(command="comment add", permission="review"),
     )
     _output(context, payload)
