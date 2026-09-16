@@ -150,20 +150,12 @@ async def change_stream(
 
 def _log_drained(since: str | None, entity: str | None, emitted: int, cursor: _Cursor) -> None:
     """有界拉取结束时的口径记录（`cursor` 即可供下次续拉的 token）。"""
-    log.info(
-        "change_stream drained",
-        since=since,
-        entity=entity,
-        events=emitted,
-        cursor=cursor_token_of(cursor),
-    )
+    token = None if cursor.ts is None or cursor.event_id is None else _token(cursor.ts, cursor.event_id)
+    log.info("change_stream drained", since=since, entity=entity, events=emitted, cursor=token)
 
 
-def cursor_token_of(cursor: _Cursor) -> str | None:
-    """游标 → token 文本（无游标 → `None`；仅在 `mlr.stream` 内部与测试中使用）。"""
-    if cursor.ts is None or cursor.event_id is None:
-        return None
-    return f"{cursor.ts.isoformat()}{CURSOR_SEPARATOR}{cursor.event_id}"
+def _token(ts: datetime, event_id: UUID) -> str:
+    return f"{ts.isoformat()}{CURSOR_SEPARATOR}{event_id}"
 
 
 def _parse_cursor(since: str | None) -> _Cursor:
