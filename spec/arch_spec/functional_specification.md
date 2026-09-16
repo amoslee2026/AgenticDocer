@@ -339,6 +339,10 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 封装 `agenticdocer doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
 
+### REQ-M11-F07（续）：docer-diff 变更感知
+
+**验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
+
 
 ### REQ-M12-F01: AgenticLogger 全面接入
 
