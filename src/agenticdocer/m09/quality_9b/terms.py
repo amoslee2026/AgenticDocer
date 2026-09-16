@@ -33,7 +33,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
-
+import os
+from collections.abc import Mapping, Sequence
 import yaml
 from sqlalchemy import Select, select
 
@@ -125,11 +126,10 @@ def load_seed(path: Path | str | None = None) -> list[SeedTerm]:
         raise ValidationError(
             f"术语种子文件结构非法：{target} 顶层须为映射且含 `terms` 列表（见模块文档）",
             entity="term",
-        )
-    seeded: list[SeedTerm] = []
-    seen: set[str] = set()
-    for index, item in enumerate(raw["terms"]):
-        if not isinstance(item, Mapping):
+    if path is not None:
+        return Path(path)
+    configured = os.environ.get("TERMS_SEED")
+    return Path(configured) if configured else DEFAULT_SEED_PATH
             raise ValidationError(f"术语种子第 {index} 项不是映射：{item!r}", entity="term")
         term = str(item.get("term") or "").strip()
         kind = str(item.get("kind") or "")
