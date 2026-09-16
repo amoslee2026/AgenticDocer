@@ -488,7 +488,6 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
-def cookie_secure(request: Request | None = None) -> bool:
     """会话 Cookie 是否带 ``Secure``（S6）。
 
     顺序：``AUTH_COOKIE_SECURE`` 显式覆盖 → TLS 反向代理头（``AUTH_TRUSTED_PROXY=1`` 时的
