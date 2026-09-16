@@ -479,6 +479,19 @@ def configure_dsn(dsn: str | None = None) -> str:
     return resolved
 
 
+def resolve_dsn(dsn: str | None = None) -> str:
+    """`dsn` 显式给出 → 注入并采用；否则用**已配置**的 `DATABASE_URL`（无则回默认隔离库）。
+
+    与 `configure_dsn()` 的分工：`configure_dsn()` 是 CLI 入口的默认解析（刻意不看环境里
+    遗留的 `DATABASE_URL`，避免误跑共享库）；本函数供 `open_storage()` 使用——它**不得**
+    覆盖调用方此前显式配置过的 DSN（否则 `configure_dsn(自制DSN)` + `open_storage()`
+    会被静默改回默认库）。
+    """
+    if dsn:
+        return configure_dsn(dsn)
+    return os.environ.get("DATABASE_URL") or configure_dsn(None)
+
+
 def current_dsn() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DSN)
 
