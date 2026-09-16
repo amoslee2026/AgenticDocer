@@ -655,18 +655,50 @@ def _dry_plan(context: typer.Context, action: str, **arguments: Any) -> bool:
 # ── Typer 装配 ───────────────────────────────────────────────────────────
 
 
+GLOBAL_FLAG_HELP: Final = {
+    "json_output": "结构化输出（camelCase，与 M06/M07 DTO 同形；可写在子命令之后）",
+    "dry_run": "干跑：只回放将要发出的请求，不触网/不写库（可写在子命令之后）",
+}
+
+
+def _flag_params() -> tuple[inspect.Parameter, ...]:
+    """每条子命令都接受的全局开关（``--json`` / ``--dry-run``）。
+
+    click 的组选项只能写在子命令**之前**；这里把两个最常用的全局开关复制到每个子命令上
+    （值在 :func:`command` 的包装里并入 :class:`CliContext`），使
+    ``agenticdocer doc list --json`` 与 ``agenticdocer --json doc list`` 等价。
+    """
+    return tuple(
+        inspect.Parameter(
+            name,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=typer.Option(False, f"--{name.replace('_', '-')}", help=help_text),
+            annotation=bool,
+        )
+        for name, help_text in GLOBAL_FLAG_HELP.items()
+    )
+
+
 def command(application: typer.Typer, *args: Any, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """注册子命令：把 :class:`CliError` 统一转成「非零退出 + 可操作指引」。"""
+    """注册子命令：统一 (1) 全局开关、(2) :class:`CliError` → 「非零退出 + 可操作指引」。"""
 
     def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        def wrapper(*fargs: Any, **fkwargs: Any) -> Any:
+        def wrapper(*fargs: Any, json_output: bool = False, dry_run: bool = False, **fkwargs: Any) -> Any:
+            context = fkwargs.get("context")
+            if isinstance(context, typer.Context):
+                cli = _ctx(context)
+                cli.json_mode = cli.json_mode or bool(json_output)
+                cli.dry_run = cli.dry_run or bool(dry_run)
             try:
                 return func(*fargs, **fkwargs)
             except CliError as exc:
                 _fail(exc)
                 raise typer.Exit(code=exc.exit_code) from None
 
+        wrapper.__signature__ = inspect.signature(func).replace(  # type: ignore[attr-defined]
+            parameters=[*inspect.signature(func).parameters.values(), *_flag_params()]
+        )
         return application.command(*args, **kwargs)(wrapper)
 
     return decorate
