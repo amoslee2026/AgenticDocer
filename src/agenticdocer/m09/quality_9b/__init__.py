@@ -1,6 +1,6 @@
 """M09B 质量门（阶段 3；§3 M09 `run_quality_gate` + REQ-M09-F02）。
 
-七个 detector（`detector_id` 即 `QualityReport.detector_id`；声明序 = 报告顺序）：
+八个 detector（`detector_id` 即 `QualityReport.detector_id`；声明序 = 报告顺序）：
 
 | detector_id | 判据 | 依赖 |
 |---|---|---|
@@ -11,9 +11,12 @@
 | `events_consistency` | events 重放（M02 `apply_events`）vs 当前态逐字段 | M02 |
 | `section_range_consistency` | 章节区间契约（M02 `section_range_diff`：区间法原始结果 vs 递归 CTE，含**漏收**方向） | M02 |
 | `perf_health` | 容量巡检（M12 `health()`：分区/膨胀/索引/归档） | M12 |
+| `doc_type_schema_conformance` | 文档类型组合规则巡检（`DOC_TYPES`/`missing_required_meta`：历史行缺必填 `meta` 字段、取值域漂移） | M01 |
 
 §3 M09 原定 6 项；`section_range_consistency` 为 Main 批准新增（M02 B-2 优化的反向残余风险
-兜底）。声明序**只增不改**——调用方（M11 `quality-gate` 的缺省集合）按子集过滤时相对顺序不变。
+兜底），`doc_type_schema_conformance` 为方案 C 新增（`doc_type_mapping.md` §3 差异化规则的
+历史数据兜底）。声明序**只增不改**——调用方（M11 `quality-gate` 的缺省集合）按子集过滤时
+相对顺序不变。
 
 `broken_refs` 与 `events_consistency` 是 ADR-009 分区化（6 处外键降级 + `events` 改分区表）
 之后**唯一**的完整性兼底，实现在 `broken_refs.py` / `events_consistency.py` 的模块文档里
@@ -30,6 +33,7 @@ from __future__ import annotations
 from . import (
     assets_missing,
     broken_refs,
+    doc_type_conformance,
     events_consistency,
     perf_health,
     render_consistency,
@@ -66,6 +70,7 @@ __all__ = [
     "assets_missing",
     "broken_refs",
     "events_consistency",
+    "doc_type_conformance",
     "perf_health",
     "render_consistency",
     "section_range_consistency",
