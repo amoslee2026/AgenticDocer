@@ -360,6 +360,15 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             "合成语料结构为「标题 clause（段落并入 fragment）+ 表格」，与真实语料同构；"
             "解析走真实 `parse_text`（非直接造 NodeIn），故计数器是实测值"
         )
+        bench.note(
+            "合成文档的章节层级为「1 个 H1 + N 个 `## 1.k`」⇒ 子树最大的 level-1/2 章节即 H1"
+            "（≈整档）；真实语料的章节结构见 `bench_render`（CXL/PCIe 的最大章节约为整档的 28%）"
+        )
+        if args.fresh:
+            bench.note(
+                "`--fresh` 已清空实体表 ⇒ 本次点查/渲染**仅针对合成语料**（真实语料不参与）；"
+                "存储基线取自清库前的真实语料密度"
+            )
     finally:
         await db.dispose()
     return bench
