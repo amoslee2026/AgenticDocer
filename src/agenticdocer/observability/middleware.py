@@ -1,4 +1,9 @@
 """FastAPI 埋点中间件（ADR-010 §2/§3.1、REQ-M12-F02/F03）。
+
+每个 HTTP 请求：
+
+1. 生成 rid 并写入 ContextVar（下游 M10 鉴权 → M06/M07 路由 → M02 存储 → M04 渲染
+   的所有日志行共享同一 rid）；
 2. 计时并记录 `route`、`method`、`status`、`dur`。`route` 取**路由模板**
    （`/api/v1/docs/{doc_id}`，非原始路径 → 指标基数可控）；**路由匹配前**就被拒的请求
    （M10 签名验证 401 等中间件层拒答、404）归入 :data:`UNROUTED` 单一桶，原始路径仍写在
@@ -12,6 +17,8 @@
 也无 `X-Request-Id`，`/admin/metrics` 的 `authFailures` 恒 0 且无法 `trace --rid`
 （不影响可追责性：审计权威源是 PG `events(entity='auth')`，见 ADR-010 审计分离原则）。
 回归用例：`test_middleware_logs_rejection_raised_by_inner_middleware`。
+
+装配（`app.py`）：`agenticdocer.observability.install(app)`（须最后调用，见下）。
 """
 
 from __future__ import annotations
