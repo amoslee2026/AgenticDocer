@@ -545,10 +545,17 @@ class CliContext:
         return self._client
 
 
-def _ctx(context: typer.Context) -> CliContext:
-    obj = context.obj
-    if not isinstance(obj, CliContext):  # pragma: no cover - 由 callback 保证
-        return CliContext()
+def _ctx(context: Any) -> CliContext:
+    """取（必要时创建）本进程的 :class:`CliContext`。
+
+    click 传给回调的是它自己的 ``Context``（非 ``typer.Context`` 实例），故按鸭子类型取
+    ``obj``；缺失时**回写**到 context 上，保证同一次调用内处处取到同一实例。
+    """
+    obj = getattr(context, "obj", None)
+    if not isinstance(obj, CliContext):
+        obj = CliContext()
+        if context is not None:
+            context.obj = obj
     return obj
 
 
@@ -685,8 +692,8 @@ def command(application: typer.Typer, *args: Any, **kwargs: Any) -> Callable[[Ca
     def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*fargs: Any, json_output: bool = False, dry_run: bool = False, **fkwargs: Any) -> Any:
-            context = fargs[0] if fargs and isinstance(fargs[0], typer.Context) else fkwargs.get("context")
-            if isinstance(context, typer.Context):
+            context = fargs[0] if fargs else fkwargs.get("context")
+            if context is not None:
                 cli = _ctx(context)
                 cli.json_mode = cli.json_mode or bool(json_output)
                 cli.dry_run = cli.dry_run or bool(dry_run)
