@@ -183,10 +183,11 @@ def test_synthesized_register_field_table_is_html() -> None:
 
 
 def test_synthesized_state_machine_prefers_mermaid_source() -> None:
-    data = document_frontmatter(doc)
-    assert list(data)[:3] == ["title", "type", "status"]  # C5 定序；缺项跳过不占位
-    assert list(data)[-1] == "extra_field"  # 其余 meta 键按名序追加（全量保真）
-    assert data["title"] == "示例"
+    node = make_node(
+        atom_type="figure.state_machine",
+        content={"text": "sm", "states": ["A", "B"], "mermaid": "stateDiagram-v2\n  A --> B"},
+    )
+    assert node_block_text(node) == "```mermaid\nstateDiagram-v2\n  A --> B\n```"
 
 
 def test_iter_image_srcs_covers_md_and_html_forms() -> None:
@@ -238,12 +239,8 @@ def test_document_frontmatter_maps_c5_fields_and_preserves_extras() -> None:
         }
     )
     data = document_frontmatter(doc)
-    assert list(data) == [
-        "title",
-        "type",
-        "purpose",  # 缺 → 不写
-        "extra_field",
-    ][:0] + [0] if False else True  # 占位，避免误读；实际断言见下
+    assert list(data)[:3] == ["title", "type", "status"]  # C5 定序；缺项跳过、不占位
+    assert list(data)[-1] == "extra_field"  # 其余 meta 键按名序追加（meta 全量保真）
     assert data["title"] == "示例"
     assert data["spec_id"] == "SPEC-DEMO"
     assert data["spec_type"] == "standard"
