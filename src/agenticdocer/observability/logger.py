@@ -338,11 +338,12 @@ class ModuleLogger:
             "dur": dur,
             "error_code": error_code,
             "ctx": self._merged_ctx(fields),
+            "tid": tid,
         }
         backend = self._backend
         method = {"INFO": backend.info, "WARN": backend.warn, "ERROR": backend.error}.get(level)
-        if method is None:  # DEBUG 及以上：SDK 无公开入口，直写 _write。
-            backend._write(level, msg, tid=tid, **kwargs)
+        if method is None:  # DEBUG 等：SDK 无公开入口，直写 _write。
+            backend._write(level, msg, **kwargs)
         else:
             method(msg, **kwargs)
 

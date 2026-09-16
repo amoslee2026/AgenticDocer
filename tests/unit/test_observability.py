@@ -41,6 +41,7 @@ from agenticdocer.observability import (
     current_rid,
     error_code_for_rule,
     evaluate_health,
+    get_logger,
     health,
     install,
     new_rid,
