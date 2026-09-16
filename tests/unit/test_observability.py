@@ -1004,3 +1004,40 @@ def test_health_reports_fail_without_dsn(logs: Path, monkeypatch: pytest.MonkeyP
     report = asyncio.run(health())
     assert report.verdict == "fail"
     assert any("DATABASE_URL" in advice for advice in report.advice)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(b"p", "p"), (bytearray(b"r"), "r"), ("p", "p"), (None, None), (42, None)],
+)
+def test_as_text_normalises_pg_char(value: object, expected: str | None) -> None:
+    """PG `"char"` 经 asyncpg 返回 bytes；`_as_text` 必须归一为 str。"""
+    module = importlib.import_module("agenticdocer.observability.health")
+    assert module._as_text(value) == expected
+
+
+def test_probe_handles_asyncpg_bytes_relkind_for_partitioned_events(
+    logs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """已分区库必须走分区判定，而非「普通表」分支（回归：relkind 实为 `b'p'`）。"""
+    conn = _FakeConn(tables=[], indexes=[], relkind=b"p", bounds=_month_bounds(_this_month()))
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert not any("尚未按 ts RANGE 分区" in advice for advice in report.advice)
+    assert report.partitions.events_next_missing is True  # 真正做了分区覆盖判定
+    assert report.verdict == "fail"
+    assert any("分区" in advice for advice in report.advice)
+
+
+def test_probe_handles_asyncpg_bytes_relkind_for_plain_events(
+    logs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """未分区库（`b'r'`）仍应给出「未分区」建议并降级。"""
+    conn = _FakeConn(tables=[], indexes=[], relkind=b"r", bounds=[])
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert report.partitions.events_next_missing is False
+    assert report.verdict == "degraded"
+    assert any("尚未按 ts RANGE 分区" in advice for advice in report.advice)
