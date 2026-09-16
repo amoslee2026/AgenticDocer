@@ -896,6 +896,52 @@ def test_middleware_logs_unhandled_exception_as_error(logs: Path) -> None:
     assert logs.glob("*.tracebacks")
 
 
+def test_middleware_buckets_pre_routing_rejections(logs: Path) -> None:
+    """路由匹配前被拒的请求必须归入单一 `route` 桶，原始路径保留在 `path`。
+
+    回归背景：M10 签名验证在中间件层拒答（路由尚未匹配，`scope["route"]` 缺失）。
+    若 `route` 回落原始路径，`/docs/SPEC-1`、`/docs/SPEC-2`… 会各自成桶，
+    `authFailures` 与错误率退化为「每桶计数 1」，指标失去意义。
+    """
+    from agenticdocer.observability.middleware import UNROUTED
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    class _RejectingAuth(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            return JSONResponse({"detail": "unauthorized"}, status_code=401)
+
+    app = FastAPI()
+
+    @app.get("/docs/{doc_id}")
+    async def doc(doc_id: str) -> dict[str, str]:  # pragma: no cover - 断言不可达
+        return {"doc_id": doc_id}
+
+    app.add_middleware(_RejectingAuth)
+    install(app)
+
+    with TestClient(app) as client:
+        for doc_id in ("SPEC-1", "SPEC-2", "SPEC-3"):
+            assert client.get(f"/docs/{doc_id}").status_code == 401
+
+    entries = _entries(logs, module="m12.middleware")
+    assert [entry["ctx"]["route"] for entry in entries] == [UNROUTED] * 3
+    # 原始路径仍可用于下钻
+    assert [entry["ctx"]["path"] for entry in entries] == [
+        "/docs/SPEC-1",
+        "/docs/SPEC-2",
+        "/docs/SPEC-3",
+    ]
+
+    # 聚合层：3 个被拒请求落进同一个桶，而非 3 个独立端点
+    snap = snapshot(since=_since(), window=600, log_dir=logs)
+    assert len(snap.endpoints) == 1
+    assert snap.endpoints[0].route == UNROUTED
+    assert snap.endpoints[0].count == 3
+    assert snap.endpoints[0].error_rate == 1.0
+    assert snap.auth_failures == 3
+
+
 def test_middleware_is_asgi_middleware_subclass() -> None:
     from starlette.middleware.base import BaseHTTPMiddleware
 
