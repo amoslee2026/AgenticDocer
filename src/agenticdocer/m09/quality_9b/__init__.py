@@ -69,8 +69,8 @@ __all__ = [
     # detector 模块（可单独 import 其纯判据函数）
     "assets_missing",
     "broken_refs",
-    "events_consistency",
     "doc_type_conformance",
+    "events_consistency",
     "perf_health",
     "render_consistency",
     "section_range_consistency",
