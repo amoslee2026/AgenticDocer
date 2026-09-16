@@ -872,7 +872,13 @@ def test_middleware_is_asgi_middleware_subclass() -> None:
 
 
 class _FakeConn:
-    """按 SQL 关键字分派的 asyncpg 连接替身。"""
+    """按 SQL 关键字分派的 asyncpg 连接替身。
+
+    **类型保真**：替身必须照抄真实驱动返回的 Python 类型——`pg_class.relkind`
+    （PG `"char"`）经 asyncpg 返回 `bytes`，故本替身的 `relkind` 传 `b"p"`/`b"r"`。
+    曾因替身返回 `"p"`（str）而掩盖「`relkind == "p"` 恒假」的真实缺陷；
+    真实库侧另由 `tests/integration/test_observability_health.py` 独立把关。
+    """
 
     def __init__(self, tables: list[dict], indexes: list[dict], relkind: str | None, bounds: list[str]) -> None:
         self._tables = tables
@@ -888,7 +894,7 @@ class _FakeConn:
             return self._indexes
         return self._bounds
 
-    async def fetchval(self, sql: str) -> str | None:
+    async def fetchval(self, sql: str) -> str | bytes | None:
         return self._relkind
 
     async def close(self) -> None:
