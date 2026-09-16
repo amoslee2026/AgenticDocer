@@ -234,6 +234,25 @@ def test_verify_rsa_accepts_pss_and_legacy_pkcs1v15() -> None:
         sshsig.verify_sshsig(line, pss, MESSAGE + b"x", require_pss=True)
 
 
+def test_verify_rsa_rejects_sha1_and_algorithm_mismatch() -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    line = signing.public_key_line(key)
+    blob = _ssh_blob(key.public_key())
+
+    # 旧 ssh-rsa（SHA-1）签名算法：直接拒绝（ADR-007 §1）
+    with pytest.raises(SignatureFormatError) as excinfo:
+        sshsig.verify_sshsig(line, _build_blob(blob, "ssh-rsa", b"\x00" * 384), MESSAGE)
+    assert excinfo.value.reason == "unsupported_signature_algorithm"
+
+    # sig_alg=rsa-sha2-512 却声明 sha256 → 不一致即拒（不留混淆面）
+    mismatch = _build_blob(
+        blob, "rsa-sha2-512", b"\x00" * 384, hash_algorithm="sha256"
+    )
+    with pytest.raises(SignatureFormatError) as excinfo:
+        sshsig.verify_sshsig(line, mismatch, MESSAGE)
+    assert excinfo.value.reason == "hash_algorithm_mismatch"
+
+
 def test_verify_rsa_rejects_sha1_alg_and_weak_modulus() -> None:
     key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     line = signing.public_key_line(key)
