@@ -561,7 +561,7 @@ def test_contract_table_entries_are_all_distinct_models():
 
 def test_required_optionality_follows_spec_section_3_0():
     """§3.0 只在三处给了默认值（Node 继承 NodeIn 的 `format`）；`X | None` 仍为必填。
-    例外：内部配置模型 DocTypeRule 的两个可选规则字段（不属 §3.0 传输类型）。"""
+    例外：内部配置模型 DocTypeRule 的三个可选规则字段（不属 §3.0 传输类型）。"""
     allowed_defaults = {
         ("NodeIn", "format"),
         ("Node", "format"),
