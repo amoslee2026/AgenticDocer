@@ -514,6 +514,43 @@ def _write_variant(tmp_path: pathlib.Path, text: str, doc_id: str) -> pathlib.Pa
     return path
 
 
+async def test_opensta_pre_code_corpus_imports(storage: Storage, database) -> None:
+    """真实语料 OpenSTA `Commands.md`（HTML 形态 `<pre><code>` 代码块）端到端入库。
+
+    判据：覆盖率 1.0、`code` 原子 ≥200、未映射 0；M09A 门禁通过（`content.text` 非空、schema 合规）；
+    P4：`code` 原子的 `fragment` 逐字节为源文本子串。
+    """
+    path = CORPUS / "lang" / "opensta-commands.md"
+    if not path.is_file():
+        pytest.skip(f"语料缺失：{path}")
+    source = path.read_text(encoding="utf-8")
+    result = parse_markdown(path)
+    summary = report(result)
+    assert summary["coverage"] == 1.0, summary
+    assert summary["unmapped"]["count"] == 0, summary
+    codes = [p for p in result.proposals if p.atom.atom_type == "code"]
+    assert len(codes) >= 200, len(codes)
+    for proposal in codes:
+        assert proposal.atom.format in ("md", "html")
+        assert proposal.atom.content["text"].strip(), "A10：code 原子 text 非空"
+        fragment = proposal.atom.content["fragment"]
+        assert fragment in source, "P4：fragment 必须是源文本子串"
+    pre_codes = [p for p in codes if p.rule_id == "R13.code.html-pre"]
+    assert pre_codes and all(p.atom.format == "html" for p in pre_codes)
+    assert check_proposals(result) == [], "M09A 门禁必须通过"
+
+    outcome = await commit_document(result, CTX, storage=storage)
+    assert outcome.nodes_created == len(result.proposals)
+    assert await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=outcome.doc_id) == len(
+        result.proposals
+    )
+    assert await count(
+        database,
+        "SELECT count(*) FROM nodes WHERE doc_id = :d AND content->>'text' IS NULL",
+        d=outcome.doc_id,
+    ) == 0
+
+
 async def test_review_then_commit_creates_refs(storage: Storage, database, tmp_path) -> None:
     source = write_doc(tmp_path)
     work = tmp_path / "work"

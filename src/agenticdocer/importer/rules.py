@@ -55,6 +55,7 @@ __all__ = [
     "match_html_image",
     "match_list_item",
     "match_block_html",
+    "match_html_pre_code",
     "match_empty_table_fragment",
     "match_toc_marker",
     "match_toc_line",
@@ -239,6 +240,15 @@ RULES: dict[str, Rule] = {
             "fallback",
             False,
             "match_toc_line",
+        ),
+        Rule(
+            "R13.code.html-pre",
+            RULE_SET_VERSION,
+            "块级 `<pre>`（含 `<code>`）HTML 代码块 → code（format=html，fragment 原样直通，P4）",
+            "code",
+            "mapped",
+            True,
+            "match_html_pre_code",
         ),
         Rule(
             "F02.html.residue",
@@ -432,6 +442,15 @@ def match_empty_table_fragment(text: str) -> bool:
     return "<table" in text and not html_to_text(text).strip()
 
 
+def match_html_pre_code(text: str) -> bool:
+    """块级 `<pre>`（HTML 形态代码块）——整块以 `<pre` 起首即认定为代码块。
+
+    语料实测（OpenSTA `Commands.md`，HTML 生成）：`<pre><code>all_clocks</code></pre>`，
+    且**多数未闭合**（源即如此，P4 要求原样保留，故不要求闭合）。
+    """
+    return text.lstrip().startswith("<pre")
+
+
 def match_toc_marker(title: str) -> re.Match[str] | None:
     """目录类标题（Contents / Table of Figures / List of Tables / Index …）。"""
     return _TOC_MARKER_RE.match(clean_text(title))
@@ -527,6 +546,7 @@ MATCHERS: dict[str, Callable[..., Any]] = {
     "match_html_image": match_html_image,
     "match_list_item": match_list_item,
     "match_block_html": match_block_html,
+    "match_html_pre_code": match_html_pre_code,
     "match_empty_table_fragment": match_empty_table_fragment,
     "match_toc_marker": match_toc_marker,
     "match_toc_line": match_toc_line,

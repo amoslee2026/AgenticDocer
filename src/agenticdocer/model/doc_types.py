@@ -131,10 +131,17 @@ DOC_TYPE_RULES: dict[str, DocTypeRule] = {
     ),
     # 功能安全（FMEA/FTA + 认证合规，§4.5）：八类原子 + 唯一专属变体 `table.failure_mode`；
     # 必填 `standard_ref`（指向安全标准具体条款）与 `audit_trail`（审计留痕）。
+    #
+    # **变体非必备（实现裁决 2026-09-17，真实语料驱动）**：`table.failure_mode` 仅入
+    # `allowed_atom_variants`（白名单），**不列入 `required_atom_types`**——因为真实安全文档
+    # 未必含失效模式表（实测：`neqsim-FMEA.md` 是 FMEA *方法说明*（叙述+代码示例），
+    # `protective-stop-FMEDA.md` 是 FMEDA *参数表*，`cdriscv-FMEDA.md` 无管道表）。
+    # 若把变体设为必备，M09A 门禁会拒收这些真实文档——「有则用变体，无则不强制」。
+    # 需要强制失效模式表的场景，应由具体 `meta.doc_subtype`（如 `fmea-worksheet`）承担。
     "safety": DocTypeRule(
         doc_type="safety",
         allowed_atom_types=ATOM_TYPES,
-        required_atom_types=("clause", "table.failure_mode"),
+        required_atom_types=("clause",),
         required_meta_fields=("standard_ref", "audit_trail"),
         allowed_atom_variants=("table.failure_mode",),
     ),

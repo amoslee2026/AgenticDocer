@@ -56,6 +56,7 @@ from agenticdocer.model import (
     derive_text,
 )
 from agenticdocer.model.anchors import section_path_str
+from agenticdocer.model import html_to_text
 from agenticdocer.observability import get_logger
 
 from . import rules
@@ -387,6 +388,8 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
         elif block.rule_id in _STRUCTURAL_RULES:
             if block.rule_id == "R03.table.html" and rules.match_empty_table_fragment(block.text):
                 rule_id = "F04.table.text-empty"  # A10 无从派生 text → 兜底保留（REQ-M03-F04）
+            elif block.rule_id == "F02.html.residue" and rules.match_html_pre_code(block.text):
+                rule_id = "R13.code.html-pre"  # HTML 形态的代码块 → code（format=html，P4 直通）
         elif toc_mode:
             rule_id = rules.TOC_RULE_ID
         elif block.kind == rules.PARAGRAPH:
@@ -722,6 +725,20 @@ def _code_pending(block: Block) -> _Pending:
 _HTML_ALT_RE: Final = re.compile(r"\balt\s*=\s*[\"']?(?P<alt>[^\"'>]*)", re.IGNORECASE)
 
 
+def _code_html_pending(block: Block) -> _Pending:
+    """块级 `<pre>`（HTML 形态代码块）→ code 节点（`format=html`，fragment 逐字节原样）。"""
+    return _Pending(
+        block=block,
+        atom_type="code",
+        format="html",
+        content=atom_content("code", fragment=block.text, text=html_to_text(block.text) or block.text),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
 def _figure_pending(block: Block) -> _Pending:
     """图片块 → figure 节点（`asset_ref` = 文件名 sha256；无 `fragment`，渲染期由 M04 合成）。"""
     if block.rule_id == "R06.figure.image":
@@ -831,6 +848,8 @@ def _plan(
             item = _table_pending(block)
         elif block.rule_id == "R05.code.fenced":
             item = _code_pending(block)
+        elif block.rule_id == "R13.code.html-pre":
+            item = _code_html_pending(block)
         elif block.rule_id in ("R06.figure.image", "R07.figure.html-img"):
             item = _figure_pending(block)
         elif block.rule_id == "R08.list.note":

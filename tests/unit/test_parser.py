@@ -390,7 +390,43 @@ def test_image_only_table_takes_fallback_path(tmp_path: pathlib.Path) -> None:
     assert check_proposals(result) == [], "兜底路径同样通过 M09A 门禁"
 
 
+def test_html_pre_code_block_becomes_code_atom(tmp_path: pathlib.Path) -> None:
+    """块级 `<pre>`（含未闭合形态）→ code 原子（format=html，fragment 原样；P4）。"""
+    doc = FRONTMATTER + (
+        "# 1 命令\n\n正文。\n\n"
+        "<pre><code>all_clocks</code></pre>\n\n"
+        "中间段落（隔开两个 pre 块，避免相邻块级 HTML 合并）。\n\n"
+        "<pre><code>all_inputs\n\n"
+        "结尾段落。\n"
+    )
+    result = parse_markdown(write(tmp_path, doc, "pre.md"), "pre")
+    codes = [p for p in result.proposals if p.atom.atom_type == "code"]
+    assert len(codes) == 2, [p.atom.content.get("fragment") for p in codes]
+    assert all(p.atom.format == "html" for p in codes)
+    assert codes[0].atom.content["fragment"] == "<pre><code>all_clocks</code></pre>"
+    assert codes[0].atom.content["text"] == "all_clocks"
+    assert codes[1].atom.content["fragment"].startswith("<pre><code>all_inputs")
+    assert result.stats.fallback == 0 and check_proposals(result) == []
+
+
+def test_opensta_corpus_pre_code_rule(tmp_path: pathlib.Path) -> None:
+    """真实语料（OpenSTA `Commands.md`，HTML 形态代码块）：覆盖率 ≥0.95 且 code 原子显著增加。"""
+    path = pathlib.Path(__file__).resolve().parents[2] / "spec" / "standards" / "lang" / "opensta-commands.md"
+    if not path.is_file():
+        pytest.skip(f"语料缺失：{path}")
+    result = parse_markdown(path)
+    summary = report(result)
+    assert summary["coverage"] >= 0.95, summary
+    assert summary["atom_types"]["code"] >= 150
+    assert summary["unmapped"]["count"] <= 5
+    pre_blocks = [p for p in result.proposals if p.rule_id == "R13.code.html-pre"]
+    assert pre_blocks and all(
+        p.atom.content["fragment"] in path.read_text(encoding="utf-8") for p in pre_blocks
+    ), "P4：fragment 必须是源文本的子串"
+
+
 def test_cross_ref_atom_resolves_target_anchor(parsed) -> None:
+
     cross = next(p for p in parsed.proposals if p.atom.atom_type == "cross_ref")
     assert cross.atom.content["ref_kind"] == "see_also"
     assert cross.atom.content["target_doc_id"] == "SPEC-STD-TEST-1.0"
