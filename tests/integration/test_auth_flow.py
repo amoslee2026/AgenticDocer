@@ -921,11 +921,12 @@ async def test_authenticate_rejects_bad_nonce_header(
     """``X-Nonce`` 熵不足 / 非法字符 → 401（§3 M06：≥128 位随机）。"""
     await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
     key = signing.load_private_key(key_material["editor_ed25519"])
-    headers = signing.sign_request_headers(key, "GET", "/api/v1/docs")
-    headers["X-Nonce"] = "短"
-    response = await client.get("/api/v1/docs", headers=headers)
-    assert response.status_code == 401
-    assert response.json()["detail"]["reason"] == "bad_nonce"
+    good = signing.sign_request_headers(key, "GET", "/api/v1/docs")
+    for bad_nonce in ("short", "!" * 40):  # 熵不足（<22 字符）/ 非法字符
+        headers = {**good, "X-Nonce": bad_nonce}
+        response = await client.get("/api/v1/docs", headers=headers)
+        assert response.status_code == 401, bad_nonce
+        assert response.json()["detail"]["reason"] == "bad_nonce"
 
 
 async def test_write_context_uses_verified_identity(
