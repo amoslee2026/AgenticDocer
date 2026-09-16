@@ -508,11 +508,17 @@ def run_quality_gate(scope: QualityScope) -> list[QualityReport]:
 ### M10 鉴权与用户管理（新增；批注 B1/B2/B3）
 
 ```python
-# 身份与密钥
-class SshKey(BaseModel): key_id: str; fingerprint: str; public_key: str; added_at: datetime; revoked_at: datetime | None
-class User(BaseModel): user_id: str; username: str; role: RoleName; status: Literal["active","disabled"]
-class Grant(BaseModel): grant_id: str; user_id: str; scope: Literal["doc_type","doc","repo"]
-                         value: str; permission: Literal["read","write","review","admin"]
+# 身份与密钥（类型见 §3.0；user_id 一律 UUID7，与 DDL uuid 列一致）
+class SshKey(BaseModel): key_id: str; user_id: UUID7; public_key: str
+                          ; key_type: SshKeyType; added_at: datetime; revoked_at: datetime | None
+SshKeyType = Literal["ssh-ed25519","rsa-sha2-512","rsa-sha2-256"]
+class User(BaseModel): user_id: UUID7; username: str; role: RoleName; status: Literal["active","disabled"]
+                        ; created_at: datetime; updated_at: datetime
+class Grant(BaseModel): grant_id: UUID7; user_id: UUID7; scope: Literal["doc_type","doc"]
+                        ; value: str; permission: Literal["read","write","review"]
+                        ; granted_by: UUID7 | None; granted_at: datetime
+class Session(BaseModel): session_id: UUID7; user_id: UUID7; created_at: datetime
+                          ; expires_at: datetime; last_seen_at: datetime
 
 # 签名验证（agent 路径）
 def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders) -> User:
