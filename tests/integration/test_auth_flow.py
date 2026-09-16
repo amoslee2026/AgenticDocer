@@ -327,13 +327,13 @@ async def test_missing_raw_path_scope_falls_back_with_warning(monkeypatch) -> No
     scope = {
         "type": "http",
         "method": "GET",
-        "path": "/api/v1/docs/SPEC%20A",
+        "path": "/api/v1/docs/SPEC A",  # ASGI path 已解码
         "query_string": b"limit=1",
         "headers": [],
         "client": ("10.0.0.9", 1),
     }
     assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC A?limit=1"
-    scope["raw_path"] = b"/api/v1/docs/SPEC%20A"
+    scope["raw_path"] = b"/api/v1/docs/SPEC%20A"  # 请求行原样字节
     assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC%20A?limit=1"
 
 
