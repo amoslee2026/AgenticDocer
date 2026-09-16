@@ -103,8 +103,6 @@ RULES_9A: tuple[str, ...] = (
 """M09A 全部规则 id（机检清单：测试断言规则集自证）。"""
 
 
-_TEXT_REQUIRED_MESSAGE: Final = "'text' is a required property"
-"""jsonschema 对 `required: ["text"]` 的文案（`A10.content.text` 拥有该判据，故在此剔除）。"""
 
 _EXTERNAL_PREFIX: Final = "EXT:"
 _CLIP_CHARS: Final = 120
