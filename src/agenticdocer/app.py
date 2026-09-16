@@ -29,9 +29,9 @@ from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any, Final
 
+import uvicorn
 import yaml
 from sqlalchemy import insert, select, update
-import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
