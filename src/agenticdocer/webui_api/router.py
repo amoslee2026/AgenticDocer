@@ -66,9 +66,9 @@ from agenticdocer.model import (
     SshKey,
     Term,
     User,
-    UserStatus,
     get_atom_schema,
 )
+# `UserStatus` 属 §3.0 取值域但未列入 `model.__all__`；从定义处取（M10 `users.py` 同口径）
 from agenticdocer.model.types import UserStatus
 from agenticdocer.observability import (
     HealthReport,
