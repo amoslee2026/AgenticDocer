@@ -1107,12 +1107,22 @@ def import_review(
     if _dry_plan(context, "import.review", doc_slug=doc_slug, work_dir=work_dir, actor=actor):
         return
     identity = _require_identity(_client_with(context), Need(command="import review", permission="write"))
-    state = run_review(
-        doc_slug,
-        work_dir=work_dir,
-        actor=actor or str(identity.get("username") or "anonymous"),
-        accept_confident=accept_confident,
-    )
+    who = actor or str(identity.get("username") or "anonymous")
+    if _ctx(context).json_mode:
+        # `--json` 的输出必须是**纯 JSON**（skill/agent 直接消费）：审核交互从 stdin 取答案，
+        # M03 的终端提示音不落 stdout。
+        state = run_review(
+            doc_slug,
+            work_dir=work_dir,
+            answers=(line.strip() for line in sys.stdin),
+            out=lambda _line: None,
+            actor=who,
+            accept_confident=accept_confident,
+        )
+    else:
+        state = run_review(
+            doc_slug, work_dir=work_dir, actor=who, accept_confident=accept_confident
+        )
     payload = state.model_dump(by_alias=True, mode="json")
     _output(context, payload, human=_human_review)
 
