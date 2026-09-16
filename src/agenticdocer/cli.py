@@ -115,6 +115,7 @@ QUALITY_DEFAULT_DETECTORS: Final = (
     "render_consistency",
     "events_consistency",
     "section_range_consistency",
+    "doc_type_schema_conformance",
 )
 """``quality-gate`` 缺省跑的 detector：全部**数据一致性**巡检（只读，reader 可跑）。
 

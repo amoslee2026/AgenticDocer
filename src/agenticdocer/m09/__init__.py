@@ -6,8 +6,9 @@
   `validate_proposal(atom_type, content)` / `validate_write(node, doc_type=None)` →
   `list[Violation]`（含 `fix_hint`，M06 lint 自修复闭环 REQ-M06-F02 依赖）；
 * **M09B** :mod:`agenticdocer.m09.quality_9b` —— 质量门（REQ-M09-F02，阶段 3）：
-  `run_quality_gate(scope)` → `list[QualityReport]`，七个 detector（§3 M09 的 6 项 +
-  Main 批准新增的 `section_range_consistency`）可经 `QualityScope.detectors` 单独调用。
+  `run_quality_gate(scope)` → `list[QualityReport]`，八个 detector（§3 M09 的 6 项 + Main 批准
+  新增的 `section_range_consistency` + 方案 C 的 `doc_type_schema_conformance`）可经
+  `QualityScope.detectors` 单独调用。
 
     from agenticdocer.m09 import QualityScope, run_quality_gate, validate_write
 
