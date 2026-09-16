@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Final
 from uuid import UUID
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agenticdocer.model import Event, NodeSnapshot, WriteContext, new_uuid7
@@ -21,10 +21,16 @@ from .errors import ValidationError
 from .fold import apply_events as _apply_events
 from .fold import entity_ops
 from .repository import Repository
-from .rows import build_model, now, row_to_dict
+from .rows import as_uuid, build_model, now, row_to_dict
 from .schema import events
 
-__all__ = ["EVENT_COLUMNS", "EventRepository", "append_event", "fetch_events"]
+__all__ = [
+    "EVENT_COLUMNS",
+    "EventRepository",
+    "append_event",
+    "changes_since",
+    "fetch_events",
+]
 
 EVENT_COLUMNS: Final = tuple(events.c)
 """显式列（避免 `SELECT *` 与模型字段漂移）。"""
@@ -119,3 +125,43 @@ class EventRepository(Repository):
             return await append_event(
                 session, entity="auth", entity_id=actor, op=op, payload=payload, actor=actor
             )
+
+    async def changes_since(
+        self,
+        *,
+        since_ts: datetime | None = None,
+        since_event_id: UUID | str | None = None,
+        entity: str | None = None,
+        limit: int = 1000,
+    ) -> list[Event]:
+        """全库事件增量扫描（M-LR `change_stream` 用）：按 `(ts, event_id)` 定序，**严格晚于游标**。
+
+        游标语义：
+        - 同时给 `since_ts` + `since_event_id` → 行值比较 `(ts, event_id) > (…, …)`，
+          调用方用上批最后一条事件续扫即可**不重不漏**；
+        - 只给 `since_ts` → `ts > since_ts`（同一个半开区间口径）；
+        - 都不给 → 从头（最早事件）开始。
+        `entity` 可选过滤（如只看 `node`）。
+
+        注（ADR-009 §4 V4）：`events` 为权威溯源、永久保留；未来超期分区 `DETACH` 到
+        `events_archive` 后，本方法与 `replay` 都应改走 `events_all` 视图——归档落地时在此
+        统一切换（口径单点），调用方无需改。
+        """
+        if limit < 1:
+            raise ValidationError(f"limit must be >= 1, got {limit}")
+        statement = select(*EVENT_COLUMNS)
+        if since_ts is not None:
+            if since_event_id is not None:
+                statement = statement.where(
+                    tuple_(events.c.ts, events.c.event_id)
+                    > (since_ts, as_uuid(since_event_id))
+                )
+            else:
+                statement = statement.where(events.c.ts > since_ts)
+        if entity is not None:
+            entity_ops(entity)
+            statement = statement.where(events.c.entity == entity)
+        statement = statement.order_by(events.c.ts, events.c.event_id).limit(limit)
+        async with self.db.session() as session:
+            rows = (await session.execute(statement)).all()
+        return [build_model(Event, row_to_dict(row)) for row in rows]
