@@ -56,10 +56,10 @@ export function DocPage() {
   }, [sections, currentSection]);
 
   const loadSection = useCallback(
-    async (section: string | null) => {
+    async (section: string | null, force = false) => {
       const key = section ?? "<full>";
       setRenderError(null);
-      if (renderCache.has(key)) {
+      if (!force && renderCache.has(key)) {
         return;
       }
       setRenderLoading(true);
@@ -216,14 +216,17 @@ export function DocPage() {
               >
                 整档
               </button>
-              <button className="ghost" onClick={() => {
-                setRenderCache((current) => {
-                  const next = new Map(current);
-                  next.delete(currentSection ?? "<full>");
-                  return next;
-                });
-                setTimeout(() => void loadSection(currentSection), 0);
-              }}>
+              <button
+                className="ghost"
+                onClick={() => {
+                  setRenderCache((current) => {
+                    const next = new Map(current);
+                    next.delete(currentSection ?? "<full>");
+                    return next;
+                  });
+                  void loadSection(currentSection, true);
+                }}
+              >
                 重新渲染
               </button>
             </div>
