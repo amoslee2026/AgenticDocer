@@ -188,7 +188,6 @@ def assign_anchors(doc_id: str, sections: Sequence[SectionRef]) -> list[str]:
     paths = [section_path_str(section.section_path) for section in sections]
     slugs = [slugify(section.title) for section in sections]
     digests = [_digest_hex(section.body_text) for section in sections]
-    bases = [anchor_base(doc_id, paths[pos], sections[pos].title) for pos in range(count)]
 
     group_ids: dict[tuple[str, str], int] = {}
     members: list[list[int]] = []
@@ -229,7 +228,7 @@ def assign_anchors(doc_id: str, sections: Sequence[SectionRef]) -> list[str]:
             duplicate_body=duplicate_body,
         )
         if candidate in taken:
-            candidate = _escalate(bases[pos], digests[pos], taken, pos)
+            candidate = _escalate(anchor_base(doc_id, paths[pos], section.title), digests[pos], taken, pos)
         taken.add(candidate)
         anchors.append(candidate)
 
