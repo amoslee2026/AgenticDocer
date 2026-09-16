@@ -1,7 +1,8 @@
 """M01 锚规则测试（ADR-006 + A1 修订）：规则 ①②③、219 同父同题去重、幂等、slug 边界。"""
 
 from __future__ import annotations
-
+import random
+import re
 import re
 
 import pytest
