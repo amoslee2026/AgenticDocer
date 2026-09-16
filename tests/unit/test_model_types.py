@@ -450,3 +450,69 @@ def test_result_types_and_quality_scope():
     assert QualityScope(doc_ids=None, detectors=["terms"]).doc_ids is None
     with pytest.raises(ValidationError):
         ExportResult(out_path="x", docs=-1, nodes=0)
+
+
+# ── §3.0 / §4 DDL 字段契约（逐字一致，防后续漂移）───────────────────────
+
+SPEC_FIELDS: dict[type, set[str]] = {
+    # §3.0 公共类型定义（A14）
+    WriteContext: {"actor", "source"},
+    NodeIn: {"node_id", "doc_id", "atom_type", "format", "ordinal", "parent_node_id", "level", "anchor", "content"},
+    Node: {"node_id", "doc_id", "atom_type", "format", "ordinal", "parent_node_id", "level", "anchor", "content", "status", "version", "created_at", "updated_at"},
+    RawFallback: {"atom_type", "format", "text", "source_lines"},
+    UnmappedBlock: {"source_lines", "reason", "fallback"},
+    Proposal: {"proposal_id", "rule_id", "confident", "source_lines", "atom"},
+    ParseStats: {"total_blocks", "rule_covered", "fallback", "pending"},
+    ParseResult: {"doc_meta", "proposals", "unmapped", "stats"},
+    Event: {"event_id", "entity", "entity_id", "op", "payload", "actor", "ts"},
+    DocTypeTarget: {"kind", "value"},
+    DocTarget: {"kind", "value"},
+    Comment: {"comment_id", "node_id", "target_event_id", "body", "state", "author", "version", "ts"},
+    NodeSnapshot: {"node", "history"},
+    SearchHit: {"node_id", "doc_id", "anchor", "score"},
+    TraversalHit: {"node_id", "doc_id", "anchor", "hops", "via"},
+    RenderResult: {"doc_id", "out_path", "assets_exported"},
+    CommitResult: {"doc_id", "nodes_created", "refs_created", "stats"},
+    QualityReport: {"detector_id", "violations"},
+    ExportResult: {"out_path", "docs", "nodes"},
+    Violation: {"rule_id", "path", "message", "fix_hint"},
+    DocIn: {"doc_id", "doc_type", "title", "meta", "source_ref"},
+    Doc: {"doc_id", "doc_type", "title", "meta", "source_ref", "status", "version", "created_at", "updated_at"},
+    AssetSyncReport: {"fetched", "missing", "total_refs"},
+    QualityScope: {"doc_ids", "detectors"},
+    # §4 DDL 推导（§3.0 未定义）
+    Ref: {"ref_id", "src_node_id", "dst_doc_id", "dst_node_id", "kind"},
+    SchemaDef: {"type_name", "json_schema", "version"},
+    Asset: {"asset_id", "mime", "bytes", "origin", "path"},
+    Term: {"term", "definition_node_id", "kind"},
+    Session: {"session_id", "user_id", "token_hash", "created_at", "expires_at", "last_seen_at"},
+    # §3 M10
+    User: {"user_id", "username", "role", "status"},
+    SshKey: {"key_id", "fingerprint", "public_key", "added_at", "revoked_at"},
+    Grant: {"grant_id", "user_id", "scope", "value", "permission"},
+}
+
+
+@pytest.mark.parametrize("model, expected", SPEC_FIELDS.items(), ids=lambda item: getattr(item, "__name__", ""))
+def test_field_names_match_spec(model: type, expected: set[str]):
+    assert set(model.model_fields) == expected
+
+
+def test_required_optionality_follows_spec_section_3_0():
+    """§3.0 未给默认值者即必填（`X | None` 也须显式传 None）；仅三处默认值。"""
+    defaulted = {
+        (NodeIn, "format"),
+        (DocTypeTarget, "kind"),
+        (DocTarget, "kind"),
+    }
+    for model in SPEC_FIELDS:
+        for name, field_info in model.model_fields.items():
+            assert field_info.is_required() or (model, name) in defaulted, f"{model.__name__}.{name} 意外有默认值"
+
+
+def test_camel_case_aliases_are_derived_uniformly():
+    from pydantic.alias_generators import to_camel
+
+    for model in SPEC_FIELDS:
+        for name, field_info in model.model_fields.items():
+            assert field_info.alias == to_camel(name)
