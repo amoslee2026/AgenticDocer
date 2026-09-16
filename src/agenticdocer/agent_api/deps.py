@@ -33,7 +33,7 @@ from agenticdocer.auth import (
     require_permission,
 )
 from agenticdocer.auth.rbac import MANAGE_USERS
-from agenticdocer.model import Doc, DocTarget, Violation
+from agenticdocer.model import Doc, DocTarget, Model, Violation
 from agenticdocer.store import (
     Database,
     Storage,
@@ -65,7 +65,9 @@ def request_storage(request: Request) -> Storage:
 
 def request_database(request: Request) -> Database:
     """应用注入的 `Database`（`app.state.db`）；无则回落进程单例（`DATABASE_URL`）。"""
-from agenticdocer.model import Doc, DocTarget, Model, Violation
+    injected = getattr(request.app.state, "db", None)
+    return injected if isinstance(injected, Database) else get_database()
+
 
 
 StorageDep = Annotated[Storage, Depends(request_storage)]
