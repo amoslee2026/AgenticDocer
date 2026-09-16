@@ -315,6 +315,10 @@ def normalize_markdown(source: str | Path) -> NormalForm: ...  # 源侧（markdo
 # (b) 渲染保真 normalize_markdown(<产物文件>) == normalize_markdown(src)（HTML 直通/内联标记/frontmatter 回写
 #     的破坏只发生在渲染层，必须由 (b) 覆盖；images 以重写前哈希路径集合比较）
 # 渲染入口：`agenticdocer-render <doc_id>` 或 `python -m agenticdocer.render`（入参为 doc_id=spec_id）
+def render_section(doc_id: str, section_node_id: UUID7) -> RenderResult:
+    """按 level-1/2 子树渲染单章节（B10）：取 section_node_id 及其后代（ordinal 序、
+    status='active'）→ Markdown；图片重写规则与 render_document 一致；
+    产物落 out_dir/sections/<anchor>.md。目标：单章节 <1s。"""
 
 class NormalForm(BaseModel):
     headings: list[tuple[int, str]]          # (level, text)
@@ -325,9 +329,12 @@ class NormalForm(BaseModel):
     inline_markers: list[str]
 ```
 
-### M05 图遍历与检索
+### M05 图遍历与检索（内部实现，无公开端点）
 
 > [!TODO] 图便利和检索是LightRAG的业务范围，不在本项目实现；只需要给lightRAG提供接口就行
+>
+> **处置（B5，用户裁决）**：**保留 M05 实现但降级为内部接口**。`traverse`/`search_text` 仍实现（M-LR 增量导出需 refs 图结构），但**不在 M06/M07 暴露端点**；对外检索能力由 LightRAG 承担（本系统只提供导出接口）。见 ADR-008。
+
 
 
 ```python
@@ -350,12 +357,17 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | `POST /api/v1/nodes` | 结构化写入（NodeIn + expected_version） | 422/409 |
 | `DELETE /api/v1/nodes/{node_id}?expected_version=` | **软删**（A2，写 delete 事件 + orphan 批注） | 404/409 |
 | `POST /api/v1/refs` / `DELETE /api/v1/refs` | 引用边增删（body: src,dst_doc,dst_node,kind） | 404/422 |
-| `GET /api/v1/nodes/{node_id}/traverse?hops=` | 多跳遍历（→ TraversalHit[]） | 404 |
-| `GET /api/v1/search?q=&limit=` | 关键词检索（→ SearchHit[]） | — |
+| ~~`GET /api/v1/nodes/{node_id}/traverse?hops=`~~ | **已移除**（B5/ADR-008：图遍历属 LightRAG 业务，M05 降级为内部实现） | — |
+| ~~`GET /api/v1/search?q=&limit=`~~ | **已移除**（同上；检索由 LightRAG 承担） | — |
+| `GET /api/v1/docs/{doc_id}/sections` | 章节清单（level-1/2 节点，B10 分章节渲染入口） | 404 |
+| `GET /api/v1/docs/{doc_id}/render?section=` | 章节渲染（省略 section → 整档；B10） | 404 |
 | `GET /api/v1/assets/{asset_id}` | 资产字节流 | 404 |
 | `POST /api/v1/docs/{doc_id}/render` | 触发渲染 | 404 |
 
-**身份（A3）**：写端点要求 `X-Actor` 请求头（非空；缺失 → 422）；映射 `WriteContext(source="agent")`。
+**鉴权（B2/B3，用户确认后扩展为全体端点）**：**所有端点（含读）**均需通过 M10 鉴权：
+- **agent 路径**：请求头 `X-SSH-Signature`（Ed25519，base64）、`X-SSH-Key-Id`（公钥指纹）、`X-Actor`、`X-Timestamp`（ISO 8601）、`X-Nonce`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nX-Timestamp\nX-Nonce`。服务端查 `users` 表验签 → 解析 `user_id`/`role`；失败 401，公钥未注册 403。
+- **WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。
+- 缺失任何凭据 → 401；`X-Actor` 与验签身份不一致 → 403。写入时 `WriteContext(actor=<user_id>, source="agent"|"webui")`。
 
 ### M07 WebUI API
 
@@ -370,6 +382,14 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | `POST /api/v1/comments` / `PATCH /api/v1/comments/{id}` | 批注创建 / `{state, expectedVersion}`（409；A4） |
 | `POST /api/v1/docs/{id}/status` | `{status, expectedVersion}`（409；A17） |
 | `GET /api/v1/assets/{asset_id}` | 资产读取（A6） |
+| `POST /api/v1/auth/challenge` | 取登录挑战（nonce，一次性，TTL 120s；B2） |
+| `POST /api/v1/auth/login` | 提交 `{keyFingerprint, nonce, signature}` → 验签通过签发会话 Cookie（httpOnly/SameSite=Lax） |
+| `POST /api/v1/auth/logout` | 销毁会话 |
+| `GET /api/v1/auth/me` | 当前身份（user_id/role/permissions） |
+| `GET/POST /api/v1/users`、`PATCH/DELETE /api/v1/users/{id}` | 用户管理（**admin 专属**，B3/A1） |
+| `POST /api/v1/users/{id}/keys` | 登记/吊销该用户 SSH 公钥 |
+| `GET/POST /api/v1/roles`、`POST /api/v1/grants` | 角色与文档集级授权（**admin 专属**） |
+| `PATCH /api/v1/nodes/{node_id}/table` | 表格编辑回写（B6 可编辑表格；body 为行列 JSON，服务端转 content，epoch 校验） |
 
 **前端契约（TS）**（A11 序列化口径：后端 pydantic `alias_generator=to_camel`，JSON 一律 camelCase）：
 
@@ -386,6 +406,15 @@ export interface CommentDTO { commentId: string; nodeId: string; targetEventId: 
   body: string; state: "open"|"resolved"|"orphaned"; author: string; version: number; ts: string; }
 export interface SchemaDTO { typeName: string; version: number; jsonSchema: Record<string, unknown>; }
 ```
+export interface UserDTO { userId: string; username: string; role: RoleName; status: "active"|"disabled";
+  keyFingerprints: string[]; createdAt: string; }
+export type RoleName = "admin"|"editor"|"reviewer"|"reader";
+export interface GrantDTO { userId: string; scope: "doc_type"|"doc"|"repo"; value: string;
+  permission: "read"|"write"|"review"|"admin"; }
+export interface SectionDTO { nodeId: string; anchor: string; title: string; level: number;
+  ordinal: number; childCount: number; }
+export interface SessionDTO { userId: string; username: string; role: RoleName;
+  permissions: GrantDTO[]; expiresAt: string; }
 
 ### M09 校验
 
@@ -399,6 +428,51 @@ def run_quality_gate(scope: QualityScope) -> list[QualityReport]:
        events_consistency}；render_consistency 消费 M04.normalize；
        events_consistency 用 M02.apply_events 重放比对当前态。"""
 ```
+
+### M10 鉴权与用户管理（新增；批注 A1/A2/B2/B3）
+
+```python
+# 身份与密钥
+class SshKey(BaseModel): key_id: str; fingerprint: str; public_key: str; added_at: datetime; revoked_at: datetime | None
+class User(BaseModel): user_id: str; username: str; role: RoleName; status: Literal["active","disabled"]
+class Grant(BaseModel): grant_id: str; user_id: str; scope: Literal["doc_type","doc","repo"]
+                         value: str; permission: Literal["read","write","review","admin"]
+
+# 签名验证（agent 路径）
+def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders) -> User:
+    """Ed25519 验签。载荷 = f"{method}\n{path}\n{sha256(body).hex()}\n{ts}\n{nonce}"。
+    步骤：(1) ts 偏移 ≤300s；(2) nonce 未被用过（PG 唯一约束，TTL 300s 清理）；
+    (3) key_id → users 表查 active 公钥；(4) 验签。任一失败 → AuthError(401/403)。"""
+
+# 会话（WebUI 路径）
+async def create_challenge() -> Challenge: ...       # nonce，一次性，TTL 120s
+async def login(key_fingerprint: str, nonce: str, signature: str) -> Session: ...
+async def resolve_session(token: str) -> User | None: ...   # 会话 TTL 8h，滑动续期
+def logout(session_id: str) -> None: ...
+
+# RBAC
+def authorize(user: User, permission: str, target: GrantTarget | None) -> None:
+    """role 基线权限 ∪ 文档集级 grant（B3）：admin=全部；editor=read+write+review；
+    reviewer=read+review；reader=read。grant 仅能**叠加**不能超过角色上限。
+    违规 → ForbiddenError(403)，落审计（events.entity='auth'）。"""
+
+# 管理员自举（用户裁决：环境变量引导）
+def bootstrap_admin(public_key_path: Path) -> User:
+    """migrate/首次启动时执行：若 users 表无 admin，则由
+    ADMIN_SSH_PUBKEY_FILE（默认 data/admin_keys/admin.pub）读公钥建 admin 用户。
+    幂等：已存在 admin 则跳过。"""
+```
+
+**权限矩阵（B3 四角色 + 文档集级授权）**：
+
+| 角色 | 用户管理 | 文档 CRUD | 批注 | 状态审批 | 读 | 表格编辑 |
+|---|---|---|---|---|---|---|
+| admin | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| editor | ✗ | ✅ | ✅ | ✗ | ✅ | ✅ |
+| reviewer | ✗ | ✗ | ✅ | ✅ | ✅ | ✗ |
+| reader | ✗ | ✗ | ✗ | ✗ | ✅ | ✗ |
+
+**鉴权审计**：所有鉴权失败（401/403）与用户/授权变更落 `events`（`entity='auth'`，A18 载荷规范扩展），供审计追溯。
 
 ### M-LR LightRAG 边界（暂缓联调，C7）
 
