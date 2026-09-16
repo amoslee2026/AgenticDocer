@@ -35,7 +35,13 @@ section_meta: "@meta"
 - **可归属**：公钥指纹 → `users` 行，`actor` 字段可精确归因到「哪个人类启动了哪个 agent」；
 - **成熟**：Ed25519 验签由 `cryptography` 库提供，无自研密码学。
 
-曲线支持：**Ed25519（首选）与 RSA-3072+（兼容）**；拒绝 DSA/ECDSA-P256 以下强度。
+曲线支持：**Ed25519（首选）与 RSA-3072+（兼容）**；拒绝 DSA/ECDSA-P256 以下强度。RSA <2048 位**硬拒**，<3072 位接受但记 INFO 日志（本 ADR 原「拒绝」句仅点名 DSA/ECDSA，未含弱 RSA，此处收紧口径）。
+
+> **RSA 填充的实现裁决（2026-09-16，M10 落地实测修正）**：本 ADR §签名格式 原定「RSA 用 `rsa-sha2-512` + **PSS**」。**实测发现该规定与 OpenSSH 现实冲突**：本机 OpenSSH 8.0p1 的 `ssh-keygen -Y sign` 对 `rsa-sha2-512` **实际输出 PKCS#1 v1.5**，且其 `-Y verify` **拒绝 PSS**（rc=255）。若严格只认 PSS，则与真实 `ssh-keygen` 的 RSA 互操作**无法达成**（即 S11 的「两条客户端路径共用同一验签器」目标落空）。
+>
+> **修正为**：**验签侧先试 PSS，失败则回落 PKCS#1 v1.5**（回落路径记 **WARN 日志，不静默降级**）；**签名侧固定 PSS**（我们自己生成的签名始终用强填充）。环境变量 `AUTH_RSA_REQUIRE_PSS=1` 可禁用回落（严格模式，代价是拒绝本机 ssh-keygen 的 RSA 签名）。**Ed25519 不受影响**——它无填充概念，且是首选算法。
+>
+> **依据**：M10 实测证据（`ssh-keygen -Y sign` 产物经本验签器验证通过；反向经 `ssh-keygen -Y verify` 判定 Good signature）。
 
 ### 2. 两条鉴权路径，同一身份源
 
