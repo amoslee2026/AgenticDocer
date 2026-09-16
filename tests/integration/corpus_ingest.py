@@ -26,8 +26,9 @@ from agenticdocer.model import (
     WriteContext,
     assign_anchors,
     derive_text,
+    new_uuid7,
 )
-from agenticdocer.render import REGISTER_FIELD_COLUMNS, table_cells, table_meta
+from agenticdocer.render import table_cells, table_meta
 from agenticdocer.store import Storage
 
 CORPUS_ROOT = Path(
@@ -44,7 +45,7 @@ _LETTER_PATH = re.compile(r"^([A-Z](?:\.\d+)+)(?:[.\s]|$)")
 _CHAPTER = re.compile(r"^Chapter\s+(\d+)", re.IGNORECASE)
 _IMAGE_ONLY = re.compile(r"^!\[(?P<alt>[^\]]*)\]\((?P<src>[^)\s]+)\)\s*$")
 _ASSET_ID = re.compile(r"([0-9a-f]{64})")
-
+_BULLET = re.compile(r"^\s*([-*+]|\d{1,9}[.)])\s+")
 FRONTMATTER_FIELDS = (
     "title",
     "type",
@@ -160,34 +161,33 @@ def node_contents(block: str) -> tuple[str, str, dict[str, Any]]:
         if asset_id:
             content["asset_ref"] = asset_id.group(1)
         return "figure", "md", content
-    if re.match(r"^\s*([-*+]|\d{1,9}[.)])\s+", block):
-        return "note", "md", {"fragment": block, "text": block.strip()}
-    return "clause", "md", {"fragment": block, "text": block.strip()}
+    if _BULLET.match(block):
+        return "note", "md", {"fragment": block, "text": stripped}
+    return "clause", "md", {"fragment": block, "text": stripped}
 
 
 def blocks_to_nodes(doc_id: str, blocks: list[str]) -> list[NodeIn]:
-    """块序列 → 节点序列（ordinal 序、父链按 level 栈、锚经 M01 ``assign_anchors``）。"""
+    """块序列 → 节点序列（ordinal 序；父链按 level 栈重建；锚经 M01 ``assign_anchors``）。"""
     levels: list[int] = []
     paths: list[tuple[str, ...]] = []
     titles: list[str] = []
-    stack: list[tuple[int, int]] = []  # (level, block index)
-    parent_of: list[int | None] = []
+    parents: list[int | None] = []
+    stack: list[tuple[int, int]] = []  # (level, 块下标)
+
     for index, block in enumerate(blocks):
-        title = ""
-        level = 0
-        path: tuple[str, ...] = ()
         heading = _ATX.match(block.split("\n", 1)[0])
         if heading:
             level, path = heading_depth(heading.group(2), len(heading.group(1)))
             title = heading.group(2)
             while stack and stack[-1][0] >= level:
                 stack.pop()
-            parent_of.append(stack[-1][1] if stack else None)
+            parents.append(stack[-1][1] if stack else None)
             stack.append((level, index))
         else:
-            parent_of.append(stack[-1][1] if stack else None)
-            if stack:
-                path = paths[stack[-1][1]]
+            level = 0
+            path = paths[stack[-1][1]] if stack else ()
+            title = ""
+            parents.append(stack[-1][1] if stack else None)
         levels.append(level)
         paths.append(path)
         titles.append(title)
@@ -199,26 +199,25 @@ def blocks_to_nodes(doc_id: str, blocks: list[str]) -> list[NodeIn]:
             for index in range(len(blocks))
         ],
     )
-    node_ids = [None] * len(blocks)
+    node_ids = [new_uuid7() for _ in blocks]
 
     nodes: list[NodeIn] = []
     for index, block in enumerate(blocks):
         atom_type, fmt, content = node_contents(block)
-        level = levels[index] or None
+        parent_index = parents[index]
         nodes.append(
             NodeIn(
-                node_id=None,
+                node_id=node_ids[index],
                 doc_id=doc_id,
                 atom_type=atom_type,
                 format=fmt,
                 ordinal=index + 1,
-                parent_node_id=None,
-                level=level,
+                parent_node_id=node_ids[parent_index] if parent_index is not None else None,
+                level=levels[index] or None,
                 anchor=anchors[index],
                 content=content,
             )
         )
-        del node_ids, atom_type, fmt, content, level
     return nodes
 
 
