@@ -863,10 +863,20 @@ def _as_utc(moment: datetime) -> datetime:
 
 
 def _parse_moment(text: str) -> datetime | None:
-    """ISO 8601 文本 → 时间点；不可解析 → `None`（交由版本号分支判错）。"""
+    """ISO 8601 文本 → 时间点；不可解析 → `None`（交由版本号分支判错）。
+
+    兼容两处线上形态：
+
+    * 尾部 `Z`（`…T12:00:00Z`）；
+    * **时区偏移里的 `+` 被解码成空格**——`?from=2026-09-16T12:00:00+00:00` 在 query 解码后
+      是 `…T12:00:00 00:00`（`+` 的 form-encoding 语义）。仅当值形如
+      `T<时分[:秒[.微秒]]> <±HH:MM>` 时才把空格还原为 `+`，故不会误伤
+      「`2026-09-16 11:55`」这类**空格分隔日期与时间**的朴素写法（ADR/ISO 均允许）。
+    """
     candidate = text.strip()
     if candidate.endswith(_ISO_SUFFIX):
         candidate = candidate[: -len(_ISO_SUFFIX)] + "+00:00"
+    candidate = _SPACE_OFFSET.sub(r"\1+\2", candidate)
     try:
         return _as_utc(datetime.fromisoformat(candidate))
     except ValueError:
