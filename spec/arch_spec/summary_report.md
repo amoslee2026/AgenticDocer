@@ -5,7 +5,7 @@ purpose: spec
 audience: both
 direction: input
 status: approved
-version: "1.3.0"
+version: "1.4.0"
 section_meta: "@meta"
 ---
 
@@ -43,6 +43,8 @@ section_meta: "@meta"
 | **9** | **SSH 公钥签名鉴权（全端点）+ WebUI 会话 + RBAC 四角色/文档集级授权** | **ADR-007；批注 B2/B3** |
 | **10** | **M05 降级为内部接口；语义检索归 LightRAG** | **ADR-008；批注 B5/B8** |
 | **11** | **容量：≥10,000 文档 / ≈13.4M 节点 / 10,000 身份 → 分区与调优** | **ADR-009；批注 B9** |
+| **12** | **Agentic Logger 全面接入（全模块单一适配层）+ rid 请求级追踪 + 三层性能评估（在线指标/离线基准/容量巡检）** | **ADR-010；用户要求「要支持 agentic logger，要有性能评估和监控机制」** |
+| **13** | **P6 运行期 LLM 无关**：系统运行路径不调用任何 LLM；coding agent 仅为外部客户端（可机械验证：import lint + 断网 e2e + 依赖树 + 无凭据跑通） | **用户要求「系统的运行应该不依赖于 LLM」；ADGENTS.md 日志强制用 AgenticLogger（同为确定性本地库）** |
 
 ## 3. 风险清单（合并 idea §11 与 A1–A25 处置）
 
