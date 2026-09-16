@@ -228,11 +228,13 @@ def _relation_sort_key(relation: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def _write_jsonl(path: Path, records: Sequence[dict[str, Any]]) -> None:
-    """写 JSONL（UTF-8、`\\n`、紧凑分隔符；空集合 → 空文件）。"""
-    body = "".join(
-        json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n" for record in records
-    )
-    _write_text(path, body)
+    """写 JSONL（UTF-8、`\\n`、紧凑分隔符；空集合 → 空文件）。
+
+    逐行落盘，不先拼整份文本——导出包可达 GB 级，避免多一份全量副本。
+    """
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
 def _write_manifest(
