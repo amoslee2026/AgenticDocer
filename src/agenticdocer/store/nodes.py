@@ -137,13 +137,21 @@ class NodeRepository(Repository):
         则一并返回）。理由：`get_doc_nodes` 也只按 status 过滤、不看祖先状态，两处口径必须一致。
         """
         root_id = as_uuid(root_node_id)
-        seed = select(nodes.c.node_id, nodes.c.parent_node_id).where(nodes.c.node_id == root_id)
+        seed = select(
+            nodes.c.node_id, nodes.c.parent_node_id, literal(0).label("depth")
+        ).where(nodes.c.node_id == root_id)
         if doc_id is not None:
             seed = seed.where(nodes.c.doc_id == doc_id)
         subtree = seed.cte("subtree", recursive=True)
-        child = select(nodes.c.node_id, nodes.c.parent_node_id).join(
-            subtree, nodes.c.parent_node_id == subtree.c.node_id
-        )
+        child = select(
+            nodes.c.node_id, nodes.c.parent_node_id, (subtree.c.depth + 1).label("depth")
+        ).join(subtree, nodes.c.parent_node_id == subtree.c.node_id)
+        # 深度上限：`parent_node_id` 是应用层维护的（ADR-009 外键降级），M06 直写可能造出
+        # 环（A→B→A）；`WITH RECURSIVE` 自身无环检测，会**无限递归**。上限只用于保证终止，
+        # 不限制合法层级（markdown 标题深度 ≤ 6）；环上的节点在第 2 层即重现，最终
+        # `node_id IN (…)` 天然去重，故结果仍是 {A, B}，与 M04 `section_subtree` 的
+        # visited 语义一致。（备选：PG 的 `CYCLE` 子句 / 路径数组，此处不值得那份复杂。）
+        child = child.where(subtree.c.depth < _MAX_SUBTREE_DEPTH)
         if doc_id is not None:
             # 递归项带上分区键 → 整棵子树只扫一个分区（ADR-009 V16 的同一思路）
             child = child.where(nodes.c.doc_id == doc_id)
