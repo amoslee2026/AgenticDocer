@@ -927,7 +927,7 @@ def test_probe_detects_missing_next_month_partition(
     conn = _FakeConn(
         tables=[],
         indexes=[],
-        relkind="p",
+        relkind=b"p",  # asyncpg 对 PG "char" 返回 bytes
         bounds=_month_bounds(_this_month()),
     )
     _patch_pg(monkeypatch, conn)
@@ -955,7 +955,7 @@ def test_probe_accepts_covered_next_month(logs: Path, monkeypatch: pytest.Monkey
             }
         ],
         indexes=[{"indexrelname": "idx_nodes_doc_ordinal", "idx_scan": 7, "size_bytes": 1024}],
-        relkind="p",
+        relkind=b"p",
         bounds=_month_bounds(_this_month(), f"{nxt.year:04d}-{nxt.month:02d}"),
     )
     _patch_pg(monkeypatch, conn)
@@ -968,7 +968,7 @@ def test_probe_accepts_covered_next_month(logs: Path, monkeypatch: pytest.Monkey
 
 
 def test_probe_flags_unpartitioned_events_table(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    conn = _FakeConn(tables=[], indexes=[], relkind="r", bounds=[])
+    conn = _FakeConn(tables=[], indexes=[], relkind=b"r", bounds=[])
     _patch_pg(monkeypatch, conn)
 
     report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
@@ -990,7 +990,7 @@ def test_probe_ignores_unparseable_bounds(logs: Path, monkeypatch: pytest.Monkey
     conn = _FakeConn(
         tables=[],
         indexes=[],
-        relkind="p",
+        relkind=b"p",
         bounds=["DEFAULT"],
     )
     _patch_pg(monkeypatch, conn)
