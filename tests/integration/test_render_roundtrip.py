@@ -17,8 +17,8 @@
 
 from __future__ import annotations
 
+import itertools
 import re
-import time
 from pathlib import Path
 
 import pytest
