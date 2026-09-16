@@ -475,6 +475,22 @@ def test_percentile_nearest_rank() -> None:
     assert percentile([], 95) == 0
 
 
+def test_snapshot_defaults_to_process_log_dir(
+    logs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """缺省 `log_dir` 必须走 `logger.log_dir()`（回归）。
+
+    历史缺陷：`snapshot()` 的形参 `log_dir` **遮蔽**了同名的模块级函数，
+    缺省分支执行 `log_dir()` 即 `TypeError: 'NoneType' object is not callable`；
+    而当时全部指标用例都显式传 `log_dir=`，故未覆盖该缺省路径。
+    """
+    monkeypatch.setenv("LOG_DIR", str(logs))
+    snap = snapshot(since=_since(), window=600)
+    assert isinstance(snap, MetricsSnapshot)
+    assert snap.window_seconds == 600
+    assert snap.endpoints == [] and snap.slow_queries == []
+
+
 def test_snapshot_on_empty_dir_is_zeroed(logs: Path) -> None:
     snap = snapshot(since=_since(), window=600, log_dir=logs)
     assert snap.window_seconds == 600
