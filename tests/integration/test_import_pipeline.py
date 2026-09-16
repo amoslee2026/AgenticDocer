@@ -352,7 +352,7 @@ async def test_fallback_blocks_are_persisted_verbatim(storage: Storage, database
         assert node_text.strip()
 
 
-async def test_missing_assets_do_not_block_import(storage: Storage, apb_result, tmp_path) -> None:
+async def test_missing_assets_do_not_block_import(storage: Storage, database, apb_result, tmp_path) -> None:
     """REQ-M03-F05：资产缺失不阻断；缺失清单与 M02 `list_missing_assets` 判据一致。"""
     result = apb_result
     doc_slug = result.doc_meta["doc_slug"]

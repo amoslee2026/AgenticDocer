@@ -2,7 +2,8 @@
 
 - 路径：`ASSET_STORE_DIR/<sha256[:2]>/<sha256>.<ext>`（A6），`assets.path` 记相对路径；
 - 幂等去重：同 sha256 不重复落盘、不重复插行；
-- 无事件：`assets` 不是 §3.5 的事件实体域（不在 `ENTITY_OPS` 中）。
+- 无事件：`assets` 不是 §3.5 的事件实体域（不在 `ENTITY_OPS` 中）；
+- 引用口径：库内引用是 **sha256 令牌**（非渲染产物形态），见 `ASSET_HASH_PATTERN`。
 """
 
 from __future__ import annotations
@@ -23,15 +24,29 @@ from .repository import Repository
 from .rows import build_model, row_to_dict
 from .schema import assets
 
-__all__ = ["ASSET_REF_PATTERN", "AssetRepository", "asset_store_dir"]
+__all__ = [
+    "ASSET_HASH_PATTERN",
+    "ASSET_REF_PATTERN",
+    "AssetRepository",
+    "asset_store_dir",
+]
 
 _REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 """`src/agenticdocer/store/assets.py` → 仓库根。"""
 
 DEFAULT_ASSET_STORE_DIR: Final = _REPO_ROOT / "data" / "assets"
 
+ASSET_HASH_PATTERN: Final = re.compile(r"[0-9a-f]{64}")
+"""**库内引用口径**：任意出现的 sha256 令牌即资产引用（P5 口径唯一）。
+
+库内（`nodes.content`）有两种承载：`figure.content.asset_ref`（裸 sha256，M03 解析器写入）
+与 HTML/markdown 片段里保留的**源路径**（`images/<sha256>.jpg`，P4 零改写直通）。
+`assets/<sha256>.<ext>` 只出现在 **M04 渲染产物**里，不是库内形态——故不能只认后者。
+M04 的解析器用同一规则（其 `_HASH_TOKEN`），M02 不依赖 M04（P3 单向依赖），故规则定义在此层。
+"""
+
 ASSET_REF_PATTERN: Final = re.compile(r"assets/([0-9a-f]{64})\.[A-Za-z0-9]+")
-"""M04 渲染期把图片 `src` 重写为 `assets/<sha256>.<ext>`（§3 M04），即库内引用口径。"""
+"""渲染产物形态 `assets/<sha256>.<ext>`（§3 M04，M04 渲染器按此解析）。"""
 
 
 def asset_store_dir() -> Path:
