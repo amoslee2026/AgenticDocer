@@ -579,7 +579,6 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
         result = parse_markdown(path)
         parse_us = watch.elapsed_us()
         watch.restart()
-        watch.restart()
         committed = await commit_document(result, ctx, storage=storage)
         commit_us = watch.elapsed_us()
         records.append({
