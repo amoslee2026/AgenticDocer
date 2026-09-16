@@ -758,6 +758,7 @@ CREATE TABLE nonces (                          -- 签名重放防护（B2/S3/S7�
 );
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s) ≥ 时间窗
 -- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
+```
 
 ### 4.4 分区策略（ADR-009，批注 A8）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、外键降级）
 
@@ -773,10 +774,7 @@ END $$;
 
 CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
 -- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
-**双层防护**：DB 角色防「应用被攻破后越权访问他库」；应用 RBAC 防「合法连接内越权操作」。二者不可互相替代。
 
-**残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticdocer_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 对身份四表启用 PG RLS；② 用户管理 API 走独立的最小权限连接角色。触发升级条件：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
-```
 
 ### 4.1 DB 角色与权限（A15）
 
@@ -790,10 +788,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO agenticdo
 ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agenticdocer_app;   -- L4：后续新表默认授权
 REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（P2）
-  监听: --host 0.0.0.0（**鉴权后**方可对外；无 users 表则 fail-closed，见 ADR-007）
-  **TLS 强制（S6）**: 对外监听（非 127.0.0.1）**必须**经 TLS 反向代理终止；此时会话 Cookie 强制 `Secure`。
-                     无 TLS 时**仅允许 loopback 绑定**。明文 HTTP 下会话 Cookie 可被嗅探劫持（最长 8h）。
-  CSRF 立场（S6）: 依赖 SameSite=Lax + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
 
 #### 4.1.1 应用层 RBAC（M10，批注 A1/A2/B3）
@@ -801,6 +796,8 @@ REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（
 见 §3 M10「权限矩阵」。DB 层仅区分属主（迁移）与应用（最小权限）；用户级权限（四角色 + 文档集级 grant）由 **M10 应用层**强制，落 `users`/`grants` 表（§4）。
 
 **双层防护**：DB 角色防「应用被攻破后越权访问他库」；应用 RBAC 防「合法连接内越权操作」。二者不可互相替代。
+
+**残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticdocer_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 身份四表启用 PG RLS；② 用户管理 API 走独立最小权限连接角色。**触发升级条件**：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
 
 ## 5. 部署与运行（AB1/AB2/B15）
 
