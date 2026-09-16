@@ -19,10 +19,10 @@ frontmatter             目标
 ======================  ==================================================
 
 必填校验口径 = `model.doc_types.C5_META_FIELDS`（P5 单点：M01 定义、M03 消费、M09A 复用），
+缺字段即 `ValidationError`（→ 422），不落地半份元数据。
 `doc_type` 的细粒度判定（idea.md 30+ 类型 → 5 个 `doc_type`）与 `product` 大类的细分
 （`meta.doc_subtype`）单点在 :mod:`agenticdocer.importer.doc_type_map`（映射表 §2 的机器可读
 形式）；`verification-plan` 子类型另需 `verification_plan_format`（映射表 §4）。
-缺字段即 `ValidationError`（→ 422），不落地半份元数据。
 """
 
 from __future__ import annotations
@@ -34,7 +34,10 @@ from typing import Any, Final
 
 import yaml
 
-from agenticdocer.importer.doc_type_map import (
+from agenticdocer.model import C5_META_FIELDS, DOC_TYPES, DocIn, DocStatus, missing_required_meta
+from agenticdocer.store import ValidationError
+
+from .doc_type_map import (
     RESOLVABLE_KEYS,
     VERIFICATION_PLAN_FORMATS,
     VERIFICATION_PLAN_SUBTYPE,
@@ -44,8 +47,6 @@ from agenticdocer.importer.doc_type_map import (
     resolve_doc_type,
     subtypes_for,
 )
-from agenticdocer.model import C5_META_FIELDS, DOC_TYPES, DocIn, DocStatus, missing_required_meta
-from agenticdocer.store import ValidationError
 
 __all__ = [
     "FRONTMATTER_DELIMITER",
