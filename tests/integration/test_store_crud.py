@@ -713,6 +713,7 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     故必须做父链连通性自检（见 `NodeRepository._section_interval`）；
     同时诚实地钉住**残留风险**：反向的漏收无法在区间内自检，需 M09B 抽样 detector 兜底。
     """
+    from agenticdocer.render.sections import section_subtree
 
     doc_id = unique_doc("OUTLINE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
