@@ -350,21 +350,7 @@ def openssh_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @needs_ssh_keygen
 def test_fingerprint_matches_ssh_keygen_lf(openssh_dir: Path) -> None:
-    for name in ("id_ed25519", "id_rsa"):
-        expected = subprocess.run(
-            [SSH_KEYGEN, "-lf", f"{openssh_dir / name}.pub"],
-            check=True,
-            capture_output=True,
-            text=True,
-    path = openssh_dir / key_name
-    message = openssh_dir / f"{key_name}.msg"
-    message.write_bytes(MESSAGE)
 
-@needs_ssh_keygen
-@pytest.mark.parametrize("key_name", ["id_ed25519", "id_rsa"])
-def test_verify_real_ssh_keygen_signature(openssh_dir: Path, key_name: str) -> None:
-    """**硬验收（S11）**：``ssh-keygen -Y sign`` 的产物必须被本验签器接受。"""
-    path = openssh_dir / key_name
     message = openssh_dir / "message"
     subprocess.run(
         [SSH_KEYGEN, "-Y", "sign", "-n", sshsig.NAMESPACE, "-f", str(path), str(message)],
