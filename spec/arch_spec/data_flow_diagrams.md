@@ -86,7 +86,6 @@ flowchart LR
     LR -->|node_id 回查正文| M6["M06 点查"]
     M6 --> N2[("nodes")]
     N2 --> HIT["命中集"]
-    note1["本系统不暴露 /search 与 /traverse（ADR-008）"]
 ```
 
 > **变更（B5/B8）**：原 DF-4 中「关键词检索 FTS」与「多跳遍历」的**公开入口已移除**；M05 降级为 M-LR 内部依赖。系统内检索能力：按 ID 直读（M06 点查）+ 文档树/章节树浏览（M06）；语义与关键词检索由 LightRAG 承担。
@@ -135,7 +134,7 @@ sequenceDiagram
 ```
 
 **鉴权审计流**：所有 401/403、用户/授权/密钥变更 → `events(entity='auth', op∈{login,logout,fail,user_change,grant_change,key_change})` → 供审计查询（不参与实体折叠）。
-***```
+```
 
 ## 数据驻留与边界
 
