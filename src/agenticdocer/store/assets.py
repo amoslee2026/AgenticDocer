@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any, Final
 
 from sqlalchemy import insert, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ._compat import Asset
 from .errors import NotFoundError
