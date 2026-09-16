@@ -673,7 +673,7 @@ async def test_rbac_and_grant_narrowing(
         )
     ).status_code == 422
 
-    # 撤销 grant 后 editor 的写权随之消失（收窄解除 ≠ 扩权）
+    # 撤销收窄 grant → editor 回到**角色基线**（S5：grant 只收窄、不扩权；无收窄 grant 时角色说了算）
     grant_id = created_grant.json()["grantId"]
     assert (await admin.request("DELETE", f"/api/v1/grants/{grant_id}")).status_code == 204
     assert (
@@ -681,7 +681,13 @@ async def test_rbac_and_grant_narrowing(
             "/api/v1/nodes",
             _node_body(DOC_RBAC_PRD, "1 after", ordinal=1, content={"text": "product write again"}),
         )
-    ).status_code == 403
+    ).status_code == 200
+    assert (
+        await editor_client.post(
+            "/api/v1/nodes",
+            _node_body(DOC_RBAC_STD, "1 baseline", ordinal=0, content={"text": "standard write"}),
+        )
+    ).status_code == 200
 
     # 用户状态与密钥管理（S8/S9）
     disabled = await admin.request("PATCH", f"/api/v1/users/{reader_id}", {"status": "disabled"})
