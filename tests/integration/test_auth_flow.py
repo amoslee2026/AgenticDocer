@@ -299,6 +299,37 @@ async def test_body_and_path_tampering_is_rejected(
     assert response.status_code == 401
 
 
+async def test_signature_covers_percent_encoded_target(
+    client: AsyncClient, database: Database, key_material: dict[str, Path]
+) -> None:
+    """**AUD-2 回归**：RAW_PATH 取 ASGI ``raw_path``（**未解码**的原样字节，S2 字面）。
+
+    客户端契约因此是「签请求行里那个目标串」：签编码形态 → 200；先 ``unquote`` 再签 → 401
+    （服务端不会替客户端解码，也不存在「签解码形态」这条隐式耦合）。
+    """
+    await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
+    key = signing.load_private_key(key_material["editor_ed25519"])
+
+    encoded = signing.sign_request_headers(key, "GET", "/api/v1/docs/SPEC%20A")
+    response = await client.get("/api/v1/docs/SPEC%20A", headers=encoded)
+    assert response.status_code == 200, response.text
+    assert response.json()["docId"] == "SPEC A"  # 路由仍按解码路径匹配（FastAPI 语义）
+
+    decoded = signing.sign_request_headers(key, "GET", "/api/v1/docs/SPEC A")
+    response = await client.get("/api/v1/docs/SPEC%20A", headers=decoded)
+    assert response.status_code == 401
+    assert response.json()["detail"]["reason"] == "bad_signature"
+
+
+async def test_missing_raw_path_scope_falls_back_with_warning(monkeypatch) -> None:
+    """ASGI ``raw_path`` 缺失（规范允许省略）→ 回落解码路径，且只告警一次。"""
+    monkeypatch.setattr(middleware, "_MISSING_RAW_PATH_WARNED", False, raising=False)
+    scope = {"type": "http", "method": "GET", "path": "/api/v1/docs/SPEC%20A",
+             "query_string": b"limit=1", "headers": [], "client": ("10.0.0.9", 1)}
+    assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC A?limit=1"
+
+    scope["raw_path"] = b"/api/v1/docs/SPEC%20A"
+    assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC%20A?limit=1"
 async def test_time_window_bounds(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
