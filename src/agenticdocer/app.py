@@ -310,6 +310,7 @@ def create_app(
         docs_url="/docs" if development else None,
         redoc_url="/redoc" if development else None,
         openapi_url="/openapi.json" if development else None,
+        responses=ERROR_RESPONSES,
         lifespan=lifespan,
     )
     application.state.db = database
