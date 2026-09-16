@@ -408,7 +408,7 @@ def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: .
 
 | 方法/路径 | 语义 | 关键错误 |
 |---|---|---|
-| `GET /api/v1/nodes/{node_id}` | 节点读（含 version） | 404 |
+| `GET /api/v1/nodes/{node_id}?doc_id=` | 节点读（含 version）；**doc_id 可选**——传入则分区裁剪，缺失则全分区扫（降级，ADR-009 V16） | 404 |
 | `GET /api/v1/docs/{doc_id}/nodes` | 文档节点树（默认 active） | 404 |
 | `POST /api/v1/nodes` | 结构化写入（NodeIn + expected_version） | 422/409 |
 | `DELETE /api/v1/nodes/{node_id}?expected_version=` | **软删**（A2，写 delete 事件 + orphan 批注） | 404/409 |
@@ -842,18 +842,33 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 
 ### 4.3 DB 角色与权限（A15）
 
+**⚠️ 分区化修正（实现裁决 2026-09-16，M02 实测发现）**：下方字面写法在**分区化后不成立**——分区各自持有独立 ACL，且 `ALTER DEFAULT PRIVILEGES` 会把 U/D 授给**未来**的 events 月分区，append-only 随时间失效。**权威实现**：
+
 ```sql
 -- 属主：agenticdocer（database owner，建库时创建）
 CREATE ROLE agenticdocer LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
 CREATE ROLE agenticdocer_app LOGIN PASSWORD '…';         -- 应用连接角色（最小权限）
 GRANT CONNECT ON DATABASE agenticdocer TO agenticdocer_app;
 GRANT USAGE ON SCHEMA public TO agenticdocer_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO agenticdocer_app;
+
+-- (1) 可变表：S/I/U/D 全授（docs/nodes/refs/comments/schemas/assets/terms/users/ssh_keys/grants/sessions/nonces）
+GRANT SELECT, INSERT, UPDATE, DELETE ON <每个 MUTABLE_TABLE> TO agenticdocer_app;
+
+-- (2) events（含**全部分区**与 default 分区）：仅 S/I，显式 REVOKE U/D/TRUNCATE
+GRANT SELECT, INSERT ON events TO agenticdocer_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON events FROM agenticdocer_app;
+-- 对 events 的每个分区子表（events_202609…events_default）逐一执行同样的 S/I + REVOKE
+-- 原因：分区持有独立 ACL，仅授父表不覆盖子表
+
+-- (3) 默认权限：**只授 S/I**（未来新建的 events 月分区自动保持 append-only）
 ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agenticdocer_app;   -- L4：后续新表默认授权
-REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（P2）
+  GRANT SELECT, INSERT ON TABLES TO agenticdocer_app;
+-- 未来若新增可变表，需在新 revision 中显式补授 U/D
+
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
+
+**校验方式**：集成测试断言 app 角色对 events 执行 UPDATE/DELETE 报错（M02 已实现，见 `tests/integration/test_store_crud.py`）。
 
 #### 4.3.1 应用层 RBAC（M10，批注 B1/B2/B3）
 
