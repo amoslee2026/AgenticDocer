@@ -71,7 +71,6 @@ UNKNOWN_STATUS: Final = "unknown"
 MATRIX_FIELDS: Final = ("feature", "sub_feature", "coverage_item", "test", "status")
 """`table.coverage_matrix` 行字段（与 M01 变体 schema 同序；schema 定义仍在 model）。"""
 
-_LEVELS: Final = ("feature", "sub_feature", "coverage_item", "test")
 _NAME_CHILD_TAGS: Final = ("name", "title")
 
 _FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
@@ -143,6 +142,7 @@ class VPlan:
         return tuple(row for row in self.rows if row.is_gap)
 
     def matrix_rows(self) -> tuple[dict[str, str], ...]:
+        """→ `content.matrix`（五字段齐备、值非空；缺口以 :data:`UNASSIGNED_TEST` 落位）。"""
         return tuple(row.as_matrix_row() for row in self.rows)
 
     def to_xml(self) -> str:
