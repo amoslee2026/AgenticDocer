@@ -474,11 +474,12 @@ def test_vplan_export_round_trips_rows() -> None:
     assert again.matrix_rows() == plan.matrix_rows()
 
 
-def test_ucis_root_and_default_status() -> None:
-    """UCIS 根元素可用；`status` 缺省为 `unknown`（不臆造状态）。"""
+def test_ucis_root_and_status_fallback() -> None:
+    """UCIS 根元素可用；状态口径：覆盖项缺 → 退测试状态 → 再缺为 `unknown`（不臆造）。"""
     plan = parse_vplan(UCIS_XML)
     assert plan.format == "ucis"
-    assert plan.rows[0].status == UNKNOWN_STATUS
+    assert [row.status for row in plan.rows] == ["pass", UNKNOWN_STATUS]
+    assert [row.test_status for row in plan.rows] == ["pass", None]
     assert parse_vplan(UCIS_XML, name="override").name == "override"
 
 
