@@ -40,6 +40,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ISOLATED_DB = "agenticdocer_m11_test"
 APP_URL_DEFAULT = "postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer_test"
 OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer_test"
+SUPER_URL_DEFAULT = "postgresql+asyncpg://postgres@127.0.0.1:5432/postgres"
+APP_ROLE = "agenticdocer_app"
 DOC_ID = "SPEC-M11-E2E"
 DOC_SLUG = "M11-E2E"
 STARTUP_TIMEOUT = 40.0
@@ -197,22 +199,27 @@ def _wait_ready(api_url: str, server: subprocess.Popen[str]) -> None:
 def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
     """建隔离库 → alembic 迁移 → 起 uvicorn → 自举 admin → 登记三角色用户 → 跑完 DROP。"""
     app_url, owner_url = _app_url(), _owner_url()
-    maintenance = make_url(owner_url).set(database="postgres").render_as_string(hide_password=False)
-    app_probe = make_url(app_url).set(database="postgres").render_as_string(hide_password=False)
-    error = asyncio.run(_probe(app_probe)) or asyncio.run(_probe(maintenance))
+    super_url = os.environ.get("PG_SUPER_URL") or SUPER_URL_DEFAULT
+    error = asyncio.run(_probe(super_url))
     if error is not None:
-        pytest.skip(f"PostgreSQL 不可用：{error}")
+        pytest.skip(f"PostgreSQL 不可用（{SUPER_URL_DEFAULT}）：{error}")
 
+    # 建库需要超级用户（`agenticdocer` 无 CREATEDB）；OWNER 交给属主角色，迁移由其执行。
     asyncio.run(
         _maintenance_sql(
-            maintenance,
+            super_url,
             f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE)',
-            f'CREATE DATABASE "{ISOLATED_DB}"',
+            f'CREATE DATABASE "{ISOLATED_DB}" OWNER {OWNER_ROLE}',
+            f'GRANT CONNECT ON DATABASE "{ISOLATED_DB}" TO {APP_ROLE}',
         )
     )
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", owner_url)
-    command.upgrade(config, "head")
+    command.upgrade(config, "head")  # 迁移内含 §4.3 的 GRANT（含 schema USAGE / CONNECT）
+
+    unreachable = asyncio.run(_probe(app_url))
+    if unreachable is not None:
+        pytest.skip(f"隔离库应用角色不可用：{unreachable}")
 
     work = tmp_path_factory.mktemp("m11-e2e")
     env = {
@@ -259,7 +266,7 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
             server.wait(timeout=20)
         except subprocess.TimeoutExpired:  # pragma: no cover - 兜底
             server.kill()
-        asyncio.run(_maintenance_sql(maintenance, f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE)'))
+        asyncio.run(_maintenance_sql(super_url, f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE)'))
 
 
 # ----------------------------------------------------------------------
