@@ -20,8 +20,9 @@ frontmatter`）与测试（`tests/unit/test_doc_type_mapping.py`）都引用它�
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 from agenticdocer.model import DOC_TYPES
 
@@ -43,6 +44,10 @@ __all__ = [
     "resolve_doc_type",
     "mapping_for",
     "subtypes_for",
+    "VERIFICATION_PLAN_SUBTYPE",
+    "VERIFICATION_PLAN_FORMATS",
+    "missing_verification_plan_meta",
+    "invalid_verification_plan_format",
 ]
 
 # ── 首版状态（对应映射表 §2「首版状态」列）────────────────────────────────
