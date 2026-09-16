@@ -776,24 +776,35 @@ async def explain_partitions(
 # ─────────────────────────────────────────────────────────────── 渲染基准辅助
 
 
-async def largest_doc(storage: Any) -> tuple[str, int, str]:
-    """库内内容体积最大的文档 → `(doc_id, 字节数, title)`。"""
+async def top_docs(storage: Any, limit: int = 2) -> list[tuple[str, int, str]]:
+    """库内按**内容体积**降序的文档 → `[(doc_id, content 字节数, title)]`。
+
+    内容体积 = `sum(length(nodes.content::text))`（库内实际载荷），与源文件大小口径不同
+    （jsonb 文本化 + 表格/HTML 片段会放大），故渲染基准默认取前 N 份逐一测量，
+    避免「最大文档」的选择影响判定（§1.4 举的是 CXL 3.59MB，库内 PCIe 载荷略大）。
+    """
     from sqlalchemy import text
 
     async with storage.db.session() as session:
-        row = (
+        rows = (
             await session.execute(
                 text(
                     "SELECT n.doc_id, sum(length(n.content::text)) AS bytes, max(d.title) AS title "
                     "FROM nodes n JOIN docs d ON d.doc_id = n.doc_id "
                     "WHERE n.status = 'active' "
-                    "GROUP BY n.doc_id ORDER BY bytes DESC NULLS LAST LIMIT 1"
-                )
+                    "GROUP BY n.doc_id ORDER BY bytes DESC NULLS LAST LIMIT :limit"
+                ),
+                {"limit": max(1, limit)},
             )
-        ).first()
-    if row is None:
+        ).all()
+    if not rows:
         raise RuntimeError("库内无节点：请先入库语料（bench_import.py）")
-    return str(row[0]), int(row[1] or 0), str(row[2] or "")
+    return [(str(row[0]), int(row[1] or 0), str(row[2] or "")) for row in rows]
+
+
+async def largest_doc(storage: Any) -> tuple[str, int, str]:
+    """库内内容体积最大的文档（`top_docs(limit=1)` 的简写形式）。"""
+    return (await top_docs(storage, limit=1))[0]
 
 
 async def largest_section(storage: Any, doc_id: str) -> tuple[Any, str, int, int]:
