@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
-import pytest
-
 import agenticdocer.model.doc_types as doc_types
 from agenticdocer.model import (
     ATOM_TYPES,
