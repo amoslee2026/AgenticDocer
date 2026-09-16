@@ -64,13 +64,12 @@ from .sections import (
 __all__ = [
     # renderer（§3 M04 渲染入口）
     "DEFAULT_RENDER_OUT_DIR",
+    "asset_id_of",
     "body_text",
     "collect_image_srcs",
     "document_frontmatter",
     "frontmatter_text",
     "iter_image_srcs",
-    "DEFAULT_RENDER_OUT_DIR",
-    "asset_id_of",
     "render_document",
     "render_out_dir",
     "render_section",
