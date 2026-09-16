@@ -47,7 +47,6 @@ from agenticdocer.model import ATON_SCHEMAS if False else None  # noqa: F401  (å
 
 pytestmark = pytest.mark.filterwarnings("error::UserWarning")
 
-SPEC_SHA = "a" * 64
 IMAGE_SHA = "12a911655f67786fed6a863171690c6e424091316fe50327fc0ca047cea1b679"
 
 FRONTMATTER = f"""---
