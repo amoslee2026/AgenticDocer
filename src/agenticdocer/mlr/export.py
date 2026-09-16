@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import UUID
 
-from agenticdocer.model import Doc, ExportResult, Event, Node
+from agenticdocer.model import Doc, ExportResult, Node
 from agenticdocer.observability import get_logger
 from agenticdocer.render import node_block_text
 from agenticdocer.retrieve import traverse
@@ -47,8 +47,6 @@ __all__ = [
     "export_package",
     "node_record",
 ]
-
-from agenticdocer.model import Doc, ExportResult, Node
 
 log = get_logger("mlr.export")
 
@@ -224,8 +222,3 @@ def _write_manifest(
             "text_empty": sum(1 for record in records if not record["text"]),
         },
         "files": {"nodes": EXPORT_NODES_FILE, "relations": EXPORT_GRAPH_FILE},
-    }
-
-
-def _unused(_: Event) -> None:  # pragma: no cover - 占位以固定 Event 的导入用途
-    """（内部）保留 `Event` 导入的类型锚点。"""
