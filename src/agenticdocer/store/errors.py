@@ -61,3 +61,33 @@ class ForbiddenError(StoreError):
     """授权拒绝（→ 403）。用户级 RBAC 判定在 M10，此处仅供存储层拒绝越权写入。"""
 
     status_code = 403
+
+
+def translate_integrity_error(exc: BaseException, *, entity: str, entity_id: Any = None) -> StoreError:
+    """DB 完整性错误 → 存储层异常（唯一键→409、外键/非空/CHECK→422）。
+
+    不 import SQLAlchemy：按 duck typing 读 asyncpg 的 `constraint_name`/`sqlstate`
+    （`IntegrityError.orig`），保持本模块零依赖。
+    """
+    orig = getattr(exc, "orig", exc)
+    constraint = getattr(orig, "constraint_name", None) or ""
+    sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None) or ""
+    detail = f"{entity} write violated database constraint {constraint!r}" if constraint else (
+        f"{entity} write violated database constraint: {orig}"
+    )
+    if sqlstate == "23505" or "unique" in orig.__class__.__name__.lower():
+        if "anchor" in constraint:
+            return ConflictError(
+                f"{detail}（(doc_id, anchor) 唯一：同文档锚冲突）",
+                code="DTO_ANCHOR_CONFLICT",
+                entity=entity,
+                entity_id=entity_id,
+            )
+        return ConflictError(detail, entity=entity, entity_id=entity_id)
+    if sqlstate in {"23503", "23502", "23514"} or orig.__class__.__name__ in {
+        "ForeignKeyViolationError",
+        "NotNullViolationError",
+        "CheckViolationError",
+    }:
+        return ValidationError(detail, entity=entity, entity_id=entity_id)
+    return ValidationError(detail, entity=entity, entity_id=entity_id)

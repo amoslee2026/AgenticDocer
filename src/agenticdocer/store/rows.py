@@ -6,7 +6,16 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Final
+from uuid import UUID
+
+__all__ = ["UTC", "as_uuid", "build_model", "field_deltas", "jsonable", "now", "row_to_dict"]
+
+UTC: Final = timezone.utc
+
+
+def as_uuid(value: UUID | str) -> UUID:
+    """归一化为 `uuid.UUID`（M06/M07 的路径参数为 str；asyncpg 需要 UUID 对象）。"""
+    return value if isinstance(value, UUID) else UUID(str(value))
 from uuid import UUID
 
 __all__ = ["UTC", "build_model", "field_deltas", "jsonable", "now", "row_to_dict"]
