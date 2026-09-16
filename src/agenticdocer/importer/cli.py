@@ -472,8 +472,7 @@ def check_proposals(
             continue
         if atom.atom_type.split(".", 1)[0] == "clause":
             clause_seen = True
-        schema = get_atom_schema(atom.atom_type)
-        for error in sorted(jsonschema.Draft202012Validator(schema).iter_errors(atom.content), key=lambda err: list(err.path)):
+        for error in sorted(_validator(atom.atom_type).iter_errors(atom.content), key=lambda err: list(err.path)):
             location = "/".join(str(part) for part in error.path) or "(root)"
             violations.append(
                 Violation(
