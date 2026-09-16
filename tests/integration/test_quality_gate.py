@@ -540,3 +540,138 @@ async def test_perf_health_detects_failing_target(storage: Storage, sample: Samp
     assert rules(violations) <= set(perf_health.RULES_PERF_HEALTH)
     assert all(item.fix_hint for item in violations)
     assert "失败" in violations[0].fix_hint  # 建议原样来自 M12 的 advice
+
+
+# ── section_range_consistency：区间契约（M02 B-2 兜底）────────────────────
+
+
+@dataclass(frozen=True)
+class Outline:
+    """三层大纲样本：a(l1) / a1,a2(l2, a 的子) / b(l1 同级)。"""
+
+    doc_id: str
+    root: Node
+    child_a1: Node
+    child_a2: Node
+    sibling: Node
+
+
+async def make_outline(storage: Storage) -> Outline:
+    """建一份**契约成立**的大纲：ordinal 序 = 大纲序（子树在区间内连续）。"""
+    index = next(_SEQ)
+    doc_id = f"SPEC-QG-OUT-{_RUN}-{index}"
+    await storage.upsert_doc(
+        DocIn(
+            doc_id=doc_id,
+            doc_type="standard",
+            title="Outline sample",
+            meta={"doc_slug": f"outline-{_RUN}-{index}"},
+            source_ref=None,
+        ),
+        None,
+        CTX,
+    )
+    root = await add_node(
+        storage,
+        doc_id=doc_id,
+        atom_type="clause",
+        ordinal=1,
+        level=1,
+        anchor=f"{doc_id}#1·a",
+        content={"fragment": "## 1 a"},
+    )
+    child_a1 = await add_node(
+        storage,
+        doc_id=doc_id,
+        atom_type="clause",
+        ordinal=2,
+        level=2,
+        anchor=f"{doc_id}#1.1·a1",
+        content={"fragment": "### 1.1 a1"},
+        parent=root,
+    )
+    child_a2 = await add_node(
+        storage,
+        doc_id=doc_id,
+        atom_type="clause",
+        ordinal=3,
+        level=2,
+        anchor=f"{doc_id}#1.2·a2",
+        content={"fragment": "### 1.2 a2"},
+        parent=root,
+    )
+    sibling = await add_node(
+        storage,
+        doc_id=doc_id,
+        atom_type="clause",
+        ordinal=4,
+        level=1,
+        anchor=f"{doc_id}#2·b",
+        content={"fragment": "## 2 b"},
+    )
+    return Outline(
+        doc_id=doc_id, root=root, child_a1=child_a1, child_a2=child_a2, sibling=sibling
+    )
+
+
+async def _patch_node(storage: Storage, node: Node, **values: Any) -> None:
+    """直改节点字段（绕过事件）：**故意制造**只可能来自脏数据的契约破坏。"""
+    async with storage.db.transaction() as session:
+        await session.execute(
+            update(nodes_table)
+            .where(nodes_table.c.node_id == node.node_id, nodes_table.c.doc_id == node.doc_id)
+            .values(**values)
+        )
+
+
+async def test_section_range_clean_outline_reports_nothing(storage: Storage) -> None:
+    """契约成立的大纲：区间法与递归 CTE 一致 → 零违规（不误报）。"""
+    outline = await make_outline(storage)
+    result = await gate(storage, outline.doc_id, ["section_range_consistency"])
+    assert result == {"section_range_consistency": []}
+
+
+async def test_section_range_detects_missing_in_interval(storage: Storage) -> None:
+    """**漏收**方向（原方案的自检盲区）：子节点的父声明在区间内、但 ordinal 排到区间之外。"""
+    outline = await make_outline(storage)
+    # a1 仍是 a 的子节点，但 ordinal 排到同级 b(4) 之后 → a 的区间 [1, 4) 收不到 a1
+    await _patch_node(storage, outline.child_a1, ordinal=9)
+
+    violations = (await gate(storage, outline.doc_id, ["section_range_consistency"]))[
+        "section_range_consistency"
+    ]
+    assert rules(violations) == {section_range_consistency.RULE_SECTION_RANGE_MISMATCH}
+    hit = violations[0]
+    assert hit.path == f"nodes/{outline.root.node_id}"
+    assert "区间缺" in hit.message and str(outline.child_a1.node_id) in hit.message
+    assert "首个差异" in hit.message and hit.fix_hint
+
+
+async def test_section_range_detects_extra_in_interval(storage: Storage) -> None:
+    """**多收/断链**方向：区间内出现父链落在区间外的节点（自检未通过 → 区间不可用）。"""
+    outline = await make_outline(storage)
+    # a1 的父改成同级 b（b 的 ordinal 在 a 的区间之外），a1 自身仍在 a 的区间内
+    await _patch_node(storage, outline.child_a1, parent_node_id=outline.sibling.node_id)
+
+    violations = (await gate(storage, outline.doc_id, ["section_range_consistency"]))[
+        "section_range_consistency"
+    ]
+    assert rules(violations) == {section_range_consistency.RULE_SECTION_RANGE_MISMATCH}
+    assert any("多收/断链" in item.message for item in violations)
+
+
+async def test_section_range_cycle_does_not_hang(storage: Storage) -> None:
+    """成环（a1⇄a2）必须**有结论**：M02 的深度上限保证终止，detector 不得挂死或抛异常。"""
+    outline = await make_outline(storage)
+    await _patch_node(storage, outline.child_a1, parent_node_id=outline.child_a2.node_id)
+    await _patch_node(storage, outline.child_a2, parent_node_id=outline.child_a1.node_id)
+
+    reports = await asyncio.wait_for(
+        run_quality_gate(
+            QualityScope(doc_ids=[outline.doc_id], detectors=["section_range_consistency"]),
+            storage=storage,
+        ),
+        timeout=60,
+    )
+    assert [report.detector_id for report in reports] == ["section_range_consistency"]
+    assert all(item.path and item.fix_hint for item in reports[0].violations)
