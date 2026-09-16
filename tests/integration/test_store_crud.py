@@ -31,6 +31,16 @@ pytestmark = pytest.mark.integration
 CTX = WriteContext(actor="tester", source="cli")
 
 
+def unique_doc(prefix: str) -> str:
+    """每次运行唯一的 doc_id。
+
+    默认不重建 schema（`AGENTICDOCER_TEST_DROP_SCHEMA=0`）⇒ 库里会有他人与历史运行的数据，
+    故用例必须**可重复执行且互不干扰**：唯一 doc_id 使 `(doc_id, anchor)` 唯一约束与
+    docs 状态流转每次都从零开始，无需清理、无需独占。
+    """
+    return f"SPEC-{prefix}-{new_uuid7().hex[:12]}"
+
+
 def doc_in(doc_id: str, title: str = "AMBA APB 规范") -> DocIn:
     return DocIn(
         doc_id=doc_id,
@@ -155,7 +165,7 @@ async def test_all_tables_and_partitions_exist(database: Database, migrated_sche
 
 
 async def test_text_fts_generated_column_populated(database: Database, storage: Storage) -> None:
-    doc_id = "SPEC-FTS"
+    doc_id = unique_doc("FTS")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     await storage.upsert_node(node_in(doc_id, body="APB signal timing requirements"), None, CTX)
 
@@ -176,7 +186,7 @@ async def test_text_fts_generated_column_populated(database: Database, storage: 
 
 
 async def test_doc_lifecycle_and_status_flow(storage: Storage) -> None:
-    doc_id = "SPEC-DOC"
+    doc_id = unique_doc("DOC")
     doc = await storage.upsert_doc(doc_in(doc_id), None, CTX)
     assert (doc.doc_id, doc.status, doc.version) == (doc_id, "draft", 1)
 
@@ -201,7 +211,7 @@ async def test_doc_lifecycle_and_status_flow(storage: Storage) -> None:
 
 
 async def test_node_crud_and_ordering(storage: Storage) -> None:
-    doc_id = "SPEC-NODES"
+    doc_id = unique_doc("NODES")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     for ordinal in (3, 1, 2):
         await storage.upsert_node(node_in(doc_id, ordinal=ordinal), None, CTX)
@@ -236,7 +246,7 @@ async def test_node_crud_and_ordering(storage: Storage) -> None:
 
 
 async def test_anchor_conflict_maps_to_409_with_code(storage: Storage) -> None:
-    doc_id = "SPEC-ANCHOR"
+    doc_id = unique_doc("ANCHOR")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     await storage.upsert_node(node_in(doc_id, anchor=f"{doc_id}#3.1·timing"), None, CTX)
 
@@ -247,7 +257,7 @@ async def test_anchor_conflict_maps_to_409_with_code(storage: Storage) -> None:
 
 
 async def test_parent_node_validation_replaces_downgraded_fk(storage: Storage) -> None:
-    doc_id = "SPEC-PARENT"
+    doc_id = unique_doc("PARENT")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     parent = await storage.upsert_node(node_in(doc_id, ordinal=1, anchor=f"{doc_id}#1"), None, CTX)
     child = await storage.upsert_node(
@@ -263,14 +273,14 @@ async def test_parent_node_validation_replaces_downgraded_fk(storage: Storage) -
 
 async def test_unknown_doc_rejected_by_retained_fk(storage: Storage) -> None:
     with pytest.raises(ValidationError):
-        await storage.upsert_node(node_in("SPEC-MISSING"), None, CTX)
+        await storage.upsert_node(node_in(unique_doc("MISSING")), None, CTX)
 
 
 # --------------------------------------------------------------- 软删 + 批注 orphan
 
 
 async def test_soft_delete_orphans_comments(storage: Storage) -> None:
-    doc_id = "SPEC-DELETE"
+    doc_id = unique_doc("DELETE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node = await storage.upsert_node(node_in(doc_id), None, CTX)
 
@@ -305,7 +315,7 @@ async def test_soft_delete_orphans_comments(storage: Storage) -> None:
 
 
 async def test_comment_optimistic_lock_and_validation(storage: Storage) -> None:
-    doc_id = "SPEC-COMMENT"
+    doc_id = unique_doc("COMMENT")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node = await storage.upsert_node(node_in(doc_id), None, CTX)
 
@@ -329,7 +339,7 @@ async def test_comment_optimistic_lock_and_validation(storage: Storage) -> None:
 async def test_event_and_entity_roll_back_together(
     storage: Storage, database: Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    doc_id = "SPEC-ROLLBACK"
+    doc_id = unique_doc("ROLLBACK")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node_id = new_uuid7()
 
@@ -351,7 +361,7 @@ async def test_event_and_entity_roll_back_together(
 
 async def test_replay_reproduces_current_state(storage: Storage) -> None:
     """M09B `events_consistency` 判据：apply_events(replay(...)) == 当前行。"""
-    doc_id = "SPEC-REPLAY"
+    doc_id = unique_doc("REPLAY")
     doc = await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node = await storage.upsert_node(node_in(doc_id), None, CTX)
     node = await storage.upsert_node(
@@ -388,7 +398,7 @@ async def test_events_append_only(storage: Storage, database: Database) -> None:
     forbidden = ("update", "delete", "update_event", "delete_event", "remove_event", "purge_events")
     assert not any(hasattr(EventRepository, name) for name in forbidden)
 
-    doc_id = "SPEC-APPEND"
+    doc_id = unique_doc("APPEND")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node = await storage.upsert_node(node_in(doc_id), None, CTX)
     assert len(await storage.replay("node", node.node_id)) == 1
@@ -426,7 +436,7 @@ async def test_auth_audit_events_are_written(storage: Storage) -> None:
 
 
 async def test_ref_add_list_remove(storage: Storage) -> None:
-    doc_id = "SPEC-REF"
+    doc_id = unique_doc("REF")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     src = await storage.upsert_node(node_in(doc_id), None, CTX)
     dst = await storage.upsert_node(node_in(doc_id, ordinal=2, anchor=f"{doc_id}#2"), None, CTX)
@@ -492,7 +502,7 @@ async def test_asset_roundtrip_and_missing_detection(storage: Storage) -> None:
         ).scalar_one()
     assert rows == 1
 
-    doc_id = "SPEC-ASSET"
+    doc_id = unique_doc("ASSET")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     missing_id = "0" * 64
     # 三种引用形态都要认（M03 报告：导入期只有前两种，不含 assets/ 前缀）
@@ -554,7 +564,7 @@ async def test_asset_store_dir_is_injectable(tmp_path: Path, storage: Storage) -
 
 async def test_changes_since_cursor_scan(storage: Storage) -> None:
     """M-LR `change_stream` 契约：`(ts, event_id)` 定序、游标续扫不重不漏。"""
-    doc_id = "SPEC-STREAM"
+    doc_id = unique_doc("STREAM")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
     node = await storage.upsert_node(node_in(doc_id), None, CTX)
     await storage.upsert_node(
