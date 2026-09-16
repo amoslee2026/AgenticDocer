@@ -65,8 +65,7 @@ def request_storage(request: Request) -> Storage:
 
 def request_database(request: Request) -> Database:
     """应用注入的 `Database`（`app.state.db`）；无则回落进程单例（`DATABASE_URL`）。"""
-    injected = getattr(request.app.state, "db", None)
-    return injected if isinstance(injected, Database) else get_database()
+from agenticdocer.model import Doc, DocTarget, Model, Violation
 
 
 StorageDep = Annotated[Storage, Depends(request_storage)]
