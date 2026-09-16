@@ -937,19 +937,58 @@ async def bench_render_set(
             section_samples.append(micros)
             section_bytes = Path(result.out_path).stat().st_size
 
-        # 归因：章节渲染内部会整档加载节点（`get_doc_nodes`），单独计时以便定位瓶颈
-        node_load_samples: list[int] = []
+        # 归因分量对照（**同一轮次**直接测量；不做跨方法/跨窗口相减）：
+        # ① 章节读路径：当前实现 `get_section_nodes`（O(子树)）vs **历史对照** `get_doc_nodes`（O(全档)，
+        #    `render_section` 自 PERF B-2 起已不再调用）；
+        # ② 资产取路径：N+1（逐 src `get_asset_path`，B-2 前的实现）vs 批量 `get_asset_paths`。
+        section_read: list[int] = []
+        doc_read: list[int] = []
         for _ in range(3):
+            _, micros = await timed(storage.get_section_nodes(doc_id, section_node_id))
+            section_read.append(micros)
             _, micros = await timed(storage.get_doc_nodes(doc_id))
-            node_load_samples.append(micros)
+            doc_read.append(micros)
+
+        asset_ids = await _section_asset_ids(storage, doc_id, section_node_id)
+        n_plus_one: list[int] = []
+        batched: list[int] = []
+        for _ in range(3 if asset_ids else 0):
+            watch = Stopwatch()
+            for asset_id in asset_ids:
+                try:
+                    await storage.get_asset_path(asset_id)
+                except Exception:  # 缺失资产：N+1 路径下逐条 NotFound（不影响计时口径）
+                    pass
+            n_plus_one.append(watch.elapsed_us())
+            watch.restart()
+            await storage.get_asset_paths(asset_ids)
+            batched.append(watch.elapsed_us())
 
     return {
         "document": timing_stats(document_samples),
         "section": timing_stats(section_samples),
         "document_bytes": document_bytes,
         "section_bytes": section_bytes,
-        "section_load_nodes": timing_stats(node_load_samples),
+        "load_section_nodes": timing_stats(section_read),
+        "load_doc_nodes": timing_stats(doc_read),
+        "assets_n_plus_one": timing_stats(n_plus_one),
+        "assets_batched": timing_stats(batched),
+        "asset_refs": len(asset_ids),
     }
+
+
+async def _section_asset_ids(storage: Any, doc_id: str, section_node_id: Any) -> list[str]:
+    """章节子树内的**唯一资产 id**（复用 M04 的公开口径：块文本 → 图片 src → asset_id）。"""
+    from agenticdocer.render import asset_id_of, collect_image_srcs, node_block_text
+
+    subtree = await storage.get_section_nodes(doc_id, section_node_id)
+    srcs = collect_image_srcs(node_block_text(node) for node in subtree)
+    seen: dict[str, None] = {}
+    for src in srcs:
+        asset_id = asset_id_of(src)
+        if asset_id:
+            seen.setdefault(asset_id, None)
+    return list(seen)
 
 
 # ──────────────────────────────────────────────────────────── 合成语料（规模）
