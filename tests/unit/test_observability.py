@@ -880,7 +880,9 @@ class _FakeConn:
     真实库侧另由 `tests/integration/test_observability_health.py` 独立把关。
     """
 
-    def __init__(self, tables: list[dict], indexes: list[dict], relkind: str | None, bounds: list[str]) -> None:
+    def __init__(
+        self, tables: list[dict], indexes: list[dict], relkind: str | bytes | None, bounds: list[str]
+    ) -> None:
         self._tables = tables
         self._indexes = indexes
         self._relkind = relkind
