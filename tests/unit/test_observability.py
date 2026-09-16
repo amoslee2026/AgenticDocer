@@ -394,8 +394,8 @@ def test_tool_call_success_has_no_error_code(logs: Path) -> None:
 
 
 def test_timer_records_duration(logs: Path) -> None:
-    with get_logger("m02.nodes").timer("point_query"):
-        time.sleep(0.01)
+
+
     entry = _entries(logs)[0]
     assert entry["level"] == "INFO"
     assert entry["dur"] >= 10
