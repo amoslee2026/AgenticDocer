@@ -536,3 +536,57 @@ async def test_asset_roundtrip_and_missing_detection(storage: Storage) -> None:
 
     # 已落库且有字节的资产不报缺失（asset_id 自身出现在内容里也不计入）
     assert asset_id not in await storage.list_missing_assets(doc_id)
+
+
+async def test_asset_store_dir_is_injectable(tmp_path: Path, storage: Storage) -> None:
+    assert storage.store_dir == tmp_path / "assets"
+    assert await storage.put_asset(b"x", "text/plain", "seed") != ""
+
+
+# ------------------------------------------------------------------ 增量事件流
+
+
+async def test_changes_since_cursor_scan(storage: Storage) -> None:
+    """M-LR `change_stream` 契约：`(ts, event_id)` 定序、游标续扫不重不漏。"""
+    doc_id = "SPEC-STREAM"
+    await storage.upsert_doc(doc_in(doc_id), None, CTX)
+    node = await storage.upsert_node(node_in(doc_id), None, CTX)
+    await storage.upsert_node(
+        node_in(doc_id, node_id=node.node_id, ordinal=1, body="改写后的正文"), node.version, CTX
+    )
+    await storage.upsert_doc(doc_in(doc_id, title="新标题"), None, CTX)
+
+    everything = await storage.changes_since(limit=10_000)
+    ordered = [(event.ts, event.event_id) for event in everything]
+    assert ordered == sorted(ordered)
+
+    mine = [event for event in everything if event.entity_id in {doc_id, str(node.node_id)}]
+    assert [(event.entity, event.op) for event in mine] == [
+        ("doc", "create"),
+        ("node", "create"),
+        ("node", "update"),
+        ("doc", "update"),
+    ]
+
+    # 游标分页：拼接结果与一次扫全逐条相同，且无重复
+    first = await storage.changes_since(limit=3)
+    second = await storage.changes_since(
+        since_ts=first[-1].ts, since_event_id=first[-1].event_id, limit=10_000
+    )
+    assert len(first) == 3
+    paged = [event.event_id for event in first + second]
+    assert paged == [event.event_id for event in everything]
+    assert len(paged) == len(set(paged))
+
+    # 只给时间戳（半开区间）与实体过滤
+    tail = await storage.changes_since(since_ts=first[-1].ts, limit=10_000)
+    assert [event.event_id for event in tail] == [
+        event.event_id for event in everything if event.ts > first[-1].ts
+    ]
+    node_only = await storage.changes_since(entity="node", limit=10_000)
+    assert node_only and {event.entity for event in node_only} == {"node"}
+
+    with pytest.raises(ValidationError):
+        await storage.changes_since(limit=0)
+    with pytest.raises(ValidationError):
+        await storage.changes_since(entity="asset")
