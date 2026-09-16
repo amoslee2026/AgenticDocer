@@ -163,10 +163,12 @@ class NodeRepository(Repository):
         ① 点查根 `(ordinal, level)`；② 求右边界 `min(ordinal) WHERE doc_id=:d AND ordinal > :root
         AND level <= :root_level`；③ 区间扫 `ordinal ∈ [root, end)`。
 
-        **安全网**：区间法依赖「`ordinal` 即文档序且子树在区间内连续」这一既有渲染契约。
-        接口内校验「区间首行即根」；若契约被破坏（或根 `level` 为空，右边界不可判定），
-        则**自动回退到递归 CTE**（`get_subtree`，语义权威）——渲染不可因脏数据 500，
-        脏数据由 M09B 抽样 detector（区间行数 vs CTE 行数）报告。
+        **安全网（自检 + 回退）**：区间法依赖「`ordinal` 序即大纲序（子树在区间内连续）」这一既有
+        渲染契约。接口内**逐行沿 `parent_node_id` 上溯校验连通性**（见 `_section_interval`；
+        仅校验首行不够——契约被破坏时会多收兄弟子树的后代而首行仍是根）；不合格或根 `level`
+        为空（右边界不可判定）→ **自动回退递归 CTE**（`get_subtree`，语义权威）。
+        渲染不可因脏数据 500 或**静默出错**；脏数据仍由 M09B 抽样 detector
+        （区间行数 vs CTE 行数）报告。
 
         语义：含 `section_node_id` 自身、仅 `status='active'`、`ordinal` 升序（与
         `get_doc_nodes` 一致）。章节节点**不存在或已软删** → `NotFoundError`
