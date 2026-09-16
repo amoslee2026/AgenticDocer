@@ -272,14 +272,16 @@ async def test_body_and_path_tampering_is_rejected(
     key = signing.load_private_key(key_material["editor_ed25519"])
 
     body = b'{"title":"A"}'
+    # Content-Type 不参与签名载荷（S2 只绑 METHOD/RAW_PATH/body 摘要/TS/nonce）
+    json_headers = {"Content-Type": "application/json"}
     headers = signing.sign_request_headers(key, "POST", "/api/v1/docs", body)
     assert (
-        await client.post("/api/v1/docs", content=body, headers=headers)
+        await client.post("/api/v1/docs", content=body, headers={**headers, **json_headers})
     ).status_code == 200
 
     headers = signing.sign_request_headers(key, "POST", "/api/v1/docs", b'{"title":"B"}')
     assert (
-        await client.post("/api/v1/docs", content=b'{"title":"A"}', headers=headers)
+        await client.post("/api/v1/docs", content=b'{"title":"A"}', headers={**headers, **json_headers})
     ).status_code == 401
 
     headers = signing.sign_request_headers(key, "GET", "/api/v1/docs")
