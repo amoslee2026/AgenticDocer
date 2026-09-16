@@ -25,7 +25,6 @@ from agenticdocer.model import (
     new_uuid7,
 )
 from agenticdocer.model.doc_types import DocTypeRule
-from agenticdocer.store.schema import docs
 from agenticdocer.m09 import (
     RULES_9A,
     RULE_ANCHOR_DOC_ID,
@@ -42,6 +41,7 @@ from agenticdocer.m09 import (
     validate_proposal,
     validate_write,
 )
+from agenticdocer.store.schema import docs
 
 DOC_ID = "SPEC-STD-AMBA-APB"
 ANCHOR = f"{DOC_ID}#1·overview"
@@ -480,8 +480,6 @@ def test_ucis_coverage_matrix_is_product_only() -> None:
         if item.rule_id == RULE_DOC_TYPE_VARIANT
     ]
     assert hits and hits[0].fix_hint
-
-
 
 
 # ── DDL 取值域一致性（模型层 ↔ §4 DDL）────────────────────────────────────
