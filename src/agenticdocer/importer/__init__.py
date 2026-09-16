@@ -3,9 +3,12 @@
 模块边界：
 
 - :mod:`agenticdocer.importer.rules`——规则库（`rule_id` 可追溯：版本/描述/匹配器）；
-- :mod:`agenticdocer.importer.frontmatter`——C5 十七字段 → `DocIn`；
+- :mod:`agenticdocer.importer.frontmatter`——C5 十七字段 → `DocIn`（`spec_type` 归一在此）；
+- :mod:`agenticdocer.importer.doc_type_map`——映射表 §2 的机器可读形式（idea.md 30+ 类型
+  → 5 个 `doc_type` + `meta.doc_subtype`）；
 - :mod:`agenticdocer.importer.parser`——解析器（源块 → 原子提议 + 未映射块清单 + 统计）；
 - :mod:`agenticdocer.importer.assets_sync`——图片资产取件/校验/入库（缺失不阻断）；
+- :mod:`agenticdocer.importer.vplan`——vPlan/UCIS XML → `table.coverage_matrix` 原子（§4）；
 - :mod:`agenticdocer.importer.cli`——`parse`/`review`/`commit`/`stats` 子命令的**业务函数**
   （CLI 装配由 M11 完成；`python -m agenticdocer.importer` 等价入口见 `__main__.py`）。
 """
@@ -40,6 +43,14 @@ from agenticdocer.importer.cli import (
     selected_proposals,
     stats_report,
     work_dir_for,
+)
+from agenticdocer.importer.doc_type_map import (
+    IDEA_DOC_TYPES,
+    PRODUCT_SUBTYPES,
+    SPEC_ROWS,
+    UnknownDocTypeError,
+    resolve_doc_type,
+    subtypes_for,
 )
 from agenticdocer.importer.frontmatter import (
     Frontmatter,
