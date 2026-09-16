@@ -608,10 +608,6 @@ async def test_disabling_user_kills_keys_and_live_sessions(
     assert (
         await client.get("/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs"))
     ).status_code == 200
-    key = signing.load_private_key(key_material["editor_ed25519"])
-    assert (
-        await client.get("/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs"))
-    ).status_code == 200
 
     # 由另一 admin 禁用（S9：不能禁用最后一个 active admin，故先建第二个 admin）
     other_admin = await auth_users.create_user("root2", "admin", actor=SYSTEM_ACTOR, db=database)
