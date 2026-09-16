@@ -21,8 +21,8 @@ section_meta: "@meta"
 
 | 决策 | 结论 | 依据 |
 |---|---|---|
-| 总体方案 | **方案 A：自研模块化单体**（Python/FastAPI + PG + React WebUI） | 加权 4.55 vs B 2.90 / C 3.30（trade_off_matrix.md） |
-| 存储 | 纯 PostgreSQL 16.15 + JSONB，不引图库 | v0.1 §9 + 节点量级 ≤10k（B10） |
+| 总体方案 | **方案 A：自研模块化单体**（Python/FastAPI + PG + React WebUI） | 加权 4.45 vs B 3.00 / C 3.25（trade_off_matrix.md） |
+| 存储 | 纯 PostgreSQL 16.15 + JSONB，不引图库 | v0.1 §9 + 节点量级 ≤100k（B10 v1.1 实测校准） |
 | LightRAG | 同实例**同库不同表**（`LIGHTRAG_*` 前缀）可行（源码核实）；**暂缓联调**（用户明令） | Q1 已解决；C7 |
 | 导入方式 | 半自动：解析器提议 + 审核（不做全自动直转） | GigaRAG 原则 + B11 |
 | 系统结构 | 9 模块 M01–M09 + M-LR 边界（模块化单体，≤10 模块） | design_doc §4 |
@@ -39,18 +39,18 @@ section_meta: "@meta"
 
 ## 交付阶段（依赖序）
 
-1. **地基+闭环**：M01 内容模型 → M02 存储 → M03 导入解析 → M04 渲染 —— 里程碑：`spec/standards/` 7 份语料全链路往返测试
+1. **地基+闭环**：M01 内容模型（+M09A 校验引擎）→ M02 存储 → M03 导入解析 → M04 渲染 —— 里程碑：`spec/standards/` 7 份语料全链路往返测试（解析提议覆盖率 ≥95%） |
 2. **人机接口**：M06 Agent 接口（lint 闭环）+ M07 API / M08 WebUI（契约先行，可并行）
-3. **增值**：M05 多跳检索 → M09 质量门 → M-LR 联调（解禁后）
+3. **增值**：M05 多跳检索 → M09B 质量门 → M-LR 联调（解禁后）
 
 ## 测试语料（用户指令）
 
-`spec/standards/` 7 份已审核行业规范 markdown（PCIe 5.0 / CXL 3.2 / HBM4 / AMBA×4，≈11.4MB）——解析→存储→渲染回归 fixture（B12）。**注意：不得向其 lightRAG 导入（C7）**。
+`spec/standards/` 7 份已审核行业规范 markdown（PCIe 5.0 / CXL 3.2 / HBM4 / AMBA×4，**实测 ≈8.8MB / 75,694 行**；表格为 HTML 标记、含 1,019 处图片引用〔实物在 GigaRAG〕）——解析→存储→渲染回归 fixture（B12）。**注意：不得向其 lightRAG 导入（C7）**。
 
 ## 已知风险
 
 1. 解析器（M03）对 3.4MB 大文档的性能与正确性——半自动审核 + 分章增量 + 回归常态化
-2. Q3 表单引擎 / Q4 节点粒度 / Q5 模板引擎——it.arch 阶段 ADR 裁决
+2. Q3 表单引擎 / Q4 节点粒度 / Q5 模板引擎 / Q6 doc_type 组合规则——it.arch 阶段 ADR 裁决
 3. GigaRAG `ingest.sh` 默认 `LIGHTRAG_INPUT_DIR=/mnt/big10T/...` 与本机实际路径不符——恢复摄入前须以环境变量覆盖（已记录，C7 期间不触发）
 
 ## 状态

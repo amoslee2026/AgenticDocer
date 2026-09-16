@@ -15,7 +15,7 @@ section_meta: "@meta"
 
 ## 0. 与前一任务的边界
 
-「集中所有 spec 到 spec 目录」为独立子任务（quick 模式，已执行完毕，见 `../..//docs/plans/2026-09-16-spec-central-directory.md` 与 `assumptions.md`）。本文件是**系统本体**（知识库软件）的澄清台账。
+「集中所有 spec 到 spec 目录」为独立子任务（quick 模式，已执行完毕，计划归档于同目录 `plan-spec-central-directory.md`，假设记录见 `assumptions.md`；原始路径 `docs/plans/2026-09-16-spec-central-directory.md` 已废弃）。本文件是**系统本体**（知识库软件）的澄清台账。
 
 ## 1. 澄清后的需求边界
 
@@ -30,7 +30,7 @@ section_meta: "@meta"
 | S6 | WebUI（MVP）：schema 表单/结构化 diff/批注/追溯/状态/版本历史 | v0.1 §5.1 |
 | S7 | 测试语料就绪（`spec/standards/` 7 份 markdown 作 fixture） | 用户指令 |
 
-**out of scope（范围锁定，v0.1 §5.1 明示不做）**：复杂可配置工作流引擎、多项目多层级组织管理、内置报表仪表盘、与外部 PLM/ALM 双向集成、全自动 PDF 直转。
+**out of scope**：v0.1 §5.1 明示不做的 4 项（复杂可配置工作流引擎、多项目多层级组织管理、内置报表仪表盘、与外部 PLM/ALM 双向集成）；另「全自动 PDF/markdown 直转」（依据：B11 与 GigaRAG README 核心原则「自动解析质量不可控」，**非** v0.1 §5.1 条目）。
 
 **constraints（C 编号）**：
 | C | 约束 |
@@ -57,11 +57,11 @@ section_meta: "@meta"
 | B7 | 首批文档类型 | 行业标准 spec（clause+规范性关键词+register 表+state_machine+source_ref） | v0.1 §9 试点 + C7（standards 7 份为语料） | 功能规格以该类型为主线 | 逐类型扩展 |
 | B8 | 节点 ID 方案 | DB 主键 = UUIDv7；human alias = `<doc_id>#<章节锚>`；不使用全局 URN 注册表 | v0.1 §3 的 URN 对本机单库过早 | 引用边以 (uuid, alias) 表达 | 需要时升级注册表 |
 | B9 | 渲染先导格式 | Markdown 先行（对 7 份语料做往返一致性测试）；HTML/PDF 后置 | v0.1 §7「按需」 | 模板引擎先 MD 模板 | 模板分层可加格式 |
-| B10 | 性能/规模量化 | 单库 ≤10k 节点、≤200 份文档；PG 查询 P95 <200ms；单文档渲染 <3s；语义检索 P95 <5s | 保守默认（替代"适当/尽量"） | 无需分布式/缓存层 | 超限再评估 |
+| B10 | 性能/规模量化 | 单库 ≤100k 节点、≤500 份文档（**粒度前提：条款级基线**；实测校准：7 份语料最小原子 ≈9.4k〔标题 5,954+表格 2,440+图 1,019〕，含充足余量）；PG 查询 P95 <200ms；单文档渲染 <3s；语义检索 P95 <5s | 实测校准（评审 E11 修正原 ≤10k 被 fixture 自我否定）；替代"适当/尽量" | 无需分布式/缓存层（10^5 节点对 PG 为小量） | 超限再评估 |
 | B11 | 结构化录入 | 半自动：解析器提议 + 人工/agent 审核（不做全自动直转） | GigaRAG 原则「自动解析质量不可控」（其 README L5） | 需「提议-审核」工具链（M03） | 高置信段可批量自动通过 |
 | B12 | 测试策略 | 语料回归：7 份 markdown 为 fixture，断言解析→存储→渲染往返保真（frontmatter/表格/条款标题） | 用户指令 | 测试计划以此为核心 | 增补合成 fixture |
 | B13 | 与 GigaRAG 关系 | 只消费其产物（经 spec/ 移交），不反向写入 | spec/README 移交流程 | 集成边界=文件系统 | — |
-| B14 | 实施顺序（依赖序） | M01 内容模型 → M02 存储 → M03 导入解析 → M04 渲染 → M06 Agent 接口 → M07/M08 WebUI → M05 检索 → M09 质量 → LightRAG 联调 | 数据依赖链（解析器是渲染/检索前提） | it.mas 按此序 | 渲染层与 M08 表单引擎可并行（同 schema 驱动） |
+| B14 | 实施顺序（依赖序） | M01（+M09A 校验引擎）→ M02 存储 → M03 导入解析 → M04 渲染 → M06 Agent 接口 → M07/M08 WebUI → M05 检索 → M09B 质量门 → LightRAG 联调 | 数据依赖链（解析器是渲染/检索前提；M09 分两阶段见 design_doc §4） | it.mas 按此序 | 渲染层与 M08 表单引擎可并行（同 schema 驱动） |
 | B15 | 服务进程形态 | 两个 user 服务：`agenticdocer-api`（FastAPI，含渲染/lint）与静态前端（可由 API 直接托管）；PG 复用现有实例 | 简化运维（LocalServices 惯例） | 部署文档按此 | 可拆更多服务 |
 
 ## 3. 开放问题（open_questions，不阻塞）
@@ -73,3 +73,4 @@ section_meta: "@meta"
 | Q3 | 表单引擎选型（RJSF/JSON Forms/自研） | Phase 5 ADR |
 | Q4 | 结构化粒度（条款 vs 段落为最小节点） | 试点裁决，ADR 记录 |
 | Q5 | 渲染模板引擎（Jinja2 vs 程序化生成） | Phase 5 ADR |
+| Q6 | doc_type 组合规则（doc_type → 允许原子类型/必填字段）的定义时机 | 随首个非 `standard` 类型引入时定义（评审 E14）；`schemas` 表已预留扩展位 |
