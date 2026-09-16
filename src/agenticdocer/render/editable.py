@@ -71,8 +71,8 @@ class TableGrid(Model):
     header_names: list[str] = []
     """可选列名（``table.register_field`` 靠它把行映射回 ``fields[]``）。"""
 
-    register: str | None = None
-    """``table.register_field`` 的寄存器名。"""
+    register_name: str | None = None
+    """``table.register_field`` 的寄存器名（对应 ``content['register']``，M01 schema 键名）。"""
 
 
 class TableEdit(Model):
@@ -82,7 +82,7 @@ class TableEdit(Model):
     expected_version: int
     header: bool = True
     header_names: list[str] = []
-    register: str | None = None
+    register_name: str | None = None
     atom_type: str | None = None
     """缺省沿用节点既有 ``atom_type``；给定时必须是表格类原子。"""
 
