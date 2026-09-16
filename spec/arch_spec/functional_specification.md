@@ -83,7 +83,10 @@ section_meta: "@meta"
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
 | REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
 | REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
-| REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
+| REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P1 | 2（随 M10 起陆续交付） |
+| REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | **P0** | **1**（随 M10 交付，V12） |
+| REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
+| REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
 | REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
 | REQ-M12-F01 | AgenticLogger 全面接入（全模块统一出口） | M12 | P0 | 1 |
 | REQ-M12-F02 | 请求级追踪（rid 贯穿鉴权→API→存储→渲染） | M12 | P0 | 1 |
