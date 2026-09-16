@@ -615,8 +615,11 @@ def _join_blocks(items: Sequence[Block]) -> str:
 
 
 def _term_of(section: Section) -> str:
-
-
+    """词条名：标题去编号后的余下文本（无编号标题即标题本身）。"""
+    numbered = rules.parse_numbering(section.raw_title)
+    if numbered is not None and numbered[1]:
+        return numbered[1]
+    return section.title or section.raw_title
 def _clause_pending(
     section: Section | None,
     block: Block,
