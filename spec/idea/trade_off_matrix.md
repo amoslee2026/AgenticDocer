@@ -32,7 +32,7 @@ section_meta: "@meta"
 
 | # | 决策点 | 选项 | 倾向 | 理由（量化依据） |
 |---|---|---|---|---|
-| D1 | 存储 | 纯 PG+JSONB（v0.1 已定） vs PG+图库 | 纯 PG | v0.1 §9 已裁决；节点量级 ≤10k（B10），多跳 ≤2 跳可纯 SQL 递归 CTE |
+| D1 | 存储 | 纯 PG+JSONB（v0.1 已定） vs PG+图库 | 纯 PG | v0.1 §9 已裁决；节点量级 ≤100k（B10 v1.1），多跳 ≤2 跳可纯 SQL 递归 CTE |
 | D2 | LightRAG 部署 | 同实例同库（LIGHTRAG_* 表） vs 独立实例 | 同库不同表 | Q1 已据源码核实可行（表名前缀隔离）；少一个实例的运维面 |
 | D3 | 前端框架 | React+TS vs 其他 | React+TS | Agent 熟悉度 ★★★★★；v0.1 §5.1 借鉴 Sanity（React 生态） |
 | D4 | 表单引擎 | RJSF vs JSON Forms vs 轻量自研 | Phase 5 ADR | 自研风险 vs 适配成本，评分待原型验证 |
@@ -45,7 +45,7 @@ section_meta: "@meta"
 
 | 选项 | 否决理由 |
 |---|---|
-| 独立图数据库（Neo4j 等）承载引用图 | v0.1 §9 已否决；≤10k 节点纯 PG 足够；多一个基础设施面 |
+| 独立图数据库（Neo4j 等）承载引用图 | v0.1 §9 已否决；≤100k 节点纯 PG 足够；多一个基础设施面 |
 | 采购商业 CCMS（DOORS/Jama/Polarion） | v0.1 §9 已否决（席位定价、部署重、无强制认证需求） |
 | 全自动 PDF/markdown 直转结构化 | 违背 GigaRAG「自动解析质量不可控」原则（其 README L5）；B11 半自动 |
 | 全量 URN 注册表 | 对单机单库过早（B8）；文件级 ID + 章节锚足够起步 |

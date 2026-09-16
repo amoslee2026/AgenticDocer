@@ -84,7 +84,7 @@ flowchart TB
 
 ## 4. 模块划分（M01–M09）
 
-编号即引用锚（Agent-friendly）。依赖原则：**只依赖低编号模块（编号序即实现序，见 §12）**。
+编号即引用锚（Agent-friendly）。依赖以**交付序**约束（§12）：模块只可依赖已交付模块；**模块表列完备依赖，依赖图仅示关键路径**。
 
 | 模块 | 名称 | 边界（输入 → 输出） | 依赖 |
 |---|---|---|---|
@@ -96,7 +96,7 @@ flowchart TB
 | M06 | Agent 接口 | 结构化读写请求（JSON Schema 约束） → 校验/落库/渲染结果；lint 报错回馈 | M01, M02, M04, M09A |
 | M07 | WebUI 后端 API | 表单数据/diff/批注/状态/历史请求 → OpenAPI 响应 | M01, M02, M04 |
 | M08 | WebUI 前端 | schema + 数据/操作 → 交互界面（表单、diff 视图、批注面板、追溯表） | M07（仅 API 契约） |
-| M09 | 校验（**两阶段交付**） | **M09A 校验引擎**（schema 规则库；服务 M03 提议校验与 M06 写入校验——阶段 1 随 M01 交付）；**M09B 质量门**（断链/术语/渲染一致性/events↔当前态一致性巡检——阶段 3） | M01, M02, M04（9B） |
+| M09 | 校验（**两阶段交付**） | **M09A 校验引擎**（schema 规则库；服务 M03 提议校验与 M06 写入校验——阶段 1 随 M01 交付）；**M09B 质量门**（断链/术语/渲染一致性/events↔当前态一致性/assets 缺失——阶段 3） | M01, M02, M04（9B） |
 | M-LR | LightRAG 集成边界 | 渲染文本+node_id 导出包 / 增量事件 → 语义索引（**暂缓联调** C7） | M02, M04 |
 
 **边界细则（消歧）**：M02 = 原子 CRUD + 单点/集合点查，**不含**图遍历与检索语义；M05 = 递归 CTE 多跳与关键词检索的全部语义（§6.4）；M04 = 渲染唯一执行者，M09B 消费其 `normalize()` 结果做一致性判定（不重复计算）。
@@ -133,7 +133,8 @@ flowchart LR
 | `events` | `event_id`(UUIDv7), `entity`（**`doc`/`node`/`ref`/`comment`/`schema`**）, `entity_id`, `op`（create/update/delete/status）, `payload`(JSONB, 字段级 diff), `actor`, `ts` | append-only 变更日志（v0.1 §3） |
 | `comments` | `comment_id`, `node_id`(FK), `target_event_id`（锚定创建时节点版本，E6）, `body`, `state`（`open`/`resolved`/`orphaned`）, `author`, `ts` | 批注独立存储（C3） |
 | `schemas` | `type_name`, `json_schema`(JSONB), `version` | Schema 注册表；**doc_type 组合规则**（`doc_type → 允许原子类型/必填字段`）随首个非 `standard` 类型引入时定义（Q6） |
-| `assets` | `asset_id`(PK, sha256), `mime`, `bytes`, `origin`（如 GigaRAG `corpus/02_converted/.../auto/images/`）, `path` | 内容寻址资产存储（E2）；`figure.content.asset_ref` → `asset_id` |
+| `assets` | `asset_id`(PK, sha256), `mime`, `bytes`, `origin`（如 GigaRAG `corpus/02_converted/.../auto/images/`）, `path` | 内容寻址资产存储（E2）；`figure.content.asset_ref` → `asset_id`；缺失引用以 `assets.missing` 违规项记录（不建空行） |
+| `terms` | `term`, `definition_node_id`(nullable), `kind`（`glossary`/`normative-keyword`） | 术语与规范性关键词词汇表（E9）；M09B 术语校验数据源 |
 
 ### 5.1 内容原子与格式策略（E1）
 
@@ -192,7 +193,7 @@ sequenceDiagram
 ```
 
 - **无概率置信度**（解析器是确定性规则）：提议携带 `rule_id`（命中规则标识）与 `待确认` 标志（规则未覆盖的启发式解析）；人工仅需复核「待确认」项与未映射清单。
-- **未映射内容兜底**：无法映射到八类原子的块（目录/许可/免责声明/残余 HTML 等）→ 降级为 `note`/`code`（`format:html`）原子保留，计入「解析提议覆盖率」分母（§10），**不丢弃**。
+- **未映射内容兜底**：无法映射到八类原子的块（目录/许可/免责声明/残余 HTML 等）→ 降级为 `note`/`code`（`format:html`）原子保留（**不计入规则覆盖率**，单列「兜底率/待确认条数」回归指标，见 §10），**不丢弃**。
 - 审核载体：阶段 1 = CLI（`python -m agenticdocer.import review`，实现于 it.mas/it.tdd 细化）；阶段 2 = M07 API（WebUI 表单）。
 
 ### 6.2 Agent 读写流（S4，P1）
@@ -288,7 +289,7 @@ sequenceDiagram
 
 | 层 | 方法 | 可执行断言 |
 |---|---|---|
-| 解析器（M03） | 对 7 份语料逐份解析 | **解析提议覆盖率 = 被原子承接的源块数 ÷ 总源块数**（源块 = 标题/表格/图/代码块/列表/段落），阶段 1 目标 **≥95%**；规则未覆盖块全部进入「待确认」清单且 100% 有兜底原子（§6.1），无静默丢弃 |
+| 解析器（M03） | 对 7 份语料逐份解析 | **规则覆盖率 = 携带 `rule_id` 的源块数 ÷ 总源块数**（源块 = 标题/表格/图/代码块/列表/段落），阶段 1 目标 **≥95%**；另单列**兜底率 = 兜底原子源块数 ÷ 总源块数**与「待确认条数」为回归观测指标（兜底块全部进待确认清单，无静默丢弃） |
 | 存储（M02） | 单元 + 集成（PG） | events append-only（无 UPDATE/DELETE 语句路径）；同事务性（注入失败断言无撕裂）；乐观锁冲突返回 409；refs 多跳与 §6.4 语义一致；批注不触 `nodes.content` |
 | 渲染（M04） | 往返测试（parse→store→render） | `normalize(render(store(parse(src)))) == normalize(src)`（§10 定义），逐文档通过；HTML 表格行列数与单元格文本保真（E1）；图片引用集一致（E2） |
 | Agent 接口（M06） | 契约测试 | 非法 JSON Schema 被拒；乐观锁冲突可重试；lint 自修复闭环成功路径 |
@@ -299,7 +300,7 @@ sequenceDiagram
 
 | 项 | 风险/问题 | 缓解 |
 |---|---|---|
-| 解析质量（M03） | 大文件（3.4MB/2.7 万行）性能与正确性 | 半自动审核（B11）；分章增量解析；语料回归常态化；覆盖率断言（§10） |
+| 解析质量（M03） | 大文件（**实测最大 CXL 3,594,622 B / 31,072 行**）性能与正确性 | 半自动审核（B11）；分章增量解析；语料回归常态化；覆盖率断言（§10） |
 | 锚稳定性（E7） | 源文档改版后 anchor 匹配漂移 | 构造与位置无关 + 重解析人工确认迁移；UUID 主键为真相（anchor 仅 alias） |
 | GigaRAG ingest 路径漂移 | ingest.sh 默认 `LIGHTRAG_INPUT_DIR=/mnt/big10T/...`，本机实际为 `/home/lxx/lightrag/inputs`（/mnt/big10T 不存在） | 恢复摄入（C7 解禁）前以环境变量覆盖并实测；已在 summary.md 记录 |
 | Q3/Q4/Q5/Q6 | 表单引擎/节点粒度/模板引擎/doc_type 组合规则 | ADR 与试点裁决（Q6 随首个非 standard 类型） |

@@ -175,3 +175,98 @@ section_meta: "@meta"
 阻塞项 13 个（CRITICAL 1 + HIGH 3 + MEDIUM 9）；另有 7 个 LOW 信息项不计入阻塞。最高优先级：E1（HTML 表格无原子/渲染策略，阶段 1 往返里程碑不可达）、E2（图片资产策略缺失）、E3（refs 无事件覆盖）、E4（模块依赖/顺序自相矛盾）。
 
 存在 13 个阻塞问题（E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13）
+
+---
+
+# 复核（闭环验证，2026-09-16）
+
+复核对象：`design_doc.md` v1.1.0、`clarifications.md`、`trade_off_matrix.md`、`summary.md`（均已修订）、`approach_analysis.md`（未修订）、`plan-spec-central-directory.md`（新增，745 行/34,573 B，已核验为原计划文档）。
+
+## 逐项结论（E1–E20）
+
+| 原 issue | 结论 | 核验点（改后文档位置） |
+|---|---|---|
+| E1 | 闭环 | §5.1 选定方案(a)：`table.format=html` + `content.fragment` 原样 + `content.meta{rows,cols,cells,max_colspan}`；M04 零改写回写；M09A 仅校验片段闭合与元数据一致；§10 断言改为「行列数与单元格文本保真」 |
+| E2 | 闭环（残留 N3） | §5 `assets` 表（sha256 寻址）+ §5.2 取件/校验/缺失不阻断；§7 渲染产物图片路径；§10 图片引用集断言 |
+| E3 | 闭环 | `events.entity` 扩为 doc/node/ref/comment/schema；§5.3 定义 ref 事件 payload `{op:add\|remove, src, dst, kind}` 与 M-LR 消费 |
+| E4 | 闭环（残留 N7） | M09A（随 M01 交付，服务 M03 提议校验/M06 写入校验）/M09B（质量门）拆分；§4 模块表、依赖图、§12、B14、summary 阶段同步 |
+| E5 | 闭环 | §5.3：事件+实体同事务、乐观锁 409、不建快照（重放视图）、M09B events↔当前态巡检 |
+| E6 | 闭环 | `comments.target_event_id`；`state` 增 `orphaned`（不级联）；§6.3 历史视图批注呈现规则 |
+| E7 | 闭环 | `nodes.parent_node_id`+`level`；§5.4 锚构造与位置无关（章节号+标题哈希消歧，覆盖重复/无编号标题）+ 重解析迁移规则 |
+| E8 | 闭环 | §4「边界细则」消歧（M02 不含图遍历）；§6.4 kind×方向×跳数表 + 去重/环/排序 + FTS/pg_trgm 与索引 |
+| E9 | 闭环（残留 N4） | §5.3 schema 复审口径（一律按当前 schema）+ 术语数据源（glossary + 规范性关键词） |
+| E10 | 闭环 | §6.1 取消概率置信度→`rule_id`+待确认标志；审核载体 CLI（阶段 1）→M07（阶段 2）；未映射块 note/code 兜底且计入覆盖率分母 |
+| E11 | 部分闭环（残留 N2） | B10 上修 ≤100k 节点/≤500 文档（含粒度前提与实测依据）；summary/design 已同步，**trade_off_matrix 未同步** |
+| E12 | 闭环 | §7 新增「渲染产物」行（`build/rendered/`，不在 spec/、不被 ingest 扫描）+「入库唯一入口」（初始快照 + 增量仅走 events→M-LR） |
+| E13 | 部分闭环（残余构成 N1） | §10 重写为 `normalize()` + 覆盖率 + 图片/HTML/事件/批注/断链断言；**覆盖率口径与 §6.1 兜底保证冲突（见 N1）** |
+| E14 | 闭环 | §5 `schemas` 行注明 doc_type 组合规则随首个非 standard 类型引入；clarifications 新增 Q6 |
+| E15 | 闭环 | 矩阵与计算式改为 A 4.45 / B 3.00 / C 3.25（含 B/C 完整算式）；summary 同步 |
+| E16 | 闭环 | design §1 与 summary 均改为「实测 8,812,225 B ≈8.8MB、75,694 行」 |
+| E17 | 闭环 | design §2 与 clarifications §1 均改为：4 项标 v0.1 §5.1；「全自动直转」标 B11 + GigaRAG 核心原则（非 §5.1） |
+| E18 | 闭环 | design §2 增「延后声明」：UCIS/vPlan 适用于 verification 类型，随 B7 逐类型扩展落地 |
+| E19 | 闭环 | 计划文档恢复至 `spec/idea/plan-spec-central-directory.md`（已核验 745 行）；clarifications §0 与 design §9 引用同步修正（docs/plans 已废弃） |
+| E20 | 闭环 | §3 图注「现状：JSON 文件模式；迁移后：同 PG 实例 LIGHTRAG_* 表」；§7 增迁移前置条件；§11 增迁移风险行 |
+
+## 新引入 / 残留问题
+
+### N1 解析提议覆盖率口径与兜底保证冲突（原 E13 残余）
+
+- **Severity**: MEDIUM
+- **位置**: `design_doc.md` §10（解析器行）、§6.1（未映射内容兜底）
+- **问题描述**: §10 定义「解析提议覆盖率 = 被原子承接的源块数 ÷ 总源块数」并给出阶段 1 目标 ≥95%；§6.1 又保证「规则未覆盖块 100% 有兜底原子（note/code）」。按字面实现，兜底块同样「被原子承接」→ 覆盖率恒为 100%，≥95% 门禁不可否证（无法发现解析规则退化），阶段 1 里程碑的量化判据形同虚设。若原意为「规则命中率」，则分子应限定为 `rule_id` 命中的块。
+- **修复建议**: 将指标改写为「**规则覆盖率 = 携带 rule_id 的源块数 ÷ 总源块数（≥95%）**」，兜底块单列为「**兜底率/待确认清单条数**」独立指标并纳入回归基线；两处口径在 §6.1 与 §10 保持一致。
+
+### N2 trade_off_matrix 未随 B10 上修同步（≤10k 残留）
+
+- **Severity**: LOW
+- **位置**: `trade_off_matrix.md` D1 行、§3「已被否决的选项」行
+- **问题描述**: B10 已上修 ≤100k 节点，但 D1 仍写「节点量级 ≤10k（B10）」，否决项仍写「≤10k 节点纯 PG 足够」——陈旧引用与 B10 v1.1 及其他文档不一致（结论不受影响）。
+- **修复建议**: 两处改为「≤100k 节点（B10 v1.1）」。
+
+### N3 `assets.missing` 未纳入 M09B 职责声明
+
+- **Severity**: LOW
+- **位置**: `design_doc.md` §5.2、§4 M09B 描述、§5 `assets` 表
+- **问题描述**: §5.2 规定缺失资产记为 `assets.missing` 违规项（由 M09B 呈现），但 §4 的 M09B 职责枚举仍为「断链/术语/渲染一致性/events↔当前态一致性」，未含资产缺失；`assets` 表列（asset_id/mime/bytes/origin/path）亦无 missing 状态承载位。
+- **修复建议**: §4 M09B 职责补「资产缺失」；§5.2 明确缺失记录的落点（独立违例表或 `assets.state` 列）。
+
+### N4 glossary/terms 表未进入 §5 数据模型清单
+
+- **Severity**: LOW
+- **位置**: `design_doc.md` §5.3、§5 表清单
+- **问题描述**: §5.3 声明术语校验数据源为「terms 词汇表（glossary 表，随 M09B 引入）」，但 §5 的表清单（docs/nodes/refs/events/comments/schemas/assets）未列该表。
+- **修复建议**: 在 §5 增 `glossary` 表行（或注明「M09B 引入时补登记」）。
+
+### N5 approach_analysis.md 未同步 M09A/M09B 与阶段口径
+
+- **Severity**: LOW
+- **位置**: `approach_analysis.md` 实施顺序建议节
+- **问题描述**: 阶段 1 仍写「M01 → M02 → M03 → M04」（缺 M09A）；阶段 3 仍写「M09 质量门」；并行可能性仍写「M05 与 M09 在 M04 后可并行」——与 design §12、B14、summary 的新口径不一致。
+- **修复建议**: 同步为「M01（+M09A）→ M02 → M03 → M04」「阶段 3：M05 → M09B → M-LR」「M05 与 M09B 可并行」。
+
+### N6 版本号未同步
+
+- **Severity**: LOW
+- **位置**: 四份文档 frontmatter
+- **问题描述**: design_doc 升为 1.1.0 并附修订说明，clarifications / trade_off_matrix / summary 内容已改仍为 1.0.0，变更可追溯性不一致。
+- **修复建议**: 三份同步至 1.1.0（或按各自修订记录递增）。
+
+### N7 §4 依赖原则措辞与依赖图小口径冲突
+
+- **Severity**: LOW
+- **位置**: `design_doc.md` §4 原则句与依赖图
+- **问题描述**: 原则句「只依赖低编号模块（编号序即实现序）」与 M03/M06 依赖 M09A 字面冲突（M09A 交付序靠前但编号为 9）；依赖图仍缺 M01→M03、M02→M06、M01→M07 等表中有、图中未绘的边。
+- **修复建议**: 原则句改为「只依赖已交付模块，交付序见 §12（M09A 随 M01 交付）」；图边按模块表补齐或注明「图仅示主链」。
+
+### N8 §11 大文件参数未用实测最大值
+
+- **Severity**: LOW
+- **位置**: `design_doc.md` §11 风险表（解析质量行）
+- **问题描述**: 该行仍引用「3.4MB/2.7 万行」，实测最大规模为 CXL 3,594,622 B / 31,072 行（PCIe 3,531,270 B / 27,850 行）。
+- **修复建议**: 改为「最大单文档 3.6MB / 3.1 万行（CXL）」以与 §1 实测口径一致。
+
+## 复核结论
+
+19/20 项完全闭环（E1–E12、E14–E20）；E13 部分闭环，其残余（N1）构成新的阻塞项。其余 N2–N8 为 LOW 信息项。
+
+存在 1 个阻塞问题（N1）
