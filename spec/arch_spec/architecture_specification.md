@@ -419,9 +419,9 @@ def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: .
 **agent 路径**（每请求签名）：
 - 请求头：`X-SSH-Signature`（base64）、`X-SSH-Key-Id`（公钥指纹）、`X-Timestamp`（ISO 8601, UTC, 秒级）、`X-Nonce`（≥128 位随机, base64）。
 - **签名载荷（S2 修复，字节级精确）**：
-  ```
-  payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE
-  ```
+```text
+payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE
+```
   **规范化规则（双方不得另行规范化）**：`RAW_PATH` = 请求行中路径 + `?` + query 的**原样字节**（不百分号解码、不去点段、不增删尾部斜杠）；**query string 参与签名**——篡改 query 任一参数 → 401。
 - **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 用 `rsa-sha2-512` + **PSS**。CLI 与 WebUI 登录页共用**同一验签器**。
 - **校验顺序（S3/S7 修复）**：① `X-Timestamp` 偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]（**未来偏移容忍 30s**）→ ② `X-SSH-Key-Id` 查 `ssh_keys`（active）→ ③ **验签** → ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。失败：401（无/坏凭据）、403（公钥未注册或角色不足）。
@@ -448,7 +448,7 @@ def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: .
 | `GET/POST /api/v1/users`、`PATCH/DELETE /api/v1/users/{id}` | 用户管理（**admin 专属**，B3/A1） |
 | `POST /api/v1/users/{id}/keys` | 登记/吊销该用户 SSH 公钥 |
 | `GET/POST /api/v1/roles`、`POST /api/v1/grants` | 角色与文档集级授权（**admin 专属**） |
-| `PATCH /api/v1/nodes/{node_id}/table` | 表格编辑回写（B6 可编辑表格；body 为行列 JSON，服务端转 content，epoch 校验） |
+| `PATCH /api/v1/nodes/{node_id}/table` | 表格编辑回写（B6；body 为行列 JSON + `expectedVersion`，服务端转 content；**V8 修正**：术语由误用的「epoch 校验」改为 `expected_version` 乐观锁） |
 
 **前端契约（TS）**（A11 序列化口径：后端 pydantic `alias_generator=to_camel`，JSON 一律 camelCase）：
 
