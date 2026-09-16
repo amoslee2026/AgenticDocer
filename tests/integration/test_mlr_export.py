@@ -349,9 +349,10 @@ async def test_export_and_stream_need_no_external_network(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """导出与拉流只碰 PG（loopback）+ 本地文件；外部网络一律判违规。"""
-    await seed(storage, doc_ids)
     doc_a, doc_b = doc_ids
+    # 守卫须在**首次连库之前**装好（连接池一建立就不再新建连接 → 否则是空断言）
     seen = block_external_network(monkeypatch)
+    await seed(storage, doc_ids)
 
     result = await export_package([doc_a, doc_b], tmp_path, storage=storage)
     drained = [event async for event in change_stream(storage=storage)]
