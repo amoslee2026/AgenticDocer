@@ -352,7 +352,12 @@ async def update_user(
 async def delete_user(
     user_id: Any, *, actor: str, actor_id: Any = None, db: Database | None = None
 ) -> None:
-    """删除用户（级联密钥/授权/会话）；S9 同 :func:`update_user`。"""
+    """删除用户（级联密钥/授权/会话）；S9 同 :func:`update_user`。
+
+    ``grants.granted_by`` 是**无级联动作**的外键（§4 DDL），被删用户若曾授出授权，
+    直接删行会触发 FK 违规（500）。故先把其授出记录的 ``granted_by`` 置空——**授权本身
+    保留**（被授权人不受影响），「谁授的」由本函数的 ``auth`` 事件保留可追溯。
+    """
     async with _db(db).transaction() as session:
         row = await fetch_user(session, user_id)
         if row is None:
@@ -372,6 +377,9 @@ async def delete_user(
                     entity="auth",
                     entity_id=str(user_id),
                 )
+        nulled = await session.execute(
+            update(grants).where(grants.c.granted_by == user_id).values(granted_by=None)
+        )
         await session.execute(delete(users).where(users.c.user_id == user_id))
         await append_event(
             session,
@@ -381,8 +389,8 @@ async def delete_user(
             payload={
                 "user_id": str(user_id),
                 "action": "delete_user",
-                "username": row["username"],
                 "role": row["role"],
+                "nulled_granted_by": nulled.rowcount or 0,
             },
             actor=actor,
             ts=now(),
