@@ -36,6 +36,31 @@ from .sessions import (
     session_ttl_seconds,
     session_token_hash,
     signature_max_skew_seconds,
+from fastapi import Depends, HTTPException, Request, Response
+
+from agenticdocer.model import Model, User, WriteContext, WriteSource
+from agenticdocer.observability import DTO_AUTH_REJECTED, get_logger
+from agenticdocer.store import Database, ForbiddenError, get_database
+
+from .errors import BOOTSTRAP_HINT, AuthError, AuthenticationError
+from .sessions import (
+    SESSION_COOKIE_NAME,
+    consume_nonce,
+    future_skew_seconds,
+    resolve_session,
+    session_token_hash,
+    session_ttl_seconds,
+    signature_max_skew_seconds,
+)
+from .signing import normalize_key_id, request_payload
+from .sshsig import verify_sshsig
+from .users import (
+    authorize_user,
+    fetch_active_key,
+    fetch_user,
+    log_auth_failure,
+    user_from_row,
+)
     future_skew_seconds,
     consume_nonce,
 )
@@ -57,8 +82,6 @@ __all__ = [
     "SESSION_COOKIE_NAME",
     "SIGNATURE_HEADER",
     "TIMESTAMP_HEADER",
-    "KEY_ID_HEADER",
-    "AuthContext",
     "SshSigHeaders",
     "clear_session_cookie",
     "client_ip",
