@@ -17,6 +17,7 @@ import pytest
 from agenticdocer.model import (
     ATOM_SCHEMAS,
     DOC_TYPE_RULES,
+    DOC_TYPES,
     NodeIn,
     Violation,
     derive_text,
@@ -33,6 +34,7 @@ from agenticdocer.m09 import (
     RULE_CONTENT_TEXT_EMPTY,
     RULE_CROSS_REF_EXTERNAL_NODE,
     RULE_DOC_TYPE_ATOM,
+    RULE_DOC_TYPE_VARIANT,
     RULE_PARENT_SELF,
     RULE_TABLE_FORMAT,
     validate_proposal,
@@ -57,6 +59,34 @@ VALID: dict[str, dict] = {
         "meta": META,
         "register": "CTRL",
         "fields": [{"field": "EN", "access": "rw"}],
+    },
+    # 以下两个变体为方案 C 新增（`doc_type_mapping.md` §3/§4）。**合成样例，非真实语料**：
+    # `safety`（FMEA/FTA）与 vPlan/UCIS 覆盖矩阵当前无语料（§5 验证边界），只能单元验证。
+    "table.failure_mode": {
+        "fragment": TABLE_HTML,
+        "meta": META,
+        "modes": [
+            {
+                "failure_mode": "时钟丢失",
+                "effect": "状态机停摆",
+                "severity": "8",
+                "detection_method": "DFT 扫描",
+                "rpn": 24,
+            }
+        ],
+    },
+    "table.coverage_matrix": {
+        "fragment": TABLE_HTML,
+        "meta": META,
+        "matrix": [
+            {
+                "feature": "APB",
+                "sub_feature": "wrap",
+                "coverage_item": "cg_wrap",
+                "test": "apb_wrap_test",
+                "status": "covered",
+            }
+        ],
     },
     "figure": {"asset_ref": SHA, "caption": "APB timing", "text": "Figure: APB timing"},
     "figure.state_machine": {
