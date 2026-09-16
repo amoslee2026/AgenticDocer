@@ -33,7 +33,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from agenticdocer.auth import signing
-
+from agenticdocer import cli
+from agenticdocer.auth import signing
 pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[2]
