@@ -360,7 +360,6 @@ async def test_agent_flow_read_write_render_diff(
     history = events.json()
     assert len(history) >= 2 and history[0]["op"] == "create"
     assert {item["actor"] for item in history} == {str(admin_id)}  # 伪造的 X-Actor 未被采信
-    assert {item["actor"] for item in history} == {str(actor)}  # 伪造的 X-Actor 未被采信
     event_id = history[0]["eventId"]
 
     replay = await admin.get(f"/api/v1/events/replay?node_id={node_id}&upto={event_id}")
@@ -764,8 +763,9 @@ async def test_webui_session_login_and_identity(
     )
     assert written.status_code == 200, written.text
 
-    assert events.json()[0]["actor"] == str(admin_id)  # 会话身份 = 验签所得 user_id
     events = await admin.get(f"/api/v1/events?entity=node&entity_id={written.json()['nodeId']}")
+    assert events.status_code == 200
+    assert events.json()[0]["actor"] == str(admin_id)  # 会话身份 = 验签所得 user_id
     assert events.status_code == 200
     assert events.json()[0]["actor"] == str(actor)  # 会话身份 = 验签所得 user_id
 
