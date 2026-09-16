@@ -517,14 +517,29 @@ async def commit_document(
     *,
     storage: Storage | None = None,
     accepted: Iterable[str] | None = None,
+    bulk: bool = False,
+    bulk_mode: Literal["online", "initial_load"] = "online",
+    batch_size: int = BULK_ROWS_PER_TRANSACTION,
 ) -> CommitResult:
-    """审核通过的提议 → 校验 → 事务写入 `docs`/`nodes`/`refs`（REQ-M03-F03）。
+    """审核通过的提议 → 校验 → 写入 `docs`/`nodes`/`refs`（REQ-M03-F03）。
 
-    - 校验不通过 → `ValidationError`（带违规明细，调用方经 §6 映射为 422）；
-    - 幂等：同锚复用既有节点（`node_id` 复用 → M02 的「无变化不写事件」生效），
-      引用边按 `(src, dst_doc, dst_node, kind)` 去重，故重跑不产生重复节点/边；
-    - `parent_node_id` 由 `(level, ordinal)` 栈重建（node_id 提交期才产生）；
-    - 每次节点写入由 M02 保证「事件 + 实体同事务」；整档导入的原子性由**幂等重跑**兜底。
+    **两条写入路径，语义等价**（A/B 断言见 `tests/integration/test_import_pipeline.py`）：
+
+    - `bulk=False`（默认）：逐节点 `M02.upsert_node`（每节点一事务）；
+    - `bulk=True`：**ADR-009 §3「COPY + 单事务分批（每 5k 行）」**（:mod:`.bulk`）——
+      新节点按 `batch_size` 行一个事务 `COPY` 进库（节点行 + 其 create 事件同事务，P2），
+      既有且**有变化**的节点回落 `upsert_node`（罕见路径，保留乐观锁口径）。
+
+    `bulk_mode`（Main 要求的显式区分，防止误用）：
+
+    - `"online"`：任意时刻可用（幂等、索引全程在线）；
+    - `"initial_load"`：**仅限空文档/新库全量装载**——目标 `doc_id` 若已有节点即
+      `ValidationError`（避免破坏并发一致性）。注意本函数**不**自动改变索引策略；
+      ADR-009 §2 的「先 COPY 再并行建索引」仍是装载后的运维步骤（可另行编排）。
+
+    共同语义（两条路径一致）：M09A 校验前置；幂等（同锚复用、无变化不写事件）；
+    `parent_node_id` 由 `(level, ordinal)` 栈重建；`cross_ref` 去重建边；
+    `WriteContext(source='importer')` 记账（actor 原样进事件）。
     """
     context = ctx or DEFAULT_CTX
     if context.source != "importer":
@@ -542,12 +557,23 @@ async def commit_document(
     status = str(doc_meta.get("doc_status") or "draft")
     if doc.status != status:
         doc = await store.update_doc_status(doc.doc_id, status, doc.version, context)  # type: ignore[arg-type]
-    existing = {node.anchor: node.node_id for node in await store.get_doc_nodes(doc.doc_id)}
+    known_nodes = {node.anchor: node for node in await store.get_doc_nodes(doc.doc_id)}
+    if bulk and bulk_mode == "initial_load" and known_nodes:
+        raise ValidationError(
+            f"bulk_mode='initial_load' 仅限空文档全量装载；{doc.doc_id} 已有 {len(known_nodes)} 个节点"
+            "（在线增量请用 'online'）",
+            entity="node",
+            entity_id=doc.doc_id,
+        )
     selected = selected_proposals(result, accepted)
     fallbacks = fallback_anchors(result)
-    nodes_created = 0
-    stack: list[tuple[int, UUID]] = []
+    _MUTABLE = ("atom_type", "format", "ordinal", "parent_node_id", "level", "content")
+    plan: list[NodeIn] = []
+    new_specs: list[tuple[str, UUID, dict[str, Any]]] = []
+    updates: list[NodeIn] = []
+    anchor_ids: dict[str, UUID] = {anchor: node.node_id for anchor, node in known_nodes.items()}
     committed: list[tuple[Proposal, UUID]] = []
+    stack: list[tuple[int, UUID]] = []
     for proposal in selected:
         anchor, level, atom_type, fmt, content = _node_spec(proposal, fallbacks)
         if not anchor:
@@ -556,40 +582,61 @@ async def commit_document(
             while stack and stack[-1][0] >= level:
                 stack.pop()
         parent = stack[-1][1] if stack else None
-        node_in = NodeIn(
-            node_id=existing.get(anchor),
-            doc_id=doc.doc_id,
-            atom_type=atom_type,
-            format=fmt,  # type: ignore[arg-type]
-            ordinal=proposal.source_lines[0],  # 文档序：源行号即稳定 ordinal（重解析不漂移）
-            parent_node_id=parent,
-            level=level,
-            anchor=anchor,
-            content=content,
-        )
-        node = await store.upsert_node(node_in, None, context)
-        if anchor not in existing:
-            nodes_created += 1
-        existing[anchor] = node.node_id
+        # ordinal = 源行号（稳定：文档序 + 重解析不漂移；M04 按 ordinal 拼接即还原源序）
+        incoming: dict[str, Any] = {
+            "doc_id": doc.doc_id,
+            "atom_type": atom_type,
+            "format": fmt,
+            "ordinal": proposal.source_lines[0],
+            "parent_node_id": parent,
+            "level": level,
+            "anchor": anchor,
+            "content": content,
+        }
+        known = known_nodes.get(anchor)
+        if known is None:
+            node_id = new_uuid7() if bulk else None
+            plan.append(NodeIn(node_id=node_id, **incoming))  # type: ignore[arg-type]
+            if node_id is not None:
+                new_specs.append((anchor, node_id, incoming))
+                anchor_ids[anchor] = node_id
+        else:
+            node_id = known.node_id
+            if any(getattr(known, name) != incoming[name] for name in _MUTABLE):
+                node_in = NodeIn(node_id=node_id, **incoming)  # type: ignore[arg-type]
+                plan.append(node_in)
+                updates.append(node_in)
+            anchor_ids[anchor] = node_id
         if level is not None:
-            stack.append((level, node.node_id))
-        committed.append((proposal, node.node_id))
+            stack.append((level, node_id if node_id is not None else anchor_ids[anchor]))
+        committed.append((proposal, node_id if node_id is not None else anchor_ids[anchor]))
+
+    nodes_created = len(new_specs) if bulk else sum(1 for node_in in plan if node_in.node_id is None)
+    if bulk:
+        with log.timer("commit_bulk", module="m03.bulk", doc_id=doc.doc_id, rows=len(new_specs)):
+            outcome = await bulk_insert_nodes(store.db, new_specs, context, rows_per_transaction=batch_size)
+        for anchor, node_id in outcome.node_ids.items():
+            anchor_ids[anchor] = node_id
+        for node_in in updates:  # 罕见：既有节点内容变化
+            await store.upsert_node(node_in, None, context)
+    else:
+        for node_in in plan:
+            node = await store.upsert_node(node_in, None, context)
+            anchor_ids[node.anchor] = node.node_id
 
     refs_created = 0
     for proposal, node_id in committed:
         atom = proposal.atom
         if isinstance(atom, RawFallback) or atom.atom_type != "cross_ref":
             continue
+        source_id = anchor_ids.get(node_id if isinstance(node_id, str) else str(node_id), node_id)
         target_anchor = atom.content.get("target_anchor")
         kind = str(atom.content.get("ref_kind") or "see_also")
-        dst_node = existing.get(str(target_anchor)) if target_anchor else None
-        known = {
-            (ref.dst_doc_id, ref.dst_node_id, ref.kind)
-            for ref in await store.list_refs(node_id)
-        }
-        if (doc.doc_id, dst_node, kind) in known:
+        dst_node = anchor_ids.get(str(target_anchor)) if target_anchor else None
+        known_refs = {(ref.dst_doc_id, ref.dst_node_id, ref.kind) for ref in await store.list_refs(source_id)}
+        if (doc.doc_id, dst_node, kind) in known_refs:
             continue
-        await store.add_ref(node_id, doc.doc_id, dst_node, kind, context)  # type: ignore[arg-type]
+        await store.add_ref(source_id, doc.doc_id, dst_node, kind, context)  # type: ignore[arg-type]
         refs_created += 1
 
     log.info(
@@ -597,11 +644,40 @@ async def commit_document(
         doc_id=doc.doc_id,
         doc_slug=doc_meta.get("doc_slug"),
         doc_status=doc.status,
+        mode="bulk" if bulk else "sequential",
+        bulk_mode=bulk_mode if bulk else None,
         nodes_created=nodes_created,
         nodes_total=len(committed),
         refs_created=refs_created,
         accepted=len(selected),
         proposals=len(result.proposals),
+    )
+    return CommitResult(
+        doc_id=doc.doc_id,
+        nodes_created=nodes_created,
+        refs_created=refs_created,
+        stats=result.stats,
+    )
+
+
+async def commit_document_bulk(
+    result: ParseResult,
+    ctx: WriteContext | None = None,
+    *,
+    storage: Storage | None = None,
+    accepted: Iterable[str] | None = None,
+    batch_size: int = BULK_ROWS_PER_TRANSACTION,
+    bulk_mode: Literal["online", "initial_load"] = "online",
+) -> CommitResult:
+    """`commit_document(..., bulk=True)` 的显式入口（ADR-009 §3 批量路径，PerfBench 指定签名）。"""
+    return await commit_document(
+        result,
+        ctx,
+        storage=storage,
+        accepted=accepted,
+        bulk=True,
+        bulk_mode=bulk_mode,
+        batch_size=batch_size,
     )
     return CommitResult(
         doc_id=doc.doc_id,
