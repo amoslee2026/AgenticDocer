@@ -2,11 +2,15 @@
 
 池参数按 ADR-009 §3：`pool_size=20, max_overflow=20`（每 worker 上限 40）。
 所有写路径经 `Database.transaction()`，保证「事件 + 实体同事务」（§1 P2）。
+
+配置取值顺序（§5「环境变量」）：进程环境变量 → 仓库 `.env` → 本模块默认值。
+`.env` 仅作**默认值**注入（`setdefault`），已存在的环境变量永不被覆盖。
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Final
@@ -18,6 +22,30 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+
+ENV_FILE: Final = Path(
+    os.environ.get("AGENTICDOCER_ENV_FILE") or Path(__file__).resolve().parents[3] / ".env"
+)
+"""仓库级 `.env`（gitignore；§5 开发期配置）。"""
+
+
+def _load_env_file(path: Path) -> None:
+    """把 `.env` 的键值作为默认值注入 `os.environ`（环境变量优先）。"""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.removeprefix("export ").strip()
+        if key:
+            os.environ.setdefault(key, value.strip().strip('"').strip("'"))
+
+
+_load_env_file(ENV_FILE)
 __all__ = [
     "DEFAULT_DATABASE_URL",
     "DEFAULT_MIGRATION_DATABASE_URL",
