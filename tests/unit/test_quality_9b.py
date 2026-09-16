@@ -27,7 +27,6 @@ from agenticdocer.m09.quality_9b import (
     resolve_detectors,
     section_range_consistency,
     terms,
-    terms,
 )
 from agenticdocer.model import Doc, Event, Node, QualityScope, Violation, new_uuid7
 from agenticdocer.observability import (
