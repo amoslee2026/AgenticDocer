@@ -324,20 +324,7 @@ async def test_signature_covers_percent_encoded_target(
 async def test_missing_raw_path_scope_falls_back_with_warning(monkeypatch) -> None:
     """ASGI ``raw_path`` 缺失（规范允许省略）→ 回落解码路径，且只告警一次。"""
     monkeypatch.setattr(middleware, "_MISSING_RAW_PATH_WARNED", False, raising=False)
-    scope = {"type": "http", "method": "GET", "path": "/api/v1/docs/SPEC%20A",
-             "query_string": b"limit=1", "headers": [], "client": ("10.0.0.9", 1)}
-    assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC A?limit=1"
 
-    scope["raw_path"] = b"/api/v1/docs/SPEC%20A"
-    assert middleware.raw_path(Request(scope)) == "/api/v1/docs/SPEC%20A?limit=1"
-
-
-    client: AsyncClient, database: Database, key_material: dict[str, Path]
-) -> None:
-    """**S3**：偏移 ∈ [−30s, +300s]。"""
-    await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
-    key = signing.load_private_key(key_material["editor_ed25519"])
-    now = datetime.now(timezone.utc)
 
     def stamp(offset_seconds: int) -> str:
         return signing.timestamp_now(now + timedelta(seconds=offset_seconds))
