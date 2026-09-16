@@ -386,7 +386,9 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
     if bench.environment:
         print("environment: " + json.dumps(bench.environment, ensure_ascii=False))
     if bench.counters:
-        print("counters:    " + json.dumps(_compact(bench.counters), ensure_ascii=False))
+        print("counters:")
+        print("\n".join("  " + line for line in
+                        json.dumps(_compact(bench.counters), ensure_ascii=False, indent=2).splitlines()))
 
     rows = []
     for item in bench.metrics:
@@ -403,6 +405,7 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
     if rows:
         print()
         print(render_table(["指标", "实测", "单位", "目标", "判定", "路径"], rows))
+    degraded = bench.degraded()
     if degraded:
         print("\n!! 降级路径（`degraded` 标记项，如 ADR-009 V16 的「不带 doc_id」点查）"
               "——结果**不得**与正常路径混为一谈：")
