@@ -146,7 +146,8 @@ async def detect(ctx: GateContext) -> list[Violation]:
     violations: list[Violation] = []
     skipped_no_source = 0
     skipped_no_artifact = 0
-    for doc in await _scoped_docs(ctx):
+    docs = await _scoped_docs(ctx)
+    for doc in docs:
         source = _source_path(doc)
         if source is None:
             skipped_no_source += 1
@@ -185,7 +186,7 @@ async def detect(ctx: GateContext) -> list[Violation]:
         )
     ctx.logger.info(
         "render consistency scanned",
-        docs=len(await _scoped_docs(ctx)),
+        docs=len(docs),
         skipped_no_source=skipped_no_source,
         skipped_no_artifact=skipped_no_artifact,
         violations=len(violations),
@@ -200,6 +201,3 @@ def _source_path(doc: Doc) -> Path | None:
         return None
     path = Path(raw)
     return path if path.is_file() else None
-
-
-_ = Callable, Any  # 保留标准库符号以稳定 `from __future__` 下的类型可用性
