@@ -321,7 +321,8 @@ async def traverse(
     参数：
         node_id: 起点节点（不存在或已软删 → `NotFoundError`，除 `include_deleted=True`）。
         hops: 跳数上限；各 kind 再按 `max_hops` 截断（`hops=2` 仅扩 `traces_to`）。
-        doc_id: 起点的 `doc_id`（ADR-009 V16 分区裁剪；缺失则全 64 分区探测）。
+        doc_id: 起点的 `doc_id`（ADR-009 V16 分区裁剪；缺失则全 64 分区探测）。给错会按
+            「不存在」处理（与 M02 `get_node` 同口径：它是裁剪提示而非模糊匹配）。
         storage: `Storage` 注入（缺省取进程级单例），便于 M-LR/M09B 与测试装配。
         include_deleted: 同时纳入 `status='deleted'` 节点（默认过滤，L5）。
 
