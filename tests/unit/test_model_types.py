@@ -565,3 +565,16 @@ def test_camel_case_aliases_are_derived_uniformly():
     for model in SPEC_FIELDS:
         for name, field_info in model.model_fields.items():
             assert field_info.alias == to_camel(name)
+
+
+def test_contract_table_covers_every_public_model():
+    """契约表必须与包导出的模型一一对应——防止新增模型或漏改条目导致约束静默失效。"""
+    import agenticdocer.model as model_pkg
+
+    public_models = {
+        getattr(model_pkg, name)
+        for name in model_pkg.__all__
+        if isinstance(getattr(model_pkg, name), type) and issubclass(getattr(model_pkg, name), BaseModel)
+    }
+
+    assert public_models == set(SPEC_FIELDS)
