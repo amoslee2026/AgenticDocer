@@ -993,7 +993,9 @@ def parse_text(
     )
     for item, anchor in zip(pending, anchors):
         item.extra["anchor"] = anchor
-
+    # 引用解析必须在建 NodeIn 之前：pydantic 校验会复制 content，
+    # 之后再改 `item.content` 不会影响已构造的原子（跨引用目标锚因此需先落定）。
+    cross_ref = _resolve_cross_refs(pending)
     proposals: list[Proposal] = []
     unmapped: list[UnmappedBlock] = []
     fallback_map: dict[str, str] = {}
