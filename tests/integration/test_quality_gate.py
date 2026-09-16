@@ -101,13 +101,12 @@ async def sample(storage: Storage, tmp_path: Path, seeded_terms: int) -> Sample:
 
 
 async def make_sample(storage: Storage, tmp_path: Path) -> Sample:
+    """建一份干净样本：源 md 与库内节点树**逐块镜像**（判据 a 应当成立）。"""
     index = next(_SEQ)
     doc_id = f"SPEC-QG-{_RUN}-{index}"
-    slug = f"qg-{_RUN}-{index}"
-    doc_id = f"SPEC-QG{index}"
-    source = tmp_path / f"qg-{index}.md"
+    source = tmp_path / f"qg-{_RUN}-{index}.md"
     source.write_text(
-    source = tmp_path / f"{slug}.md"
+        "---\n"
         f"doc_id: {doc_id}\n"
         "doc_type: standard\n"
         "title: M09 Quality Gate Sample\n"
@@ -120,12 +119,12 @@ async def make_sample(storage: Storage, tmp_path: Path) -> Sample:
             doc_id=doc_id,
             doc_type="standard",
             title="M09 Quality Gate Sample",
-            meta={"source_path": str(source), "doc_slug": f"qg-{index}"},
+            meta={"source_path": str(source), "doc_slug": f"qg-{_RUN}-{index}"},
             source_ref=None,
         ),
         None,
         CTX,
-            meta={"source_path": str(source), "doc_slug": slug},
+    )
     clause = await add_node(
         storage,
         doc_id=doc.doc_id,
