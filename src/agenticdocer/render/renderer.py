@@ -20,6 +20,10 @@
 （章节产物**不带 frontmatter**——它是 WebUI/M08 按需加载的片段，frontmatter 属文档级）；
 资产 ``<out_dir>/assets/<sha256>.<ext>``。``out_dir`` 默认取 ``RENDER_OUT_DIR``（§5）。
 
+读路径复杂度（PERF B-2）：整档 ``render_document`` = O(文档)；章节 ``render_section`` = **O(子树)**
+（``get_section_nodes`` 单次取回子树，不做「取全档 + 内存过滤」）；图片资产路径**一次批量取回**
+（``get_asset_paths``），故章节渲染不随文档规模线性劣化。
+
 接口为 ``async``：存储层（M02）全异步，渲染需读节点树与资产行。
 """
 
