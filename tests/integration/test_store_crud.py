@@ -51,6 +51,7 @@ def node_in(
     anchor: str | None = None,
     body: str = "APB 信号时序要求",
     atom_type: str = "clause",
+    content: dict | None = None,
 ) -> NodeIn:
     return NodeIn(
         node_id=node_id,
@@ -60,7 +61,7 @@ def node_in(
         parent_node_id=parent,
         level=level,
         anchor=anchor or f"{doc_id}#{ordinal}",
-        content={"text": body},
+        content=content if content is not None else {"text": body},
     )
 
 
