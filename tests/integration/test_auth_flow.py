@@ -1050,6 +1050,15 @@ async def test_delete_user_that_granted_others_is_allowed(
     ``delete_user`` 先把其授出记录的 ``granted_by`` 置空（**授权本身保留**：被授权人
     不受影响），审计事件记 ``nulled_granted_by`` 计数（S1）。
     """
+    # 复现前提（可独立核对）：`grants.granted_by` 的外键是 NO ACTION（`a`），
+    # 而 `grants.user_id` 是 CASCADE —— 故直接 DELETE users 必触发 FK 违规（500）
+    constraint = await _rows(
+        database,
+        "SELECT confdeltype FROM pg_constraint "
+        "WHERE conname = 'grants_granted_by_fkey'",
+    )
+    assert constraint[0][0] == "a"
+
     grantor = await bootstrap.bootstrap_admin(db=database)
     successor = await auth_users.create_user("root2", "admin", actor=SYSTEM_ACTOR, db=database)
     reader = await auth_users.create_user("reader1", "reader", actor=SYSTEM_ACTOR, db=database)
