@@ -334,7 +334,8 @@ async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path
 
     # (b) 渲染保真
     assert normalize_markdown(product) == source_form
-    # P4：全部 HTML 表格片段逐字节出现（含 <img> 者：引用未落库 → 原样直通）
+    # P4 最强证据：正文与源**逐字节**一致（图片引用两侧掩码后比较——重写是唯一例外）
+    assert _mask_asset_refs(_body(product)) == _mask_asset_refs(f"{chr(10)}{_body(source)}{chr(10)}")
     nodes = await storage.get_doc_nodes(doc_id)
     fragments = _table_fragments(nodes)
     assert len(fragments) == 1243
@@ -353,7 +354,33 @@ async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path
     assert section_ms < 1000, f"分章节渲染超预算：{section_ms:.0f}ms"
     assert document_ms < 3000, f"整档渲染超上限：{document_ms:.0f}ms"
 
+
 @pytest.mark.asyncio
+async def test_product_body_is_byte_identical_to_source(
+    amba: tuple[str, str], storage: Storage, tmp_path: Path
+) -> None:
+    """P4 逐字节：AMBA 整档产物正文 == 源正文（仅外层空行归一；图片引用两侧掩码）。"""
+    doc_id, source = amba
+    result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
+    product = Path(result.out_path).read_text(encoding="utf-8")
+    assert _mask_asset_refs(_body(product)) == _mask_asset_refs(f"{chr(10)}{_body(source)}{chr(10)}")
+
+
+def _body(text: str) -> str:
+    """去 frontmatter 的正文（产物 frontmatter 由 ``docs.meta`` 回写，非源字节）。"""
+    if text.startswith("---\n"):
+        return text.split("---\n", 2)[2]
+    return text
+
+
+_ASSET_REF = re.compile(r"(?:images|assets)/[0-9a-f]{64}(?:\.[A-Za-z0-9]+)?")
+
+
+def _mask_asset_refs(text: str) -> str:
+    """图片引用掩码：源 ``images/<sha>.jpg`` 与产物 ``assets/<sha>.<ext>`` 判为同一占位（P4 例外）。"""
+    return _ASSET_REF.sub("@@ASSET@@", text)
+
+
 async def test_render_missing_targets_raise_not_found(
     amba: tuple[str, str], storage: Storage, tmp_path: Path
 ) -> None:

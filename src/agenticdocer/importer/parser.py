@@ -623,7 +623,7 @@ def _clause_pending(
     prose: Sequence[Block],
 ) -> _Pending:
     """标题 → clause 节点（正文段落并入 `content.fragment`，ADR-006）。"""
-    fragment = "\n\n".join([block.text, *(item.text for item in prose)])
+    fragment = _join_blocks([block, *prose])
     end = prose[-1].end if prose else block.end
     return _Pending(
         block=block,
@@ -646,7 +646,7 @@ def _clause_pending(
 
 def _definition_heading_pending(section: Section, block: Block, prose: Sequence[Block]) -> _Pending:
     """术语区词条标题 → definition 节点（fragment 含标题行，渲染零改写）。"""
-    fragment = "\n\n".join([block.text, *(item.text for item in prose)])
+    fragment = _join_blocks([block, *prose])
     end = prose[-1].end if prose else block.end
     return _Pending(
         block=block,
