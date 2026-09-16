@@ -488,6 +488,7 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
+
 def cookie_secure(request: Request | None = None) -> bool:
     """会话 Cookie 是否带 ``Secure``（S6）。
 
