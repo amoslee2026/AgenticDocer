@@ -541,7 +541,7 @@ SPEC_FIELDS: dict[type, set[str]] = {
 
     # 基类与 doc_type 组合规则（REQ-M01-F03）
     Model: set(),
-    DocTypeRule: {"doc_type", "allowed_atom_types", "required_atom_types", "required_meta_fields"},
+    DocTypeRule: {"doc_type", "allowed_atom_types", "required_atom_types", "required_meta_fields", "allowed_atom_variants"},
 }
 
 
@@ -569,6 +569,7 @@ def test_required_optionality_follows_spec_section_3_0():
         ("DocTarget", "kind"),
         ("DocTypeRule", "required_atom_types"),
         ("DocTypeRule", "required_meta_fields"),
+        ("DocTypeRule", "allowed_atom_variants"),
     }
     for model in SPEC_FIELDS:
         for name, field_info in model.model_fields.items():

@@ -26,9 +26,14 @@ HTML_TABLE = (
 
 def test_atom_type_and_variant_domains():
     assert ATOM_TYPES == ("clause", "definition", "table", "figure", "code", "example", "note", "cross_ref")
-    assert ATOM_VARIANTS == ("table.register_field", "figure.state_machine")
+    assert ATOM_VARIANTS == (
+        "table.register_field",
+        "figure.state_machine",
+        "table.failure_mode",
+        "table.coverage_matrix",
+    )
     assert set(ATOM_SCHEMAS) == set(ATOM_TYPES) | set(ATOM_VARIANTS)
-    assert len(ATOM_SCHEMAS) == 10
+    assert len(ATOM_SCHEMAS) == 12
 
 
 @pytest.mark.parametrize("type_name", sorted(ATOM_SCHEMAS))
@@ -154,5 +159,5 @@ def test_derive_text_rejects_unregistered_atom_type():
 
 
 def test_table_atoms_set_matches_variant_registration():
-    assert TABLE_ATOMS == {"table", "table.register_field"}
+    assert TABLE_ATOMS == {"table", "table.register_field", "table.failure_mode", "table.coverage_matrix"}
     assert TABLE_ATOMS <= set(ATOM_SCHEMAS)
