@@ -233,7 +233,7 @@ ATOM_SCHEMAS: dict[str, dict[str, Any]] = {
         ("ref_kind", "target_doc_id"),
     ),
 }
-"""八类原子 + 2 变体的 JSON Schema（key = `schemas.type_name`，§4）。"""
+"""八类原子 + 4 变体的 JSON Schema（key = `schemas.type_name`，§4）。"""
 
 
 class UnknownAtomTypeError(ValueError):

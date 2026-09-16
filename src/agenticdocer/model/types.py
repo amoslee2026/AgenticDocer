@@ -220,7 +220,7 @@ class NodeSnapshot(Model):
 
 
 class SchemaDef(Model):
-    """Schema 注册表行（§4 DDL `schemas`）；八类原子 + 2 变体由 M01 定义（见 `atoms.py`）。"""
+    """Schema 注册表行（§4 DDL `schemas`）；八类原子 + 4 变体由 M01 定义（见 `atoms.py`）。"""
 
     type_name: str = Field(min_length=1)
     json_schema: dict[str, Any]

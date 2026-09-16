@@ -95,9 +95,9 @@ section_meta: "@meta"
 
 ### REQ-M01-F01: 原子类型 Schema 注册
 
-八类原子（`clause`/`definition`/`table`/`figure`/`code`/`example`/`note`/`cross_ref`）的 JSON Schema 定义与变体（`table.register_field`、`figure.state_machine`），持久化于 `schemas` 表（`type_name`/`json_schema`/`version`）。
+八类原子（`clause`/`definition`/`table`/`figure`/`code`/`example`/`note`/`cross_ref`）的 JSON Schema 定义与 4 个变体（`table.register_field`、`figure.state_machine`、`table.failure_mode`、`table.coverage_matrix`），持久化于 `schemas` 表（`type_name`/`json_schema`/`version`）。
 
-**验收标准**：八类 + 2 变体 schema 齐全且可被 M09A 加载；schema 变更产生 `schema` 事件；无 schema 的 `atom_type` 写入被拒。
+**验收标准**：八类 + 4 变体 schema 齐全且可被 M09A 加载；schema 变更产生 `schema` 事件；无 schema 的 `atom_type` 写入被拒。
 
 ### REQ-M01-F02: 节点结构与锚规则约束
 
@@ -109,9 +109,9 @@ section_meta: "@meta"
 
 ### REQ-M01-F03: doc_type 组合规则
 
-`doc_type → 允许原子类型/必填字段` 的规则模型（随首个非 `standard` 类型引入，Q6）。
+`doc_type → 允许基底原子 / 变体白名单 / 必填字段` 的规则模型（差异化依据：`arch_spec/doc_type_mapping.md` §2 映射表 + §3 五类差异化规则表；Q6）。
 
-**验收标准**：非 `standard` 类型文档引入时，组合规则可配置并被 M03/M09A 消费。
+**验收标准**：(1) 五类规则逐条对照 §3，且 `allowed_atom_types`/`allowed_atom_variants`/`required_meta_fields` 实质不同（不得退回「四条复制 `standard`」的空壳）；(2) `standard` 的八类原子 + C5 十七字段口径不变；(3) 变体按 doc_type 显式放行、不随基底原子自动放行（`table.failure_mode` 仅 `safety`，`table.coverage_matrix` 仅 `product`）；(4) 规则可配置并被 M03/M09A 消费。
 
 ### REQ-M02-F01: 节点 CRUD + 乐观锁
 
