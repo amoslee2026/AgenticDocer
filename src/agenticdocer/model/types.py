@@ -332,10 +332,12 @@ GrantTarget = Union[DocTypeTarget, DocTarget]
 class User(Model):
     """§3 M10 + §4 DDL 补列（Main 裁决 2026-09-16：M10/M02 需回读 `users` 全列）。
 
-    ``user_id`` 为 uuid 的字符串形态（§6：`WriteContext.actor` 即 user_id 串）。
+    ``user_id`` 统一取 ``UUID7``（对齐 DDL ``uuid`` 列；§3 M10 代码块中的 ``str`` 为笔误，
+    同块内 ``Session.user_id`` 又写 uuid 语义）。审计字符串 ``WriteContext.actor`` 仍为
+    ``str``，由 M10 在写入派生值时显式 ``str(user_id)`` 一次转换（转换点收敛在一处）。
     """
 
-    user_id: str = Field(min_length=1)
+    user_id: UUID7
     username: str = Field(min_length=1)
     role: RoleName
     status: UserStatus
@@ -362,7 +364,7 @@ class Grant(Model):
     ``granted_by``/``granted_at`` 为 §4 DDL 列（Main 裁决 2026-09-16 补入）。"""
 
     grant_id: str = Field(min_length=1)
-    user_id: str = Field(min_length=1)
+    user_id: UUID7
     scope: GrantScope
     value: str = Field(min_length=1)
     permission: GrantPermission
@@ -371,10 +373,13 @@ class Grant(Model):
 
 
 class Session(Model):
-    """WebUI 会话（§4 DDL `sessions`；明文 token 仅存 Cookie，库内仅存 SHA256）。"""
+    """WebUI 会话（§4 DDL `sessions`；明文 token 仅存 Cookie，库内仅存 SHA256）。
+
+    ``user_id`` 与 ``User.user_id`` 同为 ``UUID7``（Main 裁决 2026-09-16 统一口径）。
+    """
 
     session_id: UUID7
-    user_id: str = Field(min_length=1)
+    user_id: UUID7
     token_hash: str = Field(min_length=1)
     created_at: datetime
     expires_at: datetime
