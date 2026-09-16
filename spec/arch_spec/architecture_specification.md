@@ -803,7 +803,6 @@ CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×
 ### 4.2 分区策略（ADR-009，批注 B9）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、FK 降级）
 
 ```sql
-```sql
 -- 规模：≥10,000 文档 / ≈13.4M 节点 / 20–54GB
 -- nodes 按 doc_id HASH 分区（64 个），events 按 ts RANGE 分区（按月）
 CREATE TABLE nodes (...) PARTITION BY HASH (doc_id);
@@ -835,9 +834,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
 
 
-#### 4.3.1 应用层 RBAC（M10，批注 B1/B2/B3）
 
-#### 4.1.1 应用层 RBAC（M10，批注 A1/A2/B3）
 
 见 §3 M10「权限矩阵」。DB 层仅区分属主（迁移）与应用（最小权限）；用户级权限（四角色 + 文档集级 grant）由 **M10 应用层**强制，落 `users`/`grants` 表（§4）。
 
@@ -853,6 +850,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 - CSRF 立场：依赖 `SameSite=Lax` + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
 
 
+```
 systemd --user: agenticdocer-api.service
   ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
   Environment: DATABASE_URL=postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer
