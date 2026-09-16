@@ -414,6 +414,7 @@ export interface SectionDTO { nodeId: string; anchor: string; title: string; lev
   ordinal: number; childCount: number; }
 export interface SessionDTO { userId: string; username: string; role: RoleName;
   permissions: GrantDTO[]; expiresAt: string; }
+```
 
 ### M09 校验
 
