@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,7 @@ from agenticdocer.m09.quality_9b import (
     events_consistency,
     perf_health,
     render_consistency,
+    section_range_consistency,
     terms,
 )
 from agenticdocer.model import (
