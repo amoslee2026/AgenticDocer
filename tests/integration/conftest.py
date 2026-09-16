@@ -101,8 +101,10 @@ def database_urls() -> tuple[str, str]:
     app = _app_url()
     database = make_url(app).database or ""
     if not database.endswith("_test"):
+        raise pytest.UsageError(
             "集成测试只允许 *_test 库（开启重建时会 DROP SCHEMA public）；"
             f"当前库为 {database!r}（{_masked(app)}）"
+        )
     owner = _owner_url(app)
     for label, url in (("migration/owner", owner), ("application", app)):
         error = asyncio.run(_probe(url))
