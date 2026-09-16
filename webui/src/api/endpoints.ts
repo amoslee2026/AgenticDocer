@@ -13,7 +13,6 @@ import type {
   RenderOutputDTO,
   RoleInfoDTO,
   SchemaDTO,
-  MetricsSnapshotDTO,
   SectionDTO,
   SessionDTO,
   SshKeyDTO,
@@ -21,6 +20,7 @@ import type {
   TermDTO,
   UserDTO,
   EventDTO,
+  UserDTO,
 } from "./types";
 // ── M10 鉴权 ────────────────────────────────────────────────────────────
 
