@@ -34,13 +34,13 @@ from agenticdocer.observability.logger import PROGRAM, slow_query_ms
 
 #: 单文件最多读取的日志行数（内存上界；超限时按 ts 倒序截断并在快照中体现为偏低计数）。
 _MAX_ENTRIES_PER_FILE = int(os.environ.get("METRICS_MAX_ENTRIES", "200000"))
-
+from agenticdocer.observability.error_codes import DTO_AUTH_REJECTED
+from agenticdocer.observability.logger import PROGRAM, log_dir, slow_query_ms
 #: 渲染类 op（M04 埋点约定）。
 RENDER_OPS = ("render_section", "render_document")
 
 _AUTH_FAILURE_PREFIXES = ("AUTH_",)
-
-
+_AUTH_FAILURE_PREFIXES = ("AUTH_",)
 class _CamelModel(BaseModel):
     """HTTP 序列化统一 camelCase（§6 横切：`alias_generator=to_camel`）。"""
 
@@ -87,9 +87,7 @@ class MetricsSnapshot(_CamelModel):
 
 def percentile(values: Sequence[int], q: float) -> int:
     """nearest-rank 百分位；空序列返回 0。"""
-    if not values:
-        return 0
-    ordered = sorted(values)
+    entries = _collect(since, until, Path(log_dir) if log_dir is not None else log_dir())
     rank = max(1, math.ceil(q / 100 * len(ordered)))
     return ordered[rank - 1]
 
@@ -109,11 +107,7 @@ def snapshot(
     until = since + dt.timedelta(seconds=window)
     entries = _collect(since, until, Path(log_dir) if log_dir is not None else _default_log_dir())
     return MetricsSnapshot(
-        window_seconds=window,
-        endpoints=_endpoint_metrics(entries),
-        slow_queries=_slow_queries(entries),
-        auth_failures=sum(1 for entry in entries if _is_auth_failure(entry)),
-        render=_render_metric(entries),
+
     )
 
 
@@ -253,7 +247,7 @@ __all__ = [
     "MetricsSnapshot",
     "RENDER_OPS",
     "RenderMetric",
-    "SlowQuery",
+
     "percentile",
     "snapshot",
 ]
