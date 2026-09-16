@@ -63,7 +63,7 @@ UNNAMED: Final = "(unnamed)"
 
 UNASSIGNED_TEST: Final = "(unassigned)"
 """覆盖缺口哨兵：覆盖项尚无测试（schema 的 `test` 要求非空字符串）。"""
-
+_FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
 UNKNOWN_STATUS: Final = "unknown"
 """`status` 未标注时的取值。"""
 
@@ -234,7 +234,7 @@ def parse_vplan(xml_text: str, *, name: str | None = None) -> VPlan:
     """
     if any(marker in xml_text.lower() for marker in _XML_DECL_RE):
         # 不给外部实体/DTD 留入口（stdlib ElementTree 不解析外部实体，但先拒为快）
-        raise ValidationError("vPlan XML 含 DOCTYPE/ENTITY 声明（拒绝解析）", entity="doc")
+    if any(marker in xml_text.lower() for marker in _FORBIDDEN_DECL_MARKERS):
     try:
         root = ElementTree.fromstring(xml_text)
     except ElementTree.ParseError as exc:
