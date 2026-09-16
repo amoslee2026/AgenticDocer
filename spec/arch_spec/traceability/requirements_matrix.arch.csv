@@ -1,0 +1,35 @@
+req_id,req_desc,module,priority,arch_spec_section
+REQ-M01-F01,原子类型 Schema 注册,M01,P0,architecture_specification.md §3 M01
+REQ-M01-F02,节点结构与锚规则约束,M01,P0,architecture_specification.md §3 M01
+REQ-M01-F03,doc_type 组合规则,M01,P2,architecture_specification.md §3 M01
+REQ-M02-F01,节点 CRUD 与乐观锁,M02,P0,architecture_specification.md §3 M02 + §4 DDL
+REQ-M02-F02,引用边管理（ref 事件）,M02,P0,architecture_specification.md §3 M02
+REQ-M02-F03,事件日志 append-only 与重放,M02,P0,architecture_specification.md §4 DDL events
+REQ-M02-F04,事务一致性,M02,P0,architecture_specification.md §3 M02
+REQ-M02-F05,批注 CRUD（含 orphaned）,M02,P1,architecture_specification.md §4 DDL comments
+REQ-M02-F06,资产表读写,M02,P1,architecture_specification.md §4 DDL assets
+REQ-M03-F01,markdown 解析器（规则库+提议）,M03,P0,architecture_specification.md §3 M03
+REQ-M03-F02,CLI 审核器,M03,P0,architecture_specification.md §3 M03 CLI
+REQ-M03-F03,入库（校验+事务）,M03,P0,architecture_specification.md §3 M03
+REQ-M03-F04,未映射内容兜底,M03,P0,architecture_specification.md §3 M03 + functional_specification.md REQ-M03-F04
+REQ-M03-F05,图片资产导入,M03,P1,architecture_specification.md §3 M03 + design_doc §5.2
+REQ-M04-F01,文档渲染（HTML 直通）,M04,P0,architecture_specification.md §3 M04 + ADR-004
+REQ-M04-F02,normalize() 规范化表示,M04,P0,architecture_specification.md §3 M04
+REQ-M04-F03,渲染产物落盘,M04,P1,architecture_specification.md §5 部署
+REQ-M05-F01,refs 多跳检索,M05,P2,architecture_specification.md §3 M05
+REQ-M05-F02,关键词检索,M05,P2,ADR-005
+REQ-M06-F01,结构化读写 API,M06,P1,architecture_specification.md §3 M06
+REQ-M06-F02,lint 自修复闭环,M06,P1,architecture_specification.md §3 M06 + M09
+REQ-M07-F01,表单数据 API,M07,P1,architecture_specification.md §3 M07
+REQ-M07-F02,结构化 diff API,M07,P1,architecture_specification.md §3 M07
+REQ-M07-F03,批注 API,M07,P1,architecture_specification.md §3 M07
+REQ-M07-F04,状态流转 API,M07,P1,architecture_specification.md §3 M07
+REQ-M07-F05,版本历史 API,M07,P1,architecture_specification.md §3 M07
+REQ-M08-F01,schema 驱动表单引擎,M08,P1,ADR-003 + architecture_specification.md §3 M07 前端契约
+REQ-M08-F02,结构化 diff 视图,M08,P1,architecture_specification.md §3 M07 前端契约
+REQ-M08-F03,批注面板,M08,P1,architecture_specification.md §3 M07 前端契约
+REQ-M08-F04,追溯与历史视图,M08,P1,architecture_specification.md §3 M07 前端契约
+REQ-M09-F01,M09A schema 校验引擎,M09,P0,architecture_specification.md §3 M09
+REQ-M09-F02,M09B 质量门,M09,P2,architecture_specification.md §3 M09 + workflow_diagrams.md WF-4
+REQ-MLR-F01,LightRAG 导出包,M-LR,P2,architecture_specification.md §3 M-LR
+REQ-MLR-F02,增量事件流接口,M-LR,P2,architecture_specification.md §3 M-LR
