@@ -63,7 +63,6 @@ from agenticdocer.render import (
 from agenticdocer.store import NotFoundError, Storage
 
 from .deps import (
-    AuthDep,
     DatabaseDep,
     ReadAuth,
     StorageDep,
