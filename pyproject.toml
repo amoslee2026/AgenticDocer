@@ -29,9 +29,8 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
 ]
-agenticdocer = "agenticdocer.cli:app"
-agenticdocer-api = "agenticdocer.app:main"
 
+# entry points 见下方 [project.scripts]
 [project.urls]
 Homepage = "https://github.com/amoslee2026/AgenticDocer"
 Repository = "https://github.com/amoslee2026/AgenticDocer"
