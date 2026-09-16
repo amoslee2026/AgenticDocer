@@ -2,7 +2,7 @@
 
 覆盖：rid 生成与 ContextVar 传播、DTO_* 错误码、AgenticLogger 适配层
 （结构化 JSONL / per-entry rid / timer / 阈值分级）、指标聚合、健康巡检判定、
-FastAPI 埋点中间件。**不依赖 PG**（`health()` 的不可达分支用 loopback 拒连验证）。
+import importlib
 """
 
 from __future__ import annotations
@@ -883,7 +883,8 @@ class _FakeConn:
 
 
 def _patch_pg(monkeypatch: pytest.MonkeyPatch, conn: _FakeConn) -> None:
-    from agenticdocer.observability import health as health_module
+    # 注意：包级 `health` 是函数名，取子模块须走 importlib。
+    health_module = importlib.import_module("agenticdocer.observability.health")
 
     async def fake_connect(dsn: str, timeout: float = 5.0) -> _FakeConn:
         return conn
