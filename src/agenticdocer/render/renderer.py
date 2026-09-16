@@ -148,14 +148,23 @@ def _register_grid(content: Mapping[str, Any]) -> TableGrid:
 
 
 def _figure_block(content: Mapping[str, Any], text: str) -> str:
+    """``figure`` 原子（M01 schema 无 ``fragment``）→ 图片引用。
+
+    ``content.text`` 按 M03 约定是「alt，缺省为原引用路径」：当它携带 ``<sha256>`` 时即原引用，
+    直接沿用——渲染期的图片重写会在解析到资产时把它换成 ``assets/<sha>.<ext>``，解析不到时
+    **原样直通**（P4：产物与源逐字节一致）；拿不到原引用才退化为由 ``asset_ref`` 合成。
+    """
     alt = str(content.get("alt") or "").strip()
     asset_ref = str(content.get("asset_ref") or "").strip()
     caption = str(content.get("caption") or "").strip()
-    if not asset_ref:
-        line = f"![{alt}]({text})" if text else f"![{alt}]()"
-        return f"{line}\n\n{caption}" if caption else line
-    src = f"assets/{asset_ref}"
-    line = f"![{alt}]({src})"
+    source = str(content.get("source") or "").strip()
+    if asset_ref and source:
+        src = source
+    elif asset_ref:
+        src = f"assets/{asset_ref}"
+    else:
+        src = text
+    line = f"![{alt}]({src})" if src else f"![{alt}]()"
     return f"{line}\n\n{caption}" if caption else line
 
 
