@@ -66,7 +66,9 @@ EXPECTED: dict[str, dict[str, object]] = {
     "safety": {
         "allowed": frozenset(ATOM_TYPES),
         "variants": ("table.failure_mode",),
-        "required_atoms": ("clause", "table.failure_mode"),
+        # 契约变更 2026-09-17：变体由「必备」改为「白名单」（真实语料驱动，见
+        # doc_type_mapping.md「变体必备性裁决」）——真实安全文档未必含失效模式工作表。
+        "required_atoms": ("clause",),
         "meta": ("standard_ref", "audit_trail"),
     },
 }
