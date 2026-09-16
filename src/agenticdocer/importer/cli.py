@@ -426,6 +426,8 @@ def _validator(atom_type: str) -> jsonschema.Draft202012Validator:
     if validator is None:
         validator = _VALIDATORS[atom_type] = jsonschema.Draft202012Validator(get_atom_schema(atom_type))
     return validator
+
+
 def check_proposals(
     result: ParseResult,
     *,
