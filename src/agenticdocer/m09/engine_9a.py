@@ -37,6 +37,30 @@ message, fix_hint}`），供两条路径消费：
 
 无 schema 差异的判据不重复上报：schema 已报错时不再叠加 text 派生类判据（避免同一
 根因产生多条违规，lint 闭环只应看到需要修的那一刻）。
+
+已知限制：`schemas` 表与 `ATOM_SCHEMAS` **未合并**（Main 裁决 2026-09-16，记入 §6.1 已知限制 L-4）
+----------------------------------------------------------------------------------------------
+
+`schemas` 表当前仅服务 M07 的 schema 端点与 M08 的表单渲染；**M09A 的判据源是代码内
+`ATOM_SCHEMAS`（种子）**——向表注册新 `atom_type` **不会**使其可写入，本模块与 `M01`
+都拒绝它（实测：`POST /api/v1/schemas` 注册 `timing_constraint` 后，表单出现，但写入被拒
+`M01.doc_type.atom` + `M09A.atom.unknown`）：
+
+* `M09A.atom.unknown` ← `ATOM_SCHEMAS`（M01 代码常量，八类 + 2 变体）；
+* `M01.doc_type.atom` ← `M01.DOC_TYPE_RULES[...].allowed_atom_types`（同为代码常量，
+  基底集合 = `ATOM_TYPES`）。
+
+即「表是权威源、代码常量是种子」（REQ-M01-F01 持久化于 `schemas` 表 + A16 写入路径）的
+意图**未落地**，表成了装饰。完整合并需 M01（`is_atom_allowed`/`get_atom_schema` 读表 ∪
+常量）/ M09A（判据源动态加载 + 缓存/版本演进）/ M07（`/schemas` 写入语义）/ M04（渲染）
+四模块联动，且需定义 schema 版本演进与 `schema` 事件（§3.5）的复审口径——**列为 it.mas
+阶段待决项**，本轮不做。
+
+影响面与替代口径：八类原子 + 2 变体已覆盖现有 7 份语料 **100%** 形态（M03 实测 10,271
+节点零未覆盖），故生产写入不受影响；新增原子类型需**同时**改 `M01.ATOM_SCHEMAS` 与
+`DOC_TYPE_RULES`（代码种子）才可通过校验。
+"""
+PUT 40.=40:
 """
 
 from __future__ import annotations
