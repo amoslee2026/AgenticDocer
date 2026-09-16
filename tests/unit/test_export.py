@@ -97,6 +97,16 @@ def _event(
     )
 
 
+def _event_anchored(entity: str, entity_id: str, op: str, *, offset_ms: int = 0) -> Event:
+    """`ts` 由 `event_id` 内嵌毫秒推导——复刻 `append_event` 的取值顺序（先 id 后 `ts`）。
+
+    这正是裸 `event_id` 游标可解析的前提（`mlr.stream._resolve_exact` 的窗口假设）。
+    """
+    event_id = new_uuid7()
+    ts = datetime.fromtimestamp(uuid7_timestamp_ms(event_id) / 1000, tz=timezone.utc)
+    return _event(entity, entity_id, op, ts + timedelta(milliseconds=offset_ms), event_id=event_id)
+
+
 class _FakeStorage:
     """`Storage` 替身：只实现 M-LR 调用到的三个方法。
 
