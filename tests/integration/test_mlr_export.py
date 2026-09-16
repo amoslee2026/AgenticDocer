@@ -12,7 +12,9 @@
   （断言只依赖「严格晚于游标」，故对并行写入者鲁棒）；
 * P6/C7：导出与拉流过程**无外部网络**（socket 层断言，放行 loopback 上的 PG）、不触碰 lightRAG。
 
-测试数据用唯一 `doc_id` 前缀（`SPEC-MLR-<hex>`），不 drop schema，可与并行 agent 共存。
+测试数据用唯一 `doc_id` 前缀（`SPEC-MLR-<hex>`），本文件自身不清表、不 drop schema；但共享
+`conftest.py` 的 session 级 `migrated_schema` 会 `DROP SCHEMA public CASCADE` + `alembic
+upgrade`——故**需独占库**，或以隔离库运行（`TEST_DATABASE_URL=<独立库>`；本次即如此验证）。
 """
 
 from __future__ import annotations
