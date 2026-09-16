@@ -162,15 +162,11 @@ def _precise_path(base: str, names: Sequence[str]) -> str:
 def _schema_fix_hint(error: jsonschema.ValidationError, atom_type: str, path: str) -> str:
     """按 `error.validator` 细分修复建议（REQ-M06-F02：agent 依此自修复后重试）。
 
-    「字段级」建议是 lint 闭环的核心价值：旧实现的规则级文案（「对照 ATOM_SCHEMAS 修正
-    content」）虽非空，但不可直接执行。未登记细分文案的校验器（`pattern`/`minLength` 等）
-    回落规则级文案——**任何分支都返回非空 hint**。
+    「字段级」建议是 lint 闭环的价值所在——规则级文案（「对照 ATOM_SCHEMAS 修正 content」）
+    虽非空但不可直接执行。`required` 由 :func:`_required_violations` 逐字段细分；
+    未登记细分文案的校验器（`pattern`/`minLength` 等）回落规则级文案——**任何分支都非空**。
     """
     validator = error.validator
-    if validator == "required":
-        names = _missing_keys(error)
-        listed = "、".join(f"`{path}.{name}`" for name in names) or f"`{path}` 的必填字段"
-        return f"补齐必填字段：{listed}（ATOM_SCHEMAS[{atom_type!r}]）"
     if validator == "type":
         return (
             f"字段 `{path}` 类型应为 {_expected_text(error.validator_value)}，"
@@ -186,35 +182,57 @@ def _schema_fix_hint(error: jsonschema.ValidationError, atom_type: str, path: st
     return f"对照 ATOM_SCHEMAS[{atom_type!r}] 修正 `{path}`"
 
 
-def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
-    """JSON Schema 违规（每条 error 一条违规；`path` 与 `fix_hint` 均精确到字段）。
+def _required_violations(atom_type: str, base: str, missing: Sequence[str]) -> list[Violation]:
+    """缺失必填字段 → **每字段一条**违规（jsonschema 的多个 `required` 错误会重复同一清单，
+    故按字段展开并去重；`path` 与 `fix_hint` 均指到该字段）。"""
+    return [
+        Violation(
+            rule_id=RULE_ATOM_SCHEMA,
+            path=f"{base}.{name}",
+            message=f"缺少必填字段：{name}（ATOM_SCHEMAS[{atom_type!r}]）",
+            fix_hint=f"补齐必填字段：`{base}.{name}`（ATOM_SCHEMAS[{atom_type!r}]）",
+        )
+        for name in missing
+    ]
 
-    schema 的 `'text' is a required property` 由 `A10.content.text` 拥有（见
-    `_content_violations`），此处剔除以免同一根因产生两条违规。
+
+def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
+    """JSON Schema 违规（`path` 与 `fix_hint` 均精确到出错字段，按 `path` 定序）。
+
+    `content.text` 的**缺失**由 `A10.content.text` 拥有（见 `_content_violations`），
+    故根层 `required` 清单中剔除 `text`，避免同一根因产生两条违规。
     """
     validator = _validator(atom_type)
     violations: list[Violation] = []
     errors = sorted(validator.iter_errors(dict(content)), key=lambda error: list(error.path))
+    seen_required: set[tuple[str, tuple[str, ...]]] = set()
     for error in errors:
-        if error.validator == "required" and error.message == _TEXT_REQUIRED_MESSAGE:
-            continue
         base = _dotted(error.path)
         if error.validator == "required":
-            path = _precise_path(base, _missing_keys(error))
-        elif error.validator == "additionalProperties":
-            path = _precise_path(base, _extra_keys(error))
-        else:
-            path = base
+            missing = _missing_keys(error)
+            if base == "content":
+                missing = [name for name in missing if name != "text"]
+            key = (base, tuple(missing))
+            if not missing or key in seen_required:
+                continue
+            seen_required.add(key)
+            violations.extend(_required_violations(atom_type, base, missing))
+            continue
+        path = (
+            _precise_path(base, _extra_keys(error))
+            if error.validator == "additionalProperties"
+            else base
+        )
         violations.append(
             Violation(
                 rule_id=RULE_ATOM_SCHEMA,
                 path=path,
                 message=error.message,
-                # hint 以**父路径**拼字段名（否则精确化后的 path 会把字段名重复一次）
+                # hint 以**父路径**拼字段名（精确化后的 path 已含字段名，避免重复）
                 fix_hint=_schema_fix_hint(error, atom_type, base),
             )
         )
-    return violations
+    return sorted(violations, key=lambda item: (item.path, item.message))
 
 
 def _missing_text_violation() -> Violation:
