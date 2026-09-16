@@ -853,7 +853,7 @@ def synthetic_markdown(index: int, *, atoms: int, doc_id: str, seed: int = 0) ->
         f"spec_type: standard",
         f"spec_id: {doc_id}",
         "spec_org: PERF",
-        "spec_type: standard",
+        f"spec_revision: SYN-{index:06d}",
         f"source: synthetic/perf/{index:06d}.md",
         "converted_by: perf-bench",
         "converted_at: 2026-09-16",
