@@ -25,7 +25,6 @@
 
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final, Literal, Sequence
