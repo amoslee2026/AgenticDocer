@@ -44,6 +44,9 @@ CORPUS = ROOT / "spec" / "standards"
 CTX = WriteContext(actor="importer", source="importer")
 
 #: 每份语料都应命中的原子类型（`example`/`cross_ref` 与 `definition` 为语料相关）
+# standard（行业标准）语料所在组织目录——精确基线的对象（7 份，稳定）
+STANDARD_ORGS = ("pcie", "cxl", "jedec", "amba")
+
 _ATOM_KEYS = ("clause", "table", "figure", "note")
 _ATOM_DOMAIN = {"clause", "definition", "table", "figure", "code", "example", "note", "cross_ref"}
 
@@ -73,7 +76,7 @@ def new_corpus_paths() -> list[pathlib.Path]:
     return sorted(
         p for p in (CORPUS / "lang").glob("*.md") + tuple((CORPUS / "safety").glob("*.md"))
     )
-
+    return sorted(list((CORPUS / "lang").glob("*.md")) + list((CORPUS / "safety").glob("*.md")))
 
 @pytest.fixture(scope="session")
 def corpus_results() -> dict[str, object]:
@@ -666,3 +669,48 @@ async def test_review_workspace_contract(tmp_path) -> None:
     assert len(selected_proposals(result, ["p0001", "p0002"])) == 2
     assert len(selected_proposals(result, None)) == len(result.proposals)
     assert result.stats.fallback == 1 and result.unmapped[0].fallback.format == "md"
+
+
+# ── 方案 C 新语料（lang / safety）：**性质断言**，不硬编码跨语料绝对计数 ──────────
+#
+# 背景：语料集于 2026-09-17 扩大（方案 C）。旧测试对「全体语料」做绝对计数基线
+# （md_refs==1019 / table==2440 / 节点数 9.4k…），新语料一加入即失配——那是**测试基线
+# 过期**，非功能缺陷。正确做法：standard 子集保留精确基线（上方 corpus_results），
+# 新语料只断言**性质**（覆盖率 / P4 / 门禁 / doc_type 正确），不硬编码计数。
+
+
+def test_new_corpus_parses_with_high_coverage(new_corpus_results) -> None:
+    """方案 C 新语料：覆盖率达标 + 块账目闭合（零静默丢弃）。"""
+    assert new_corpus_results, "新语料夹具不应为空（lang/*.md + safety/*.md）"
+    for name, result in new_corpus_results.items():
+        stats = result.stats
+        summary = report(result)
+        assert summary["coverage"] >= 0.95, f"{name} 覆盖率 {summary['coverage']:.4f} < 0.95"
+        assert stats.total_blocks == stats.rule_covered + stats.fallback, f"{name}: 块账目必须闭合"
+        assert stats.fallback == len(result.unmapped), f"{name}: 兜底块必须全部进未映射清单"
+
+
+def test_new_corpus_doc_type_is_not_standard(new_corpus_results) -> None:
+    """新语料的 `doc_type` 应为其真实类型（`lang`/`safety`），**不是** `standard`。
+
+    这是方案 C 的核心验收点之一：不同文档类型能被正确区分。
+    """
+    for name, result in new_corpus_results.items():
+        doc_type = result.doc_meta.get("doc_type")
+        assert doc_type in {"lang", "safety"}, f"{name}: doc_type={doc_type!r} 应为 lang/safety"
+        # 且该 doc_type 的必填 meta 齐备（差异化 schema 生效）
+        from agenticdocer.model.doc_types import missing_required_meta
+
+        missing = missing_required_meta(doc_type, result.doc_meta.get("frontmatter"))
+        assert missing == [], f"{name}: {doc_type} 类缺必填 meta {missing}"
+
+
+def test_new_corpus_p4_fragments_are_verbatim(new_corpus_results) -> None:
+    """P4 零改写：每个原子的 `fragment` 逐字节是源文本子串（含兜底块）。"""
+    for name, result in new_corpus_results.items():
+        path = next(p for p in new_corpus_paths() if p.name == name)
+        source = path.read_text(encoding="utf-8")
+        for proposal in result.proposals:
+            fragment = proposal.atom.content.get("fragment")
+            if fragment:
+                assert fragment in source, f"{name}: fragment 非源文本子串（{fragment[:40]!r}）"
