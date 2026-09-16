@@ -50,6 +50,7 @@ from agenticdocer.model import (
     Violation,
     derive_text,
     get_atom_schema,
+    UUID7,
     is_atom_allowed,
 )
 from agenticdocer.observability import get_logger
