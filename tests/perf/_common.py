@@ -74,7 +74,8 @@ SECONDS = 1_000_000  # µs per second
 # ───────────────────────────────────────────────────────────── 指标与结果模型
 
 
-def _verdict(value: Any, target: float | None, comparison: str) -> str:
+def _verdict(value: Any, target: Any, comparison: str) -> str:
+    """判定：`<=` / `>=` / `==` / `range`（区间，用于 §1.4「20–54GB」这类目标）。"""
     if target is None or isinstance(value, bool) or not isinstance(value, (int, float)):
         return "记录"
     if comparison == "<=":
@@ -83,9 +84,22 @@ def _verdict(value: Any, target: float | None, comparison: str) -> str:
         ok = value >= target
     elif comparison == "==":
         ok = value == target
+    elif comparison == "range":
+        low, high = target
+        ok = low <= value <= high
     else:  # pragma: no cover - 编程错误
         raise ValueError(f"unknown comparison {comparison!r}")
     return "达标" if ok else "不达标"
+
+
+def target_text(target: Any, comparison: str = "") -> str:
+    """目标值文本（区间目标渲染为 `low–high`）。"""
+    if target is None:
+        return ""
+    if isinstance(target, (list, tuple)):
+        low, high = target
+        return f"{low:g}–{high:g}"
+    return f"{comparison}{target:g}"
 
 
 @dataclass
@@ -95,7 +109,7 @@ class Metric:
     name: str
     value: Any
     unit: str = ""
-    target: float | None = None
+    target: float | tuple[float, float] | None = None
     comparison: str = "<="
     degraded: bool = False
     note: str = ""

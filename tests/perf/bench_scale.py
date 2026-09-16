@@ -228,7 +228,9 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             metric("scale.ingest_nodes_per_s", ingest["nodes_per_s"]),
             metric("scale.ingest_wall_s", round(ingest["ingest_ms"] / 1000, 3), unit="s"),
             metric("scale.storage_total_gib", round(info["total_bytes"] / 1024**3, 4), unit="GiB",
-                   note="13 张基表 pg_total_relation_size 汇总（表+索引+TOAST）"),
+                   note="按**叶子关系**汇总 pg_total_relation_size（表+索引+TOAST；分区父表在本机 PG "
+                        f"返回 0，故按 relkind='r' 取分区子表）；对账 pg_database_size = "
+                        f"{info['database_human']}"),
             metric("scale.bytes_per_node", round(bytes_per_node, 1), unit="B",
                    note="含索引放大；合成语料内容密度低于真实规范，故偏小"),
             metric("scale.ingest_hours_at_target_scale",
