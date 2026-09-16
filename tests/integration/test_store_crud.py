@@ -736,13 +736,20 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     assert [n.node_id for n in await storage.get_subtree(second_child.node_id, doc_id=doc_id)] == [
         second_child.node_id
     ]
-    # 快路径自检失败 → 回退 CTE，结果与 oracle 一致（若只查首行，这里会多出 misplaced）
+    # 方向一（多收）：second_child 的区间会把 misplaced 收进来，但父链上溯发现它连不到
+    # second_child → 自检失败 → 回退 CTE，结果正确（只查「首行即根」时这里会多出 misplaced）
     assert [n.node_id for n in await storage.get_section_nodes(doc_id, second_child.node_id)] == [
         second_child.node_id
     ]
-    assert await storage.get_section_nodes(doc_id, first_child.node_id) == section_subtree(
-        doc_nodes, first_child.node_id
-    )
-    assert [
-        n.node_id for n in await storage.get_section_nodes(doc_id, first_child.node_id)
-    ] == [first_child.node_id, misplaced.node_id]
+
+    # 方向二（漏收）：misplaced 的父链指向 first_child，但大纲把它排在 second_child 之后 ——
+    # 区间法信任大纲，会把它的章节边界收在 second_child 处，从而**漏掉** misplaced；
+    # 父链自检察觉不到（缺的节点根本不在区间里）。
+    # ⇒ 语义权威是 get_subtree（= M04 的内存 oracle）；快路径的此项残留风险由
+    #   M09B 抽样 detector（区间行数 vs CTE 行数）兜底 —— 本用例断言该 detector 的前提成立。
+    by_cte = await storage.get_subtree(first_child.node_id, doc_id=doc_id)
+    assert [n.node_id for n in by_cte] == [first_child.node_id, misplaced.node_id]
+    assert by_cte == section_subtree(doc_nodes, first_child.node_id)
+    by_interval = await storage.get_section_nodes(doc_id, first_child.node_id)
+    assert [n.node_id for n in by_interval] == [first_child.node_id]
+    assert len(by_interval) != len(by_cte)  # detector 前提：两者行数不等即暴露脏数据
