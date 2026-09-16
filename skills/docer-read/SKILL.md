@@ -2,7 +2,7 @@
 name: docer-read
 description: 需要按 doc_id / anchor / node_id 读取文档树或节点内容时使用（含节点 version，供后续写入做乐观锁）。只想看渲染后的 markdown 请改用 docer-render。
 role: reader
-command: agenticdocer doc list|doc get|node get
+command: agenticdocer doc list|agenticdocer doc get|agenticdocer node get
 ---
 
 # docer-read：结构化读取
@@ -27,6 +27,9 @@ agenticdocer render <doc_id> --json                # 需要整档内容树 → �
 ```
 
 `--doc` 传入可让服务端按 `doc_id` 分区裁剪（ADR-009 V16）；缺省为全分区扫（降级，慢但正确）。
+
+> 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
+> （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
 
 ## 输出解读
 

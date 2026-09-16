@@ -2,7 +2,7 @@
 name: docer-import
 description: 把一份 markdown 规范/手册导入结构化库时使用（解析 → 提议审核 → 事务入库三步）。产出 doc_id 与入库统计，后续读取/写入/渲染都以该 doc_id 为锚。
 role: editor
-command: agenticdocer import parse|review|commit
+command: agenticdocer import parse|agenticdocer import review|agenticdocer import commit
 ---
 
 # docer-import：导入 markdown → 结构化库
@@ -33,6 +33,9 @@ agenticdocer import commit IHI0024_AMBA_APB_spec --json
 
 工作区默认 `data/import_work/<doc_slug>/`（`IMPORT_WORK_DIR` 可覆盖）；`doc_slug` 缺省取源文件名。
 干跑（不写库、不触网）：三步都支持 `--dry-run`。
+
+> 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
+> （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
 
 ## 输出解读
 

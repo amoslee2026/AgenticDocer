@@ -33,6 +33,9 @@ agenticdocer comment list --doc SPEC-STD-AMBA-APB --state orphaned --json
 
 `--doc` 与 `--node` **二选一**（同时给或不给都会被拒）；`--state` 可取 `open|resolved|orphaned`，缺省为全部。
 
+> 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
+> （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
+
 ## 输出解读
 
 ```json

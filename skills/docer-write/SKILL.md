@@ -2,7 +2,7 @@
 name: docer-write
 description: 需要新增/修改/软删结构化节点时使用（乐观锁写入，409 冲突需重读后重试）。写入前先 docer-diff 感知他方改动，写后 docer-render 自检产物。
 role: editor
-command: agenticdocer node put|node delete
+command: agenticdocer node put|agenticdocer node delete
 ---
 
 # docer-write：结构化写入
@@ -37,6 +37,9 @@ agenticdocer node delete <node_id> --expected-version 3 --json
 {"docId": "SPEC-STD-AMBA-APB", "nodeId": "<uuid7>", "atomType": "clause", "anchor": "…#3.2.1·transfer",
  "format": "md", "ordinal": 42, "level": 3, "content": {"text": "修订后的正文"}, "expectedVersion": 3}
 ```
+
+> 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
+> （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
 
 ## 输出解读
 

@@ -25,6 +25,9 @@ agenticdocer doc diff SPEC-STD-AMBA-APB --from 2026-09-01 --json      # 指定�
 agenticdocer doc diff SPEC-STD-AMBA-APB --from 12 --to 18 --json      # 指定版本区间
 ```
 
+> 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
+> （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
+
 ## 输出解读
 
 ```json

@@ -364,3 +364,25 @@ async def test_export_and_stream_need_no_external_network(
     hosts = {address[0] for address in seen if isinstance(address, tuple)}
     assert hosts and all(host.startswith("127.") or host == "localhost" for host in hosts)
     assert not [name for name in sys.modules if name.split(".")[0] == "lightrag"]
+
+
+async def test_export_and_stream_write_no_database_rows(
+    storage: Storage, tmp_path: Path, doc_ids: tuple[str, str]
+) -> None:
+    """C7：导出与拉流是**纯读路径**——实体表与 `events` 行数不变（不摄入、不记账）。"""
+    await seed(storage, doc_ids)
+    doc_a, doc_b = doc_ids
+    before = await _row_counts(storage)
+
+    await export_package([doc_a, doc_b], tmp_path, storage=storage)
+    [event async for event in change_stream(storage=storage)]
+
+    assert await _row_counts(storage) == before
+
+
+async def _row_counts(storage: Storage) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for table in ("docs", "nodes", "refs", "events", "comments"):
+        async with storage.db.session() as session:
+            counts[table] = (await session.execute(text(f"SELECT count(*) FROM {table}"))).scalar_one()
+    return counts
