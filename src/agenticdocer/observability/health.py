@@ -67,7 +67,10 @@ FROM pg_stat_user_indexes
 ORDER BY idx_scan ASC, pg_relation_size(indexrelid) DESC
 """
 
-#: 'p' = 分区表，'r' = 普通表，None = 不存在。
+#: `'p'` = 分区表，`'r'` = 普通表，`None` = 不存在。
+#:
+#: 注意：`pg_class.relkind` 是 PG 内部类型 `"char"`——**asyncpg 把它返回为 `bytes`**
+#: （实测 `b'p'`），因此取回后必须经 :func:`_as_text` 归一，否则 `== "p"` 恒假。
 _SQL_EVENTS_RELKIND = "SELECT relkind FROM pg_class WHERE relname = 'events' LIMIT 1"
 
 _SQL_EVENTS_PARTITIONS = """
@@ -274,6 +277,17 @@ def _next_month_start(now: dt.datetime) -> dt.datetime:
     return now.replace(
         year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0
     )
+
+
+def _as_text(value: Any) -> str | None:
+    """把 PG 元数据值归一为 `str`。
+
+    `"char"` 类列（`pg_class.relkind` 等）经 asyncpg 返回 `bytes`（实测 `b'p'`），
+    直接与 `str` 比较恒为 False —— 曾导致已分区库被误判为「未分区」。
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return value.decode()
+    return value if isinstance(value, str) else None
 
 
 def _bound_ts(pattern: re.Pattern[str], bound: str) -> dt.datetime | None:
