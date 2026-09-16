@@ -349,8 +349,9 @@ def validate_proposal(atom_type: str, content: Mapping[str, Any]) -> list[Violat
 def validate_write(node: NodeIn, *, doc_type: str | None = None) -> list[Violation]:
     """写入级校验：提议级判据 + 节点字段判据（锚形态/自指父/表格 format/外部引用）。
 
-    ``doc_type`` 可选：给出时叠加 M01 组合规则（`allowed_atom_types`）判据——M06 写入
-    路径已知目标文档，M03 提议路径自行按 `result.doc_meta` 判定。
+    ``doc_type`` 可选：给出时叠加 M01 组合规则判据——**基底原子**（`allowed_atom_types`）与
+    **变体白名单**（`allowed_atom_variants`）各判一次（见 :func:`_doc_type_violations`）。
+    M06 写入路径已知目标文档，M03 提议路径自行按 `result.doc_meta` 判定。
     """
     violations = validate_proposal(node.atom_type, node.content)
 
