@@ -25,6 +25,8 @@ from agenticdocer.m09.quality_9b import (
     perf_health,
     render_consistency,
     resolve_detectors,
+    section_range_consistency,
+    terms,
     terms,
 )
 from agenticdocer.model import Doc, Event, Node, QualityScope, Violation, new_uuid7
