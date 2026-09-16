@@ -37,8 +37,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from agenticdocer import __version__
-from agenticdocer.agent_api import ErrorResponse
+from agenticdocer.auth import (
+    BOOTSTRAP_HINT,
+    admin_pubkey_file,
+    assert_auth_coverage,
+    bootstrap_admin,
+    purge_expired,
+)
+
 from agenticdocer.agent_api import router as agent_router
 from agenticdocer.auth import BOOTSTRAP_HINT, admin_pubkey_file, bootstrap_admin, purge_expired
 from agenticdocer.auth.router import router as auth_router
