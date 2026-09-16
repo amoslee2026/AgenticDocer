@@ -20,6 +20,9 @@ from agenticdocer.m09.quality_9b import (
     broken_refs,
     build_context,
     detector_ids,
+    doc_type_conformance,
+    build_context,
+    detector_ids,
     events_consistency,
     get_detector,
     perf_health,
@@ -28,7 +31,7 @@ from agenticdocer.m09.quality_9b import (
     section_range_consistency,
     terms,
 )
-from agenticdocer.model import Doc, Event, Node, QualityScope, Violation, new_uuid7
+from agenticdocer.model import C5_META_FIELDS, Doc, Event, Node, QualityScope, Violation, new_uuid7
 from agenticdocer.observability import (
     IndexHealth,
     PartitionHealth,
@@ -117,7 +120,8 @@ def ref_row(**overrides: Any) -> dict[str, Any]:
 
 
 def test_detector_registry_matches_spec() -> None:
-    """§3 M09 声明的 6 项 + Main 批准新增的 `section_range_consistency`（M02 B-2 兜底）。"""
+    """§3 M09 声明的 6 项 + Main 批准新增的 `section_range_consistency`（M02 B-2 兜底）
+    + 方案 C 新增的 `doc_type_schema_conformance`（`doc_type_mapping.md` §3 兜底）。"""
     assert DETECTOR_IDS == (
         "broken_refs",
         "terms",
@@ -126,6 +130,7 @@ def test_detector_registry_matches_spec() -> None:
         "events_consistency",
         "section_range_consistency",
         "perf_health",
+        "doc_type_schema_conformance",
     )
     assert tuple(DETECTORS) == DETECTOR_IDS
     assert detector_ids() == DETECTOR_IDS
