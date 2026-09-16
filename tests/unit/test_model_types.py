@@ -327,15 +327,12 @@ def test_schema_def_asset_and_term():
     with pytest.raises(ValidationError):
         Term(term="AMBA", definition_node_id=None, kind="glossary-term")
 
-
 # ── M10 身份类型（§3 M10 + S5 + §4 DDL）────────────────────────────────
 
 
 def test_user_sshkey_grant_and_session():
     user = User(
         user_id=owner, username="alice", role="admin", status="active", created_at=NOW, updated_at=NOW
-    )
-        user_id=str(owner), username="alice", role="admin", status="active", created_at=NOW, updated_at=NOW
     )
     key = SshKey(
         key_id="SHA256:abc",
