@@ -437,8 +437,17 @@ async def test_ref_add_list_remove(storage: Storage) -> None:
     }
     assert len(await storage.list_refs_to(doc_id, dst.node_id)) == 1
 
-    events = await storage.replay("ref", refs[0].ref_id)
-    assert [event.op for event in events] == ["add"]
+    traces = next(ref for ref in refs if ref.kind == "traces_to")
+    ref_events = await storage.replay("ref", traces.ref_id)
+    assert [event.op for event in ref_events] == ["add"]
+    assert storage.apply_events("ref", ref_events)["refs"] == [
+        {
+            "src_node_id": str(src.node_id),
+            "dst_doc_id": doc_id,
+            "dst_node_id": str(dst.node_id),
+            "kind": "traces_to",
+        }
+    ]
 
     with pytest.raises(ConflictError):
         await storage.add_ref(src.node_id, doc_id, dst.node_id, "traces_to", CTX)
@@ -455,18 +464,10 @@ async def test_ref_add_list_remove(storage: Storage) -> None:
     with pytest.raises(NotFoundError):
         await storage.remove_ref(src.node_id, doc_id, dst.node_id, "traces_to", CTX)
 
-    # ref 事件按行集重建
-    all_events = await storage.replay("ref", refs[0].ref_id)
-    rebuilt = storage.apply_events("ref", all_events)
-    assert rebuilt["refs"] == [
-        {
-            "src_node_id": str(src.node_id),
-            "dst_doc_id": doc_id,
-            "dst_node_id": str(dst.node_id),
-            "kind": "traces_to",
-        },
-        None,
-    ][:1]
+    # add + remove 折叠 → 行集为空（§3.5 ref 折叠规则）
+    removed = await storage.replay("ref", traces.ref_id)
+    assert [event.op for event in removed] == ["add", "remove"]
+    assert storage.apply_events("ref", removed)["refs"] == []
 
 
 # --------------------------------------------------------------------------- 资产
