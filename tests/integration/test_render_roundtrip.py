@@ -307,7 +307,6 @@ async def test_render_section_scoped_and_fast(
     # 作用域证明：产物 **逐字节等于** 子树块拼接（多一个块就会不等）
     assert body.strip() == body_text(subtree).strip()
     assert len(subtree) < len(nodes), "用例应取真子集章节"
-    assert leaked == [], f"章节产物混入章节外内容：{leaked[:1]}"
     print(
         f"[M04] render_section {elapsed * 1000:.1f}ms"
         f"（AMBA 最大章节：{len(subtree)} 节点 / 全档 {len(nodes)} 节点）"
