@@ -49,7 +49,6 @@ from agenticdocer.store import (
 from .editable import REGISTER_FIELD_COLUMNS, TableGrid, build_table_fragment
 
 
-
 __all__ = [
     "DEFAULT_RENDER_OUT_DIR",
     "asset_id_of",
