@@ -472,13 +472,25 @@ def http_error(exc: Exception) -> HTTPException:
 
 
 async def _audit_failure(request: Request, exc: Exception, status_code: int) -> None:
-    """失败审计（S1/S10）+ M12 日志（鉴权失败码 ``DTO_AUTH_REJECTED``）。"""
+    """失败审计（S1/S10）+ M12 日志（鉴权失败码 ``DTO_AUTH_REJECTED``）。
+
+    **两个字段刻意分开**（与 M12 的指标契约对齐）：
+
+    * 日志 ctx 的 ``route`` 取**路由模板**（``scope["route"].path``，如 ``/api/v1/docs/{doc_id}``），
+      避免按具体路径分组导致基数爆炸（M12 的 ``authFailures``/错误率会退化成「每桶 1 次」）；
+      未匹配到路由时回落具体路径（M12 侧对应 ``<unrouted>`` 桶，那是**路由匹配前**的拒答，
+      而 M10 的拒答发生在依赖解析中、路由已匹配）；
+    * 审计事件 payload 的 ``endpoint`` 保留**具体路径**（审计要能回答「打了哪个具体资源」，
+      与指标聚合的高基数诉求相反）。
+    """
     reason = str(getattr(exc, "reason", _FORBIDDEN_REASON))
     endpoint = normalize_path(request.url.path)
+    route = getattr(request.scope.get("route"), "path", None)
     log.warn(
         "auth rejected",
         op="auth_reject",
-        route=endpoint,
+        route=normalize_path(route) if route else endpoint,
+        path=endpoint,
         method=request.method,
         status=status_code,
         error_code=DTO_AUTH_REJECTED,
