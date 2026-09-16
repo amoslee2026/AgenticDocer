@@ -46,10 +46,12 @@ APP_ROLE = "agenticdocer_app"
 DOC_ID = "SPEC-M11-E2E"
 DOC_SLUG = "M11-E2E"
 STARTUP_TIMEOUT = 40.0
+EPOCH_ISO = "2020-01-01T00:00:00Z"
+"""`doc diff` 的起点下界（全新文档的默认区间为空）。"""
 
 SOURCE_MD = f"""---
 title: M11 CLI 端到端样例
-EPOCH_ISO = "2020-01-01T00:00:00Z"
+type: composite
 purpose: spec
 audience: both
 direction: input
