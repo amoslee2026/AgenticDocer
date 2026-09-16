@@ -918,6 +918,7 @@ async def test_session_resolution_slides_expiry(
     assert await sessions.resolve_session(token, db=database) is None
     assert await _scalar(database, "SELECT count(*) FROM sessions") == 0
 
+
 async def test_delete_user_that_granted_others_is_allowed(
     database: Database, admin_pub_path: Path, key_material: dict[str, Path]
 ) -> None:
