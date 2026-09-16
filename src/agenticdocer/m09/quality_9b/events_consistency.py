@@ -28,6 +28,7 @@ from sqlalchemy import Select, select
 from agenticdocer.model import Doc, Event, Node, Violation
 from agenticdocer.store import ValidationError, apply_events
 from agenticdocer.store.rows import build_model
+from agenticdocer.store.schema import events as events_table
 
 from .context import GateContext
 
