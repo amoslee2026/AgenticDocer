@@ -334,6 +334,7 @@ class SigningClient:
             self._client = None
 
     def _http(self) -> httpx.Client:
+        import sys as _s; _s.stderr.write(f'DBG client ctxflags dry={self.dry_run!r} id={id(self)}\n')
         if self._client is None:
             self._client = httpx.Client(
                 base_url=self.base_url, timeout=self.timeout, transport=self._transport
@@ -686,6 +687,7 @@ def command(application: typer.Typer, *args: Any, **kwargs: Any) -> Callable[[Ca
         @functools.wraps(func)
         def wrapper(*fargs: Any, json_output: bool = False, dry_run: bool = False, **fkwargs: Any) -> Any:
             context = fargs[0] if fargs and isinstance(fargs[0], typer.Context) else fkwargs.get("context")
+            import sys as _s; _s.stderr.write(f'DBG wrapper dry={dry_run!r} ctx={id(context)} obj={id(context.obj) if context else None}\n')
             if isinstance(context, typer.Context):
                 cli = _ctx(context)
                 cli.json_mode = cli.json_mode or bool(json_output)
@@ -1173,6 +1175,7 @@ def doc_list(
     status: Annotated[str | None, typer.Option("--status", help="draft|reviewed|approved（缺省全部）")] = None,
 ) -> None:
     """文档清单（含 version/status）。"""
+    import sys as _s; _s.stderr.write(f'DBG doclist obj={id(_ctx(context))} dry={_ctx(context).dry_run!r}\n')
     payload = _ctx(context).client().json(
         "GET", "/api/v1/docs", params={"status": status}, need=Need(command="doc list", permission="read")
     )

@@ -938,6 +938,14 @@ systemd --user: agenticdocer-api.service
 
 **frontmatter → docs 映射（A22，C5 十七字段，含 spec 专属 4 项）**：`title→title`；`spec_id→doc_id`；`spec_type→doc_type`；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。必填校验：C5 十七字段（title/type/purpose/audience/direction/status/version/section_meta/spec_id/spec_type/spec_org/spec_revision/source/converted_by/converted_at/reviewed_by/reviewed_at）。
 
+## 6.1 已知限制（实现阶段发现，待 it.mas 裁决）
+
+| # | 限制 | 影响 | 处置 | 引入方 |
+|---|---|---|---|---|
+| **L-1** | `figure`/`cross_ref` 原子**无 `fragment` 字段**（M01 schema `additionalProperties:false`），导入期无法承载原文，渲染期只能**合成** `![](assets/<sha>.ext)` / `[text](target)` | 视觉无差异；但 figure 行尾的 markdown 硬换行空格（源 `![](...)  `）**丢失**；整档正文不再逐字节等于源 | **本轮不修**（改动牵动 M01/M03/M04 三方 + 锚规则）。`derive_text` 仍从源块提取文本，**检索不受影响**。P4 证据改用**逐节点覆盖**（AMBA 72/72、CXL 4,822/4,822 节点的渲染文本均为产物逐字节子串）+ `<table>` 片段逐字节（1,243/1,243）+ 两式往返 | M04 实测 |
+| **L-2** | 块序/块边界与源不同（M03 按原子模型重组：clause 合并标题+段落、表格/图/代码抽离为独立原子）；块间空行归一（CXL +975 行） | 「整档正文逐字节等于源」**不可达**（设计使然，非缺陷） | 接受。P4 的真实约束是「**每块原文逐字节保留**」（M03 已全量证明），非「整档连续」 | M03/M04 |
+| **L-3** | `docs` 无 `deleted` 标志，M06/M07 无 `DELETE /docs/{id}` | 「文档软删」无**原子**服务端目标；CLI `doc delete` 实现为逐节点级联（非原子） | 待裁决：为 M07 增文档级软删端点（同事务级联） | M11 发现 |
+
 ## 7. 与 idea 层的偏差声明
 
 **结论：本版（v1.3）为方向性变更，需回写 idea 层**。批注 B1/B2/B3/B6/B9/B10/B11 改变了原设计的假设与范围：
