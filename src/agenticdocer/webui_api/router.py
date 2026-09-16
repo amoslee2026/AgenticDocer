@@ -647,6 +647,7 @@ async def list_events(
     if since is not None:
         statement = statement.where(events_table.c.ts >= _as_utc(since))
     statement = statement.order_by(events_table.c.ts, events_table.c.event_id).limit(limit)
+    with log.timer("query", table="events", entity=entity):
         async with db.session() as session:
             rows = (await session.execute(statement)).all()
     return [build_model(Event, row_to_dict(row)) for row in rows]
