@@ -148,9 +148,13 @@ def _write_key(work: Path, name: str) -> tuple[Path, Path]:
 
 
 def _payload(stdout: str) -> object:
-    """取 stdout 的 JSON（``--json`` 输出即完整 JSON）。"""
-    return json.loads(stdout[stdout.index("{") :] if "{" in stdout else stdout)
-
+    """取 stdout 的 JSON（``--json`` 即完整 JSON；兼容前导空白）。"""
+    text = stdout.strip()
+    for opener in ("{", "["):
+        if opener in text:
+            text = text[text.index(opener) :]
+            break
+    return json.loads(text)
 
 @dataclass
 class _Service:

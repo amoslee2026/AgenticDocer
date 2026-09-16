@@ -76,8 +76,8 @@ from agenticdocer.model.types import UserStatus
 from agenticdocer.observability import (
     HealthReport,
     MetricsSnapshot,
+    get_logger,
     health,
-    log_dir as log_directory,
     snapshot,
 )
 from agenticdocer.render import TableEdit, resolve_table_mode, write_table_edit
