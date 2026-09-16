@@ -363,9 +363,9 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
     for position, block in enumerate(blocks):
         rule_id = block.rule_id
         if block.kind == rules.HEADING:
-            rule_id = _classify_heading(blocks, position, toc_mode, glossary_mode)
-            toc_mode, glossary_mode = rule_id[1]
-            rule_id = rule_id[0]
+            rule_id, (toc_mode, glossary_mode) = _classify_heading(
+                blocks, position, toc_mode, glossary_mode
+            )
         elif toc_mode:
             rule_id = rules.TOC_RULE_ID
         elif block.kind == rules.PARAGRAPH:
