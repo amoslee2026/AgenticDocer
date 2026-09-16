@@ -117,10 +117,16 @@ class RefRepository(Repository):
         src_uuid = as_uuid(src)
         dst_uuid = as_uuid(dst_node) if dst_node is not None else None
         async with self.db.transaction() as session:
-            result = await session.execute(
-                delete(refs).where(*_predicate(src_uuid, dst_doc, dst_uuid, kind))
-            )
-            if not result.rowcount:
+            # DELETE ... RETURNING ref_id：事件 entity_id 与 add 同为该 refs 行主键，
+            # 故 add/remove 可在同一 (entity, entity_id) 下重放并折叠回空集（§3.5）。
+            removed = (
+                await session.execute(
+                    delete(refs)
+                    .where(*_predicate(src_uuid, dst_doc, dst_uuid, kind))
+                    .returning(refs.c.ref_id)
+                )
+            ).scalars().all()
+            if not removed:
                 raise NotFoundError(
                     f"ref {kind} {src} → {dst_doc}/{dst_node} not found",
                     entity="ref",
@@ -129,7 +135,7 @@ class RefRepository(Repository):
             await append_event(
                 session,
                 entity="ref",
-                entity_id=src_uuid,
+                entity_id=removed[0],
                 op="remove",
                 payload=_payload(src_uuid, dst_doc, dst_uuid, kind),
                 actor=ctx.actor,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 __all__ = [
@@ -10,6 +11,7 @@ __all__ = [
     "NotFoundError",
     "ValidationError",
     "ForbiddenError",
+    "translate_integrity_error",
 ]
 
 
