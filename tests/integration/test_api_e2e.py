@@ -25,10 +25,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import text
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 
 from agenticdocer.app import create_app
 from agenticdocer.auth import sessions, signing
