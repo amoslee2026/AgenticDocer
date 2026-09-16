@@ -34,7 +34,17 @@ function buildTree(nodes: NodeDTO[]): TreeItem[] {
   return roots.sort(byOrdinal);
 }
 
-function TreeView({ items, selectedId, onSelect, depth }: Props & { items: TreeItem[]; depth: number }) {
+function TreeView({
+  items,
+  selectedId,
+  onSelect,
+  depth,
+}: {
+  items: TreeItem[];
+  selectedId: string | null;
+  onSelect: (node: NodeDTO) => void;
+  depth: number;
+}) {
   if (items.length === 0 && depth === 0) {
     return <div className="empty">文档暂无节点。</div>;
   }
@@ -42,7 +52,6 @@ function TreeView({ items, selectedId, onSelect, depth }: Props & { items: TreeI
     <ul className="tree">
       {items.map((item) => (
         <li key={item.node.nodeId}>
-function TreeView({ items, selectedId, onSelect, depth }: { items: TreeItem[]; selectedId: string | null; onSelect: (node: NodeDTO) => void; depth: number }) {
             className={`node-row${item.node.nodeId === selectedId ? " current" : ""}`}
             onClick={() => onSelect(item.node)}
           >
