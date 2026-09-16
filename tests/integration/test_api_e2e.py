@@ -576,9 +576,13 @@ async def test_agent_flow_read_write_render_diff(
     }
     assert (await admin.get(f"/api/v1/schemas/nonsense-{_TOKEN}")).status_code == 404
 
+    # 启动时幂等载入的规范用语种子（§5 `TERMS_SEED` → `data/terms_seed.yaml`，R10 第三条写入路径）
     terms = await admin.get("/api/v1/terms")
     assert terms.status_code == 200
-    assert TERM not in {item["term"] for item in terms.json()}
+    listed = {item["term"]: item["kind"] for item in terms.json()}
+    assert {"MUST", "MUST NOT", "SHALL", "SHOULD NOT", "REQUIRED"} <= set(listed)
+    assert listed["MUST"] == "normative-keyword"
+    assert TERM not in listed
     created_term = await admin.post(
         "/api/v1/terms", {"term": TERM, "definitionNodeId": None, "kind": "normative-keyword"}
     )
