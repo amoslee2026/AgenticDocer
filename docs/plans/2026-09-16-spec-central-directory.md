@@ -710,13 +710,12 @@ test -d /home/lxx/wrk/GigaPie/spec && echo "REF-GIGAPIE-SPEC OK"
 test -d /home/lxx/wrk/Arion/spec/PRD && echo "REF-ARION-PRD OK"
 test -d /home/lxx/wrk/nova2026/archExplorer/spec && echo "REF-NOVA-ARCHEXPLORER OK"
 ```
-git -C /home/lxx/wrk/GigaRAG status --short -- README.md corpus/03_reviewed corpus/04_ingested scripts/ingest.sh scripts/README.md   # 精确到计划修改文件；scripts/convert 等 untracked 历史遗留不在判定内（R6）
 - [ ] **Step 3: ingest 读源端到端（K3，复用 Task 4 命令）+ 双仓状态检查（K5）**
 
 ```bash
 SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
 git -C /home/lxx/wrk/AgenticDocer status --short   # 期望为空：全部计划产物已入库（R2）
-git -C /home/lxx/wrk/GigaRAG status --short -- scripts README.md corpus/03_reviewed corpus/04_ingested   # 仅判计划作用路径；02_converted 等计划外改动不判（R6）
+git -C /home/lxx/wrk/GigaRAG status --short -- README.md corpus/03_reviewed corpus/04_ingested scripts/ingest.sh scripts/README.md   # 精确到计划修改文件；scripts/convert 等 untracked 历史遗留不判（R6）
 ```
 
 **Exit criteria**:
