@@ -290,6 +290,10 @@ async def test_body_and_path_tampering_is_rejected(
         await client.post("/api/v1/docs", content=b'{"title":"A"}', headers={**headers, **json_headers})
     ).status_code == 401
 
+    tampered_path = signing.sign_request_headers(key, "GET", "/api/v1/docs/SPEC-A")
+    response = await client.get("/api/v1/docs/SPEC-B", headers=tampered_path)
+    assert response.status_code == 401
+    assert response.json()["detail"]["reason"] == "bad_signature"
     headers = signing.sign_request_headers(key, "GET", "/api/v1/docs")
     assert (await client.get("/api/v1/other", headers=headers)).status_code == 401
 
