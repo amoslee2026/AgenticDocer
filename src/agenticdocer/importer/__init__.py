@@ -81,6 +81,13 @@ from agenticdocer.importer.rules import (
     Block,
     Rule,
 )
+from agenticdocer.importer.vplan import (
+    COVERAGE_MATRIX_ATOM,
+    CoverageRow,
+    VPlan,
+    coverage_matrix_atom,
+    parse_vplan,
+)
 
 __all__ = [
     # rules
@@ -90,6 +97,13 @@ __all__ = [
     "Block",
     "Rule",
     # frontmatter
+    # doc_type_map（方案 C：idea.md 类型 → doc_type / meta.doc_subtype）
+    "IDEA_DOC_TYPES",
+    "PRODUCT_SUBTYPES",
+    "SPEC_ROWS",
+    "UnknownDocTypeError",
+    "resolve_doc_type",
+    "subtypes_for",
     "Frontmatter",
     "doc_in_from_meta",
     "parse_frontmatter",
