@@ -282,6 +282,15 @@ async def test_export_package_empty_doc_ids_yields_empty_package(tmp_path: Path)
     assert (tmp_path / EXPORT_GRAPH_FILE).read_text(encoding="utf-8") == ""
 
 
+async def test_export_package_deduplicates_doc_ids(tmp_path: Path, no_relations: None) -> None:
+    """重复 doc_id 去重保序（否则 `docs` 计数与包内容不符）。"""
+    store = _FakeStorage([_doc(DOC_A), _doc(DOC_B)], [_node(DOC_A, 0), _node(DOC_B, 0)])
+    result = await export_package([DOC_B, DOC_B, DOC_A], tmp_path, storage=store)
+    assert (result.docs, result.nodes) == (2, 2)
+    manifest = json.loads((tmp_path / EXPORT_MANIFEST_FILE).read_text(encoding="utf-8"))
+    assert manifest["doc_ids"] == [DOC_B, DOC_A]
+
+
 async def test_export_package_missing_doc_raises_not_found(tmp_path: Path) -> None:
     store = _FakeStorage([_doc(DOC_A)])
     with pytest.raises(NotFoundError):
