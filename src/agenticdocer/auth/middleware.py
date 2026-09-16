@@ -61,13 +61,15 @@ __all__ = [
     "AuthContext",
     "DOC_PATHS",
     "SshSigHeaders",
+    "assert_auth_coverage",
+    "check_timestamp",
     "clear_session_cookie",
     "client_ip",
     "cookie_secure",
     "current_context",
-    "is_exempt",
     "find_unguarded_routes",
     "is_exempt",
+    "normalize_path",
     "parse_timestamp",
     "raw_path",
     "require_auth",
@@ -77,8 +79,6 @@ __all__ = [
     "set_session_cookie",
     "verify_signature",
     "write_context",
-    "assert_auth_coverage",
-    "clear_session_cookie" if False else "write_context",
 ]
 
 log = get_logger("m10.middleware")
