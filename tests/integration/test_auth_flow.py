@@ -628,12 +628,14 @@ async def test_disabling_user_kills_keys_and_live_sessions(
         signing.fingerprint(key_material["editor_ed25519"].with_suffix(".pub").read_text()),
         db=database,
     ) is None
-    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
-    assert (await client.get("/api/v1/auth/me")).status_code == 401
+    # 签名路径：密钥随属主禁用立即失效 → 403
     signed = await client.get(
         "/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs")
     )
     assert signed.status_code == 403
+    # 会话路径：既有 Cookie 立即 401（S8）
+    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
+    assert (await client.get("/api/v1/auth/me")).status_code == 401
     # 该用户的会话被立即清除（S8 + S15 清理口径）
     assert await _scalar(database, "SELECT count(*) FROM sessions WHERE user_id = :u", u=user.user_id) == 0
 
