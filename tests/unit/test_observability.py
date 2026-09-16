@@ -848,7 +848,7 @@ def test_middleware_logs_client_error_as_warn(logs: Path) -> None:
 
 
 def test_middleware_logs_rejection_raised_by_inner_middleware(logs: Path) -> None:
-    """内层中间件直接拒答（M10 验签失败 401，不进入路由）也必须被记录。
+    """路由**匹配前**被中间件拒答的请求也必须被记录（如全局鉴权中间件）。
 
     装配要求（`app.py`）：`install(app)` 须在鉴权中间件**之后**调用——Starlette 的
     「最后加入者最外层」（`add_middleware` insert(0) + 逆序包装），否则 401/403 既无日志
@@ -899,9 +899,10 @@ def test_middleware_logs_unhandled_exception_as_error(logs: Path) -> None:
 def test_middleware_buckets_pre_routing_rejections(logs: Path) -> None:
     """路由匹配前被拒的请求必须归入单一 `route` 桶，原始路径保留在 `path`。
 
-    回归背景：M10 签名验证在中间件层拒答（路由尚未匹配，`scope["route"]` 缺失）。
-    若 `route` 回落原始路径，`/docs/SPEC-1`、`/docs/SPEC-2`… 会各自成桶，
-    `authFailures` 与错误率退化为「每桶计数 1」，指标失去意义。
+    回归背景：**路由匹配前**的拒答（404、路由前拒答的全局中间件）此时 `scope["route"]`
+    缺失，若 `route` 回落原始路径，`/a`、`/b`、`/x/y`… 会各自成桶，`authFailures` 与
+    错误率退化为「每桶计数 1」，指标悄悄失效（不报错、只在被反复探测时暴露）。
+    注：M10 的 401/403 走依赖解析、路由已匹配 → 落模板桶，见下一个用例。
     """
     from agenticdocer.observability.middleware import UNROUTED
     from starlette.middleware.base import BaseHTTPMiddleware
@@ -940,6 +941,36 @@ def test_middleware_buckets_pre_routing_rejections(logs: Path) -> None:
     assert snap.endpoints[0].count == 3
     assert snap.endpoints[0].error_rate == 1.0
     assert snap.auth_failures == 3
+
+
+def test_middleware_uses_template_for_post_routing_rejection(logs: Path) -> None:
+    """路由**已匹配**后的拒答（M10 依赖项 401/403）落**路由模板**桶，非 `<unrouted>`。
+
+    这是 M10 鉴权拒答的实际路径：`require_auth`/`require_permission` 是依赖项，
+    在路由匹配后执行 → `scope["route"]` 已就绪 → `route` 为模板、`path` 为具体资源。
+    """
+    from agenticdocer.observability.middleware import UNROUTED
+
+    app = FastAPI()
+
+    @app.get("/docs/{doc_id}")
+    async def doc(doc_id: str) -> dict[str, str]:
+        raise HTTPException(status_code=401, detail="bad signature")
+
+    install(app)
+    with TestClient(app) as client:
+        assert client.get("/docs/SPEC-1").status_code == 401
+
+    entry = _entries(logs, module="m12.middleware")[0]
+    assert entry["ctx"]["route"] == "/docs/{doc_id}"
+    assert entry["ctx"]["route"] != UNROUTED
+    assert entry["ctx"]["path"] == "/docs/SPEC-1"
+    assert entry["level"] == "WARN"
+    assert entry["error_code"] == "DTO_AUTH_REJECTED"
+
+    snap = snapshot(since=_since(), window=600, log_dir=logs)
+    assert [metric.route for metric in snap.endpoints] == ["/docs/{doc_id}"]
+    assert snap.auth_failures == 1
 
 
 def test_middleware_is_asgi_middleware_subclass() -> None:
