@@ -306,7 +306,7 @@ async def _probe(dsn: str, timeout: float) -> _Probe:
     try:
         table_rows = await connection.fetch(_SQL_TABLES)
         index_rows = await connection.fetch(_SQL_INDEXES)
-        relkind = await connection.fetchval(_SQL_EVENTS_RELKIND)
+        relkind = _as_text(await connection.fetchval(_SQL_EVENTS_RELKIND))
         bound_rows = await connection.fetch(_SQL_EVENTS_PARTITIONS)
     finally:
         await connection.close()
