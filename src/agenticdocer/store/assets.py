@@ -128,20 +128,22 @@ class AssetRepository(Repository):
                     )
                 ).scalars()
             )
-            known = set(
-                (
+            known = {
+                row.asset_id: Path(row.path)
+                for row in (
                     await session.execute(
-                        select(assets.c.path).where(assets.c.asset_id.in_(referenced or [""]))
+                        select(assets.c.asset_id, assets.c.path).where(
+                            assets.c.asset_id.in_(referenced or [""])
+                        )
                     )
-                ).scalars()
-            )
+                )
+            }
         missing: list[str] = []
         for asset_id in sorted(referenced):
-            if not any(Path(path).name.startswith(asset_id) for path in known):
-                missing.append(asset_id)
-                continue
-            relative = next(Path(p) for p in known if Path(p).name.startswith(asset_id))
-            if not await asyncio.to_thread((self.store_dir / relative).exists):
+            relative = known.get(asset_id)
+            if relative is None or not await asyncio.to_thread(
+                (self.store_dir / relative).exists
+            ):
                 missing.append(asset_id)
         return missing
 
