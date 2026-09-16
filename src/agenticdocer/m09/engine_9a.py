@@ -128,11 +128,17 @@ def _clip(text: str) -> str:
 
 
 def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
-    """JSON Schema 违规（每条 error 一条违规，路径指向出错字段）。"""
+    """JSON Schema 违规（每条 error 一条违规，路径指向出错字段）。
+
+    schema 的 `'text' is a required property` 由 `A10.content.text` 拥有（见
+    `_content_violations`），此处剔除以免同一根因产生两条违规。
+    """
     validator = _validator(atom_type)
     violations: list[Violation] = []
     errors = sorted(validator.iter_errors(dict(content)), key=lambda error: list(error.path))
     for error in errors:
+        if error.validator == "required" and error.message == _TEXT_REQUIRED_MESSAGE:
+            continue
         violations.append(
             Violation(
                 rule_id=RULE_ATOM_SCHEMA,
@@ -144,18 +150,20 @@ def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Viola
     return violations
 
 
+def _missing_text_violation() -> Violation:
+    return Violation(
+        rule_id=RULE_CONTENT_TEXT,
+        path="content.text",
+        message="content.text 缺失或为空（FTS 生成列依赖）",
+        fix_hint="由 M01 derive_text 生成后再写入",
+    )
+
+
 def _text_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
-    """`content.text` 判据（A10）：存在性 + 与 `derive_text` 派生结果一致。"""
+    """`content.text` 判据（A10）：存在性优先，其后判与 `derive_text` 派生结果一致。"""
     text = content.get("text")
     if not isinstance(text, str) or not text.strip():
-        return [
-            Violation(
-                rule_id=RULE_CONTENT_TEXT,
-                path="content.text",
-                message="content.text 缺失或为空（FTS 生成列依赖）",
-                fix_hint="由 M01 derive_text 生成后再写入",
-            )
-        ]
+        return [_missing_text_violation()]
     try:
         derived = derive_text(atom_type, content)
     except ValueError:
@@ -183,11 +191,19 @@ def _text_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violati
 
 
 def _content_violations(atom_type: str, content: Mapping[str, Any]) -> list[Violation]:
-    """content 级判据：schema 优先；schema 通过才判 text 派生（避免同根因重复报）。"""
-    violations = _schema_violations(atom_type, content)
-    if violations:
-        return violations
-    return _text_violations(atom_type, content)
+    """content 级判据编排（规则优先级见模块文档末段）。
+
+    * `text` 缺失/空白 → 与 schema 违规**并列**报告（不同修复动作：补 schema 字段 vs 生成 text）；
+    * `text` 在而 schema 不通过 → 只报 schema（形态未定，派生类判据无意义）；
+    * schema 通过 → 判派生一致性（`drift` / `empty`）。
+    """
+    schema = _schema_violations(atom_type, content)
+    text = _text_violations(atom_type, content)
+    if text and text[0].rule_id == RULE_CONTENT_TEXT:
+        return [*schema, *text]
+    if schema:
+        return schema
+    return text
 
 
 # ── M09A 对外入口（§3 M09）────────────────────────────────────────────────
