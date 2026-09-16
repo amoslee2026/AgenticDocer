@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 from .atoms import ATOM_TYPES
@@ -113,7 +113,3 @@ def missing_required_meta(doc_type: str, meta: Mapping[str, Any] | None) -> list
     present = meta or {}
     return [field_name for field_name in get_doc_type_rule(doc_type).required_meta_fields if field_name not in present]
 
-
-def varianted(atom_types: Sequence[str]) -> tuple[str, ...]:
-    """（内部工具）把基底原子名展开为其变体名的辅助形式，供规则细化时使用。"""
-    return tuple(atom_types)
