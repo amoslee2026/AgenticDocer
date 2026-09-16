@@ -48,6 +48,8 @@ __all__ = [
     "node_record",
 ]
 
+from agenticdocer.model import Doc, ExportResult, Node
+
 log = get_logger("mlr.export")
 
 EXPORT_NODES_FILE: Final = "nodes.jsonl"
@@ -223,11 +225,6 @@ def _write_manifest(
         },
         "files": {"nodes": EXPORT_NODES_FILE, "relations": EXPORT_GRAPH_FILE},
     }
-    _write_text(target / EXPORT_MANIFEST_FILE, json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-
-
-def _write_text(path: Path, text: str) -> None:
-    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def _unused(_: Event) -> None:  # pragma: no cover - 占位以固定 Event 的导入用途
