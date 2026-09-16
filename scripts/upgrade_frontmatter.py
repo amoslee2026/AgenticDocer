@@ -25,8 +25,9 @@ doc_type 的必填 meta（见 `DOC_TYPE_REQUIRED_META`；来自 `spec/arch_spec/
 退出码 `1` 汇总（`0` = 全部处理/跳过成功，`2` = 无参数）。
 
 `REGISTRY` 的值按 YAML 字面量书写（含 `: `/`#`/空格/中文等标量的自行加引号）；脚本原样写入。
-漂移守卫: `DOC_TYPE_REQUIRED_META` 与 `DOC_TYPE_RULES[*].required_meta_fields` 的对照由
-`tests/unit/test_upgrade_frontmatter.py` 承担——改模型规则表须同步改本表。
+漂移守卫: `DOC_TYPE_REQUIRED_META`（= C5 十七字段 ∪ 规则表专属项）与
+`DOC_TYPE_RULES[*].required_meta_fields` 的对照由 `tests/unit/test_upgrade_frontmatter.py` 承担——
+改模型规则表或 C5 字段须同步改本表。
 """
 import re
 import sys
