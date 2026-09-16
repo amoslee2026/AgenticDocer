@@ -77,9 +77,9 @@ DOC = (
 
 这是第一段正文，含内联标记 <sup>1</sup> 与 **粗体**。
 
-这是第二段正文。
-
 ## 1.1 概述
+
+这是第二段正文。
 
 ## 1.1.1 细节
 
@@ -107,15 +107,17 @@ Example 3-1 示例文本。
 
 1.1 概述 .. ...... 2
 
-## 2 术语
-
 ## Glossary
 
-AXI An AMBA bus protocol that supports separate phases for address and control.
+## AXI
 
-## 2.1 术语条目
+An AMBA bus protocol that supports separate phases for address and control.
 
-术语条目释义段落。
+## 词条 Zeta
+
+Zeta 词条的释义段落，长度足够触发词条规则。
+
+AQ An additional quality term that appears within the glossary region.
 
 <div class="residue">残余 HTML 块</div>
 """

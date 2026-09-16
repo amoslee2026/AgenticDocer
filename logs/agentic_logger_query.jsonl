@@ -1,0 +1,2 @@
+{"ts": "2026-09-16T11:06:57.531+00:00", "level": "__GLOBAL_CTX__", "msg": "Global context", "module": "__system__", "rid": "9777c9ad", "pid": "1638344", "seq": 0, "program": "agentic_logger", "command": "query"}
+{"level": "INFO", "msg": "CLI query ok", "module": "agentic_logger.cli", "ctx": {"command": "query", "exit_code": 0, "dur_ms": 0}, "ts": "2026-09-16T11:06:57.531+00:00", "pid": "1638344", "rid": "9777c9ad", "seq": 1}

@@ -1,0 +1,47 @@
+{
+  "schema": "skill-paths-v1",
+  "skill": "it.idea",
+  "defaults": {
+    "output_dir": "./idea",
+    "language": "zh-CN",
+    "finetune": "false",
+    "mode": "auto",
+    "auto_approve": "true",
+    "interactive": "false",
+    "project_dir": "auto-detect"
+  },
+  "global_paths": {
+    "PROJECT_DIR": "{{ --project_dir 参数 或 auto-detect }}",
+    "INPUT_DIR": "{{ 用户输入 或 现有 idea 文件 }}",
+    "OUTPUT_DIR": "{{ PROJECT_DIR }}/spec/idea",
+    "SCRIPT_DIR": "~/wrk/mySkills/scripts",
+    "SKILL_FILE": "~/wrk/mySkills/xSkills/it.idea/SKILL.md"
+  },
+  "resolved_paths": {
+    "SKILL_FILE": "/home/lxx/wrk/mySkills/xSkills/it.idea/SKILL.md",
+    "SCRIPT_DIR": "/home/lxx/wrk/mySkills/scripts",
+    "PROJECT_DIR": "/home/lxx/wrk/AgenticDocer",
+    "INPUT_DIR": "/home/lxx/wrk/AgenticDocer",
+    "OUTPUT_DIR": "/home/lxx/wrk/AgenticDocer/spec/idea",
+    "DEFAULT_OUTPUT_DIR": "/home/lxx/wrk/AgenticDocer/spec/idea",
+    "DEFAULT_PROJECT_DIR": "/home/lxx/wrk/AgenticDocer/auto-detect",
+    "SKILL_LOCAL_DIR": "/home/lxx/wrk/AgenticDocer/.skills_local/it.idea",
+    "LOG_DIR": "/home/lxx/wrk/AgenticDocer/spec/idea/.logs"
+  },
+  "relative_paths": {
+    "SKILL_FILE": "~/wrk/mySkills/xSkills/it.idea/SKILL.md",
+    "SCRIPT_DIR": "~/wrk/mySkills/scripts",
+    "PROJECT_DIR": ".",
+    "INPUT_DIR": ".",
+    "OUTPUT_DIR": "spec/idea",
+    "DEFAULT_OUTPUT_DIR": "spec/idea",
+    "DEFAULT_PROJECT_DIR": "auto-detect",
+    "SKILL_LOCAL_DIR": ".skills_local/it.idea",
+    "LOG_DIR": "spec/idea/.logs"
+  },
+  "metadata": {
+    "project_dir": "/home/lxx/wrk/AgenticDocer",
+    "project_name": "AgenticDocer",
+    "resolved_at": "2026-09-16T05:34:34Z"
+  }
+}

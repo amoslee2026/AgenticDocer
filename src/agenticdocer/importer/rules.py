@@ -42,6 +42,7 @@ __all__ = [
     "DEFINITION_BODY_RULE_ID",
     "TOC_CONTINUATION_RATIO",
     "DEFINITION_STOPWORDS",
+    "DefinitionMatch",
     "clean_text",
     "parse_numbering",
     "count_html_table_markers",

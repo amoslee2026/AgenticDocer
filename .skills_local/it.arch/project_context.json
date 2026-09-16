@@ -1,0 +1,30 @@
+{
+  "schema": "project-context-v1",
+  "project": {
+    "name": "AgenticDocer",
+    "path": "/home/lxx/wrk/AgenticDocer",
+    "type": "documentation"
+  },
+  "tech_stack": {
+    "language": "python",
+    "framework": null
+  },
+  "git": {
+    "is_git_repo": true,
+    "branch": "main",
+    "main_branch": "main",
+    "last_commit": {
+      "hash": "223c4e73478dc67b6aa0ac4983f873ae6b2755e6",
+      "message": "[omp-checkpoint] 2026-09-16 16:52:25 (UTC+8)",
+      "date": "2026-09-16 16:52:25 +0800"
+    }
+  },
+  "directories": {
+    "docs": "docs",
+    "scripts": "scripts"
+  },
+  "metadata": {
+    "collected_at": "2026-09-16T08:52:50Z",
+    "collector_version": "1.0.0"
+  }
+}

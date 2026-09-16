@@ -1,0 +1,17 @@
+{
+  "schema": "manifest-v1",
+  "project": {
+    "name": "AgenticDocer",
+    "type": "root_project"
+  },
+  "skills": [
+    {
+      "name": "it.idea",
+      "enabled": true
+    },
+    {
+      "name": "it.arch",
+      "enabled": true
+    }
+  ]
+}

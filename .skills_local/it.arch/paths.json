@@ -1,0 +1,49 @@
+{
+  "schema": "skill-paths-v1",
+  "skill": "it.arch",
+  "defaults": {
+    "output_dir": "./arch_spec",
+    "language": "zh-CN",
+    "finetune": "false",
+    "auto_approve": "true",
+    "interactive": "false",
+    "project_dir": "auto-detect"
+  },
+  "global_paths": {
+    "PROJECT_DIR": "{{ --project_dir 参数 或 auto-detect }}",
+    "INPUT_DIR": "{{ PROJECT_DIR }}/spec/idea",
+    "OUTPUT_DIR": "{{ PROJECT_DIR }}/spec/arch_spec",
+    "SCRIPT_DIR": "~/wrk/mySkills/scripts",
+    "SKILL_FILE": "~/wrk/mySkills/xSkills/it.arch/SKILL.md",
+    "KNOWLEDGE_DIR": "~/wrk/mySkills/xSkills/it.arch/knowledge"
+  },
+  "resolved_paths": {
+    "SCRIPT_DIR": "/home/lxx/wrk/mySkills/scripts",
+    "SKILL_FILE": "/home/lxx/wrk/mySkills/xSkills/it.arch/SKILL.md",
+    "PROJECT_DIR": "/home/lxx/wrk/AgenticDocer",
+    "INPUT_DIR": "/home/lxx/wrk/AgenticDocer/spec/idea",
+    "OUTPUT_DIR": "/home/lxx/wrk/AgenticDocer/spec/arch_spec",
+    "KNOWLEDGE_DIR": "/home/lxx/wrk/mySkills/xSkills/it.arch/knowledge",
+    "DEFAULT_OUTPUT_DIR": "/home/lxx/wrk/AgenticDocer/spec/arch_spec",
+    "DEFAULT_PROJECT_DIR": "/home/lxx/wrk/AgenticDocer/auto-detect",
+    "SKILL_LOCAL_DIR": "/home/lxx/wrk/AgenticDocer/.skills_local/it.arch",
+    "LOG_DIR": "/home/lxx/wrk/AgenticDocer/spec/arch_spec/.logs"
+  },
+  "relative_paths": {
+    "SCRIPT_DIR": "~/wrk/mySkills/scripts",
+    "SKILL_FILE": "~/wrk/mySkills/xSkills/it.arch/SKILL.md",
+    "PROJECT_DIR": ".",
+    "INPUT_DIR": "spec/idea",
+    "OUTPUT_DIR": "spec/arch_spec",
+    "KNOWLEDGE_DIR": "(outside project: /home/lxx/wrk/mySkills/xSkills/it.arch/knowledge)",
+    "DEFAULT_OUTPUT_DIR": "spec/arch_spec",
+    "DEFAULT_PROJECT_DIR": "auto-detect",
+    "SKILL_LOCAL_DIR": ".skills_local/it.arch",
+    "LOG_DIR": "spec/arch_spec/.logs"
+  },
+  "metadata": {
+    "project_dir": "/home/lxx/wrk/AgenticDocer",
+    "project_name": "AgenticDocer",
+    "resolved_at": "2026-09-16T08:52:50Z"
+  }
+}
