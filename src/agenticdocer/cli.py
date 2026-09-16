@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 import json
 import os
 import shutil
@@ -161,7 +162,7 @@ def _who() -> str:
 
 
 def _forbidden_hint(need: Need, *, fingerprint_text: str | None = None) -> list[str]:
-    """403 补救指引：包含**所需角色名**与**授权命令原文**（REQ-M11-V17c）。"""
+    """403 补救指引：包含**所需角色名**与**授权命令原文**（V17c 判据）。"""
     who = _who()
     role = _min_role(need.permission)
     lines = [
@@ -175,6 +176,10 @@ def _forbidden_hint(need: Need, *, fingerprint_text: str | None = None) -> list[
             f"--value <doc_type|doc_id> --permission {need.permission}"
         )
     else:
+        lines.append("（用户管理为 admin 专属，grant 无法提权：只能由现任 admin 授予 admin 角色）")
+    if fingerprint_text:
+        lines.append(f"你的公钥指纹：{fingerprint_text}（用于核对 users 表登记项）。")
+    return lines
         lines.append("（用户管理为 admin 专属，grant 无法提权：只能由现任 admin 授予 admin 角色）")
     return lines
 
@@ -297,7 +302,8 @@ class SigningClient:
         """实际使用的私钥路径（显式 ``--key`` → ``$AGENTICDOCER_SSH_KEY`` → ``~/.ssh/*``）。"""
         return self.key_path or default_key_path()
 
-    def _load(self) -> Any:
+    def private_key(self) -> Any:
+        """加载并缓存私钥（不可用 → :class:`CliError` + 获取指引）。"""
         if self._key is None:
             try:
                 self._key = load_private_key(self.path, os.environ.get(PASSPHRASE_ENV))
@@ -414,7 +420,9 @@ class SigningClient:
         elif status == 403:
             key_issue = any(word in message for word in ("未注册", "禁用", "revoke", "不可用"))
             if key_issue or shown is None:
-                hints = _key_hint(shown) + _forbidden_hint(need) if need else _key_hint(shown)
+                hints = _key_hint(shown)
+                if need is not None:
+                    hints += _forbidden_hint(need)
             else:
                 hints = _forbidden_hint(need, fingerprint_text=shown) if need else _key_hint(shown)
             if shown and not key_issue:
@@ -483,7 +491,8 @@ def _violation_lines(detail: Any) -> list[str]:
 # ── 输出（人可读 / --json 结构化）─────────────────────────────────────────
 
 
-Progress = tuple[str, ...]
+@dataclass
+class CliContext:
 
 
 def _emit_json(payload: Any) -> None:
@@ -583,8 +592,8 @@ def _output(
     sys.stdout.write(_flat(payload) + "\n")
 
 
-def _client_with(context: typer.Context, need: Need | None = None) -> SigningClient:
-    """取客户端；``need`` 仅用于 403 指引文案（判定在服务端）。"""
+def _client_with(context: typer.Context) -> SigningClient:
+    """取签名客户端（``need`` 由各命令显式传给 ``json(...)``，用于 403 指引文案）。"""
     return _ctx(context).client()
 
 
