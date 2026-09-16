@@ -145,10 +145,6 @@ REGISTRY = {
         ),
     },
     "protective-stop-FMEDA.md": {
-    # 注：其余 18 份 Tcl man pages（array/if/for/while/list/string/puts/open/close/read/
-    # format/regexp/regsub/switch/catch/error/source/dict.n）暂不登记——转换进 markdown 后按同一
-    # 规则补登（`SPEC-LANG-TCL-<CMD>` + 该 `lang` 必填 meta），届时扫目录不再有 `[err]`。
-
         "spec_id": "SPEC-SAFE-PROTECTIVE-STOP-FMEDA",
         "spec_org": "polymathrobotics/protective-stop",
         "spec_revision": "main",
@@ -193,6 +189,9 @@ REGISTRY = {
     # 须先转换为 markdown（转换后文件名若变化，同步改本表键名）并补齐该 doc_type 的必填 meta。
     #
     # `lang/`：Tcl 内置命令 man pages（nroff，DocBook RefEntry 原型；此处登记代表 3 份）
+    # 注：其余 18 份 Tcl man pages（array/if/for/while/list/string/puts/open/close/read/format/
+    # regexp/regsub/switch/catch/error/source/dict.n）暂不登记——转换进 markdown 后按同一规则补登
+    # （`SPEC-LANG-TCL-<CMD>` + 该 `lang` 必填 meta），届时扫目录不再有 `[err]`。
     "set.n": {
         "spec_id": "SPEC-LANG-TCL-SET",
         "spec_org": "Tcl Core Team",
