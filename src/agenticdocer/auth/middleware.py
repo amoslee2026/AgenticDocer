@@ -332,12 +332,7 @@ async def resolve_request_identity(
         return AuthContext(user=user, source="webui", session_hash=session_token_hash(token))
     headers = SshSigHeaders.parse(request.headers)
     return await verify_signature(
-        request.method,
-        raw_path(request),
-        await request.body(),
-        headers,
-        db=database,
-        ip=client_ip(request),
+        request.method, raw_path(request), await request.body(), headers, db=database
     )
 
 
