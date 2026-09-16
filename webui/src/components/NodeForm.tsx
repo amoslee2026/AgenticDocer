@@ -125,7 +125,13 @@ export function NodeForm({
 
       <label className="field">
         <span>原子类型（来自 /schemas——新增类型无需改前端）</span>
-        <select value={atomType} onChange={(e) => setAtomType(e.target.value)}>
+        <select
+          value={atomType}
+          onChange={(e) => {
+            setAtomType(e.target.value);
+            setFormData({});
+          }}
+        >
           {schemas.map((entry) => (
             <option key={entry.typeName} value={entry.typeName}>
               {entry.typeName}（v{entry.version}）
