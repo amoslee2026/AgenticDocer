@@ -56,16 +56,16 @@ export function TableGridEditor({ node, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!TABLE_ATOMS.has(node.atomType)) {
+  if (!TABLE_ATOMS[node.atomType]) {
     return <div className="notice error">原子 {node.atomType} 不是表格类，不可行列编辑。</div>;
   }
+
 
   function setCell(rowIdx: number, colIdx: number, value: string) {
     setRows((current) =>
       current.map((row, i) => (i === rowIdx ? row.map((cell, j) => (j === colIdx ? value : cell)) : row)),
     );
   }
-  if (!TABLE_ATOMS[node.atomType]) {
   function addRow(at: number) {
     setRows((current) => {
       const width = current[0]?.length ?? 1;
