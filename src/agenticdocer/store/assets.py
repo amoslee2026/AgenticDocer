@@ -122,6 +122,33 @@ class AssetRepository(Repository):
             )
         return path
 
+    async def get_asset_paths(self, asset_ids: Iterable[str]) -> dict[str, Path]:
+        """批量取资产字节路径（PERF B-2：消 N+1）。
+
+        单条 `WHERE asset_id = ANY(...)` 取回全部元数据行，再一次线程内 `stat` 校验字节
+        存在性——M04 章节渲染对 1,099 处图片引用逐个 `get_asset_path` 的顺序往返由此消除。
+
+        **缺失项不出现在返回值里**（元数据缺行或字节缺失），调用方按「解析不到 → 原样直通
+        （P4）」处置；需要报缺失时用 `list_missing_assets`。
+        """
+        wanted = [asset_id for asset_id in dict.fromkeys(asset_ids) if asset_id]
+        if not wanted:
+            return {}
+        async with self.db.session() as session:
+            rows = (
+                await session.execute(
+                    select(assets.c.asset_id, assets.c.path).where(
+                        assets.c.asset_id.in_(wanted)
+                    )
+                )
+            ).all()
+        candidates = {row.asset_id: self.store_dir / row.path for row in rows}
+
+        def _existing() -> dict[str, Path]:
+            return {asset_id: path for asset_id, path in candidates.items() if path.exists()}
+
+        return await asyncio.to_thread(_existing)
+
     async def list_missing_assets(self, doc_id: str | None = None) -> list[str]:
         """被节点引用但**元数据或字节缺失**的 asset_id 列表（M09B `assets_missing` 判据）。
 
