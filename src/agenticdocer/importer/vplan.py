@@ -144,11 +144,15 @@ class VPlan:
         return tuple(row.as_matrix_row() for row in self.rows)
 
     def to_xml(self) -> str:
-        """反向生成 vPlan XML（按行重建层级；`status` 落在唯一可还原的位置）。
+        """反向生成 vPlan XML（按行重建层级），满足 ``parse_vplan(to_xml()) == self.rows``。
 
-        反向生成的 `status` 位置：有测试的行 → `<test@status>`（取 :attr:`CoverageRow.
-        test_status`，缺则用 `status`）；缺口行 → `<coverage_item@status>`。故
-        ``parse_vplan(plan.to_xml())`` 与原 :attr:`VPlan.rows` 逐字段相等。
+        状态落位（解析侧口径是「`coverage_item@status` → 退 `test@status` → ``unknown``」，
+        故导出侧必须回填可信来源）：
+
+        - 同一 `coverage_item` 的行状态**一致** → 写 `<coverage_item@status>`（覆盖项状态）；
+        - `test@status` **仅在该行的** :attr:`CoverageRow.test_status` 非空时写
+          （否则会把「原本无状态」变成 `unknown`，破坏往返相等）；
+        - 缺口行（无测试）走 `<coverage_item@status>`。
         """
         groups: dict[tuple[str, str], dict[str, list[CoverageRow]]] = {}
         for row in self.rows:
@@ -161,16 +165,15 @@ class VPlan:
             sub_el = ElementTree.SubElement(feature_el, "sub_feature", {"name": sub_feature})
             for item, item_rows in items.items():
                 item_el = ElementTree.SubElement(sub_el, "coverage_item", {"name": item})
-                tested = [row for row in item_rows if row.test is not None]
-                if not tested:
+                if len({row.status for row in item_rows}) == 1:
                     item_el.set("status", item_rows[0].status)
-                    continue
-                for row in tested:
-                    ElementTree.SubElement(
-                        item_el,
-                        "test",
-                        {"name": row.test or "", "status": row.test_status or row.status},
-                    )
+                for row in item_rows:
+                    if row.test is None:
+                        continue
+                    attrs = {"name": row.test}
+                    if row.test_status is not None:
+                        attrs["status"] = row.test_status
+                    ElementTree.SubElement(item_el, "test", attrs)
         ElementTree.indent(root, space="  ")
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ElementTree.tostring(
             root, encoding="unicode"
