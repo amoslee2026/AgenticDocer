@@ -230,6 +230,8 @@ def test_html_img_rewrite_is_the_only_change_inside_table_fragment() -> None:
 def test_document_frontmatter_maps_c5_fields_and_preserves_extras() -> None:
     doc = make_doc(
         meta={
+            "type": "composite",
+            "purpose": "spec",
             "spec_org": "ARM",
             "spec_revision": "IHI0024",
             "version": "1.0.0",
@@ -239,8 +241,20 @@ def test_document_frontmatter_maps_c5_fields_and_preserves_extras() -> None:
         }
     )
     data = document_frontmatter(doc)
-    assert list(data)[:3] == ["title", "type", "status"]  # C5 定序；缺项跳过、不占位
-    assert list(data)[-1] == "extra_field"  # 其余 meta 键按名序追加（meta 全量保真）
+    assert list(data) == [
+        "title",
+        "type",
+        "purpose",
+        "status",
+        "version",
+        "section_meta",
+        "spec_id",
+        "spec_type",
+        "spec_org",
+        "spec_revision",
+        "source",
+        "extra_field",
+    ]
     assert data["title"] == "示例"
     assert data["spec_id"] == "SPEC-DEMO"
     assert data["spec_type"] == "standard"
@@ -377,19 +391,30 @@ def test_grid_to_content_and_back_is_stable() -> None:
 
 def test_register_field_grid_maps_columns_and_requires_register() -> None:
     grid = TableGrid(
-        rows=[["field", "bits", "access"], ["EN", "0", "rw"], ["MODE", "2:1", "ro"]],
-        header=True,
+        rows=[["EN", "0", "rw"], ["MODE", "2:1", "ro"]],
+        header=False,
         header_names=["field", "bits", "access"],
         register_name="CTRL",
     )
     content = grid_to_content(grid, atom_type="table.register_field")
     assert content["register"] == "CTRL"
-    assert content["fields"] == [{"field": "EN", "bits": "0", "access": "rw"}, {"field": "MODE", "bits": "2:1", "access": "ro"}]
+    assert content["fields"] == [
+        {"field": "EN", "bits": "0", "access": "rw"},
+        {"field": "MODE", "bits": "2:1", "access": "ro"},
+    ]
     back = content_to_grid(content)
     assert back.rows == [["EN", "0", "rw", "", ""], ["MODE", "2:1", "ro", "", ""]]
     assert back.register_name == "CTRL"
-    with pytest.raises(ValidationError):
-        grid_to_content(TableGrid(rows=[["field"], ["EN"]], header=True), atom_type="table.register_field")
+    with pytest.raises(ValidationError):  # 缺 register
+        grid_to_content(
+            TableGrid(rows=[["EN"]], header=False, header_names=["field"]),
+            atom_type="table.register_field",
+        )
+    with pytest.raises(ValidationError):  # 无非空 field 列
+        grid_to_content(
+            TableGrid(rows=[["EN"]], header=False, header_names=["bits"]),
+            atom_type="table.register_field",
+        )
 
 
 def test_grid_to_content_rejects_non_table_atom_and_bad_schema() -> None:
