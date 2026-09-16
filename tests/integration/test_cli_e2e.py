@@ -370,7 +370,7 @@ def test_node_get_and_render(service: _Service, imported: dict[str, object]) -> 
 
     rendered = service.ok("render", str(imported["doc_id"]), "--json", actor="reader")
     assert isinstance(rendered, dict)
-    assert "M11 端到端样例" in rendered["markdown"]
+    assert "M11 CLI 端到端样例" in rendered["markdown"]
 
     local = service.work / "local.md"
     saved = service.ok("render", str(imported["doc_id"]), "--out", str(local), "--json", actor="reader")
@@ -435,7 +435,9 @@ def test_write_round_trip_with_optimistic_lock(service: _Service, imported: dict
     denied = service.fails("node", "put", "--file", str(stale), "--json", actor="editor")
     assert "乐观锁" in denied.stderr  # 409 → 重读后重试的指引
 
-    diff = service.ok("doc", "diff", str(imported["doc_id"]), "--json", actor="reader")
+    diff = service.ok(
+        "doc", "diff", str(imported["doc_id"]), "--from", EPOCH_ISO, "--json", actor="reader"
+    )
     assert isinstance(diff, dict)
     assert any(change["op"] == "modified" for change in diff["changes"]), diff
 
