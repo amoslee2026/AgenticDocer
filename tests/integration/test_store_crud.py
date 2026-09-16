@@ -572,7 +572,9 @@ async def test_changes_since_cursor_scan(storage: Storage) -> None:
     )
     await storage.upsert_doc(doc_in(doc_id, title="新标题"), None, CTX)
 
-    everything = await storage.changes_since(limit=10_000)
+    # 共享库上事件是累积的（默认不重建 schema）→ 取一页足够大的窗口；本用例刚写的 4 条
+    # 是全库最新的，必然落在窗口内
+    everything = await storage.changes_since(limit=100_000)
     ordered = [(event.ts, event.event_id) for event in everything]
     assert ordered == sorted(ordered)
 
