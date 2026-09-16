@@ -33,6 +33,7 @@ from agenticdocer.auth import (
     require_permission,
 )
 from agenticdocer.auth.rbac import MANAGE_USERS
+from agenticdocer.observability import get_logger
 from agenticdocer.model import Doc, DocTarget, Model, Violation
 from agenticdocer.store import (
     Database,
