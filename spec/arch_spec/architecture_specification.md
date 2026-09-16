@@ -405,7 +405,6 @@ export interface EventDTO { eventId: string; entity: "doc"|"node"|"ref"|"comment
 export interface CommentDTO { commentId: string; nodeId: string; targetEventId: string | null;
   body: string; state: "open"|"resolved"|"orphaned"; author: string; version: number; ts: string; }
 export interface SchemaDTO { typeName: string; version: number; jsonSchema: Record<string, unknown>; }
-```
 export interface UserDTO { userId: string; username: string; role: RoleName; status: "active"|"disabled";
   keyFingerprints: string[]; createdAt: string; }
 export type RoleName = "admin"|"editor"|"reviewer"|"reader";
