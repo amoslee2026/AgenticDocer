@@ -177,13 +177,12 @@ def test_spec_type_conflict_is_refused(monkeypatch, tmp_path):
     original = "---\ntitle: Demo\nspec_type: standard\n---\n" + BODY
     path.write_text(original, encoding="utf-8")
     _registered(monkeypatch, path, dict(SAFETY_ENTRY))
-@pytest.mark.parametrize("drop", ["audit_trail", "converted_by", "reviewed_by", "spec_id"])
     with pytest.raises(uf.UpgradeError, match="冲突"):
         uf.upgrade(path)
     assert path.read_text(encoding="utf-8") == original
 
 
-@pytest.mark.parametrize("drop", ["audit_trail", "converted_by", "spec_id"])
+@pytest.mark.parametrize("drop", ["audit_trail", "converted_by", "reviewed_by", "spec_id"])
 def test_incomplete_registry_entry_is_refused(monkeypatch, tmp_path, drop):
     """登记表缺该 doc_type 必填 meta（含 C5 溯源项）-> 报错而不是写出半份 frontmatter。"""
     path = tmp_path / "demo-FMEA.md"
