@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 import os
 import socket
 import subprocess
@@ -175,9 +176,9 @@ class _Service:
 
     env: dict[str, str]
     work: Path
-    api_url: str
     keys: dict[str, Path] = field(default_factory=dict)
     fingerprints: dict[str, str] = field(default_factory=dict)
+    usernames: dict[str, str] = field(default_factory=dict)
 
     def cli(
         self, *args: str, actor: str = "admin", stdin: str | None = None
