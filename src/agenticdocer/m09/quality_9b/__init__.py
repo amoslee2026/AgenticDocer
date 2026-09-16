@@ -29,6 +29,7 @@ from . import (
     events_consistency,
     perf_health,
     render_consistency,
+    section_range_consistency,
     terms,
 )
 from .context import GateContext
@@ -63,5 +64,6 @@ __all__ = [
     "events_consistency",
     "perf_health",
     "render_consistency",
+    "section_range_consistency",
     "terms",
 ]
