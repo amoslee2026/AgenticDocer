@@ -88,15 +88,31 @@ idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（仍为 5 值：细分只
 
 ## 5. 验证边界声明（如实标注）
 
+**语料获取（2026-09-17，用户指示「部分真实语料可以从网络搜索获得」→ 已调研 + 下载）**：
+
+已确认可下载的**公开/许可清晰**的真实语料（调研报告：实测 HTTP 状态码 + 许可核查）：
+
+| doc_type | 获取的真实语料 | 来源 | 许可 |
+|---|---|---|---|
+| `standard` | ✅ 7 份（PCIe/CXL/JEDEC/AMBA） | 原有 | 已审核 |
+| **`lang`** | ✅ Tcl man pages（`.n`，RefEntry 原型）+ OpenSTA `Commands.md`（283 命令节） | tcltk/tcl、parallaxsw/OpenSTA | BSD 式 / GPL-3.0 |
+| **`tool-manual`** | ✅ Verilator 用户指南 + 诊断码表 | verilator/verilator | LGPL-3.0/Artistic-2.0 |
+| **`product`** | ✅ OpenTitan testplan（`feature/test/stage/tests` + countermeasure 追溯 + register/bitfield）+ RISC-V ISA Manual（条款 + 位域表） | lowRISC/opentitan、riscv/riscv-isa-manual | Apache-2.0 / CC-BY-4.0 |
+| **`safety`** | ✅ neqsim FMEA（RPN=S·O·D）+ protective-stop FMEDA + cdriscv FMEDA | equinor/neqsim 等 | Apache-2.0 |
+| **UCIS** | ✅ pyucis UCIS XML fixtures（5 份）+ AMIQ fc4sc gold | fvutils/pyucis、amiq-consulting/fc4sc | Apache-2.0 |
+| **vPlan XML** | ⚠️ **无许可清晰来源**（社区样本 `kei-seu/I2C` 仓库无 LICENSE） | — | **替代**：用 OpenTitan testplan 作 vPlan 结构的许可清晰替身 |
+
+**验证边界（更新后）**：
+
 | doc_type | 真实语料 | 可验证范围 |
 |---|---|---|
-| `standard` | ✅ 7 份（PCIe/CXL/JEDEC/AMBA） | **端到端**（导入→存储→渲染→P4 逐字节） |
-| `lang` / `tool-manual` | ❌ 无 | schema 定义 + 单元验证 + 合成样例 |
-| `product` | ❌ 无 | 同上 |
-| `safety` | ❌ 无 | 同上 |
-| UCIS/vPlan | ❌ 无 | 导入器接口 + 合成 XML |
+| `standard` | ✅ | **端到端**（导入→存储→渲染→P4 逐字节） |
+| `lang` / `tool-manual` / `product` / `safety` / UCIS | ✅ 已获取 | **端到端可达**（语料为原始格式：nroff/rst/hjson/adoc/md/xml，需 `importer` 支持或转换） |
+| vPlan XML（专有格式） | ❌ 无许可源 | 导入器接口 + 合成 XML |
 
-**这不影响本方案价值**：schema 定义与差异化规则是**首版必须落实的契约**，语料可后续补充。但**不得声称已端到端验证**。
+> **入库许可说明**：上述语料均为**开源许可**（BSD 式 / GPL-3.0 / LGPL-3.0 / Apache-2.0 / CC-BY-4.0），已附 LICENSE 文件于 `spec/standards/DOWNLOADED.md`。**GPL/LGPL 语料仅作测试 fixture，不派生作品**（测试用途，不修改、不链接）。
+>
+> **不得声称**：vPlan XML 的端到端验证（无许可语料）；其余类型可端到端。
 
 ## 相关
 
