@@ -798,9 +798,7 @@ CREATE TABLE nonces (                          -- 签名重放防护（B2/S3/S7�
 );
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s) ≥ 时间窗
 -- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
-### 4.2 分区策略（ADR-009，批注 B9）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、FK 降级）
 
-### 4.4 分区策略（ADR-009，批注 A8）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、外键降级）
 
 ```sql
 -- 规模：≥10,000 文档 / ≈13.4M 节点 / 20–54GB
@@ -814,10 +812,11 @@ END $$;
 
 CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
 -- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
--- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底）
-### 4.3 DB 角色与权限（A15）
+-- 外键：完整降级清单见 ADR-009 §1（nodes 自引用 / refs×2 / comments×2 / terms 共 6 处）；
+--      **主键调整**：nodes PK → (node_id, doc_id)，events PK → (event_id, ts)
+```
 
-### 4.1 DB 角色与权限（A15）
+### 4.3 DB 角色与权限（A15）
 
 ```sql
 -- 属主：agenticdocer（database owner，建库时创建）
@@ -848,10 +847,8 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 - CSRF 立场：依赖 `SameSite=Lax` + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
 
 
-  ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
-             # 对外部署：改 --host 0.0.0.0，**前提＝已自举 admin 且经 TLS 反代**（ADR-007 S6）；二者缺一不可
-             # （V13 修复：原「ExecStart 绑 127.0.0.1」与「监听 0.0.0.0」两行矛盾，现统一为一处权威）
 systemd --user: agenticdocer-api.service
+  ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
   ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787
   Environment: DATABASE_URL=postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer
                ASSET_STORE_DIR=/home/lxx/wrk/AgenticDocer/data/assets
