@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .atoms import ATOM_TYPES
+from .atoms import ATOM_SCHEMAS, ATOM_TYPES
 from .types import DocType, Model
 
 __all__ = [
