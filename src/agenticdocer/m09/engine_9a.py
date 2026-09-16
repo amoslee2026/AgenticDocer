@@ -210,7 +210,8 @@ def _schema_violations(atom_type: str, content: Mapping[str, Any]) -> list[Viola
                 rule_id=RULE_ATOM_SCHEMA,
                 path=path,
                 message=error.message,
-                fix_hint=_schema_fix_hint(error, atom_type, path),
+                # hint 以**父路径**拼字段名（否则精确化后的 path 会把字段名重复一次）
+                fix_hint=_schema_fix_hint(error, atom_type, base),
             )
         )
     return violations
