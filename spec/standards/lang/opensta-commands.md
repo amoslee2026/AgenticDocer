@@ -1,3 +1,25 @@
+---
+title: "Commands"
+type: composite
+purpose: spec
+audience: both
+direction: input
+version: "1.0.0"
+section_meta: "@meta"
+spec_id: SPEC-LANG-OPENSTA-CMD
+spec_type: lang
+spec_org: Parallax/OpenSTA
+spec_revision: master
+source: https://raw.githubusercontent.com/parallaxsw/OpenSTA/master/doc/Commands.md
+converted_by: "download（原样下载，未转换）"
+converted_at: 2026-09-17
+reviewed_by: "lxx(下载授权)"
+reviewed_at: 2026-09-17
+status: approved
+command_name: "OpenSTA Tcl 命令参考（283 个命令节）"
+syntax: "逐命令 `<pre><code>` 语法块（见正文各节）"
+tool_context: "OpenSTA（Parallax）master"
+---
 # Commands
 
 This page is generated from the live command registry.

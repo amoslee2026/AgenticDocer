@@ -1,3 +1,24 @@
+---
+title: "cdriscv-32s-10 FMEDA"
+type: composite
+purpose: spec
+audience: both
+direction: input
+version: "1.0.0"
+section_meta: "@meta"
+spec_id: SPEC-SAFE-CDRISCV-FMEDA
+spec_type: safety
+spec_org: ChipDesign-BV/cdriscv-32s-10
+spec_revision: main
+source: https://raw.githubusercontent.com/ChipDesign-BV/cdriscv-32s-10/main/doc/fmeda.md
+converted_by: "download（原样下载，未转换）"
+converted_at: 2026-09-17
+reviewed_by: "lxx(下载授权)"
+reviewed_at: 2026-09-17
+status: approved
+standard_ref: "ISO 26262-5（ASIL D：SPFM≥99%、LFM≥90% 阈值判据；原文未指名标准，按所引阈值反推）"
+audit_trail: "spec/standards/DOWNLOADED.md §2.4；Apache-2.0；2026-09-17 下载自 ChipDesign-BV/cdriscv-32s-10@main:doc/fmeda.md"
+---
 # cdriscv-32s-10 FMEDA
 
 **Computed 2026-09-14 by `scripts/fmeda.py` on the E2E-inclusive RTL (V55) —

@@ -1,6 +1,24 @@
 ---
 title: "FMEA / FMECA Worksheet (IEC 60812)"
 description: "Failure Modes and Effects Analysis using FMEAWorksheet — Severity, Occurrence and Detection scoring, RPN = S·O·D criticality ranking, and configurable threshold for hot-list filtering per IEC 60812."
+type: composite
+purpose: spec
+audience: both
+direction: input
+version: "1.0.0"
+section_meta: "@meta"
+spec_id: SPEC-SAFE-NEQSIM-FMEA
+spec_type: safety
+spec_org: Equinor/neqsim
+spec_revision: IEC-60812
+source: https://raw.githubusercontent.com/equinor/neqsim/master/docs/safety/FMEA.md
+converted_by: "download（原样下载，未转换）"
+converted_at: 2026-09-17
+reviewed_by: "lxx(下载授权)"
+reviewed_at: 2026-09-17
+status: approved
+standard_ref: "IEC 60812（2018）"
+audit_trail: "spec/standards/DOWNLOADED.md §2.4；Apache-2.0；2026-09-17 下载自 equinor/neqsim@master:docs/safety/FMEA.md"
 ---
 
 # FMEA / FMECA Worksheet (IEC 60812)

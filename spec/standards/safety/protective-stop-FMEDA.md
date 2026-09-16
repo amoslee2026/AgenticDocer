@@ -1,3 +1,24 @@
+---
+title: "Protective-Stop — FMEDA (quantitative, first draft)"
+type: composite
+purpose: spec
+audience: both
+direction: input
+version: "1.0.0"
+section_meta: "@meta"
+spec_id: SPEC-SAFE-PROTECTIVE-STOP-FMEDA
+spec_type: safety
+spec_org: polymathrobotics/protective-stop
+spec_revision: main
+source: https://raw.githubusercontent.com/polymathrobotics/protective-stop/main/docs/safety/FMEDA.md
+converted_by: "download（原样下载，未转换）"
+converted_at: 2026-09-17
+reviewed_by: "lxx(下载授权)"
+reviewed_at: 2026-09-17
+status: approved
+standard_ref: "IEC 61508-2／IEC 61508-6 + ISO 13849-1"
+audit_trail: "spec/standards/DOWNLOADED.md §2.4；Apache-2.0；2026-09-17 下载自 polymathrobotics/protective-stop@main:docs/safety/FMEDA.md"
+---
 <!-- SPDX-FileCopyrightText: 2026 Polymath Robotics, Inc. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
