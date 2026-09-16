@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 import pytest
@@ -23,6 +24,7 @@ from agenticdocer.model import (
     derive_text,
     new_uuid7,
 )
+from agenticdocer.store.schema import docs
 from agenticdocer.model.doc_types import DocTypeRule
 from agenticdocer.m09 import (
     RULES_9A,
@@ -409,3 +411,96 @@ def test_validation_is_deterministic() -> None:
     first = validate_proposal("table", target)
     second = validate_proposal("table", target)
     assert [item.model_dump() for item in first] == [item.model_dump() for item in second]
+
+
+# ── doc_type 差异化（方案 C：同一原子在不同 doc_type 下判定不同）─────────────
+
+
+def test_same_atom_differs_across_doc_types() -> None:
+    """**差异化真实生效**：`figure` 在 `standard` 放行、在 `lang` 拒绝（基底原子判据）。
+
+    `lang`（语言/脚本手册，§4.1 DocBook RefEntry 语义）无图；`standard` 八类全收。
+    这是 idea.md §4「不同文档类型设立不同 schema」的最小可观测后果——修复前五类规则
+    逐字段相同，本断言在那种状态下必然失败（`lang` 会放行 `figure`）。
+    """
+    assert validate_write(node("figure"), doc_type="standard") == []
+    hits = [
+        item
+        for item in validate_write(node("figure"), doc_type="lang")
+        if item.rule_id == RULE_DOC_TYPE_ATOM
+    ]
+    assert hits and hits[0].path == "atomType" and hits[0].fix_hint
+
+
+def test_variant_whitelist_is_per_doc_type() -> None:
+    """变体白名单逐 `doc_type`：`table.failure_mode` 在 `safety` 通过、在 `standard` 拒。
+
+    **合成样例，非真实语料**（`safety` 无语料，`doc_type_mapping.md` §5）——本断言证明的是
+    **规则生效**，不是端到端导入能力。
+    """
+    node_failure_mode = node("table.failure_mode", format="html")
+    assert validate_write(node_failure_mode, doc_type="safety") == []
+    hits = [
+        item
+        for item in validate_write(node_failure_mode, doc_type="standard")
+        if item.rule_id == RULE_DOC_TYPE_VARIANT
+    ]
+    assert hits and "table.failure_mode" in hits[0].message
+    assert hits[0].path == "atomType" and hits[0].fix_hint
+
+
+def test_variant_whitelist_rejects_standard_variant_in_safety() -> None:
+    """反向：`table.register_field` 在 `standard`/`product` 放行、在 `safety` 拒（白名单互不通用）。"""
+    register_field = node("table.register_field", format="html")
+    for doc_type in ("standard", "product"):
+        assert validate_write(register_field, doc_type=doc_type) == [], doc_type
+    hits = [
+        item
+        for item in validate_write(register_field, doc_type="safety")
+        if item.rule_id == RULE_DOC_TYPE_VARIANT
+    ]
+    assert hits and hits[0].fix_hint
+
+
+def test_base_atom_exclusion_outranks_variant_rule() -> None:
+    """成因归类：基底原子被排除时**恒**报 `M01.doc_type.atom`（不因名字含点而报变体规则）。"""
+    ids = {item.rule_id for item in validate_write(node("figure.state_machine"), doc_type="lang")}
+    assert ids == {RULE_DOC_TYPE_ATOM}
+
+
+def test_ucis_coverage_matrix_is_product_only() -> None:
+    """`table.coverage_matrix`（UCIS/vPlan，§4）仅 `product` 放行。**合成样例，非真实语料**。"""
+    matrix = node("table.coverage_matrix", format="html")
+    assert validate_write(matrix, doc_type="product") == []
+    hits = [
+        item
+        for item in validate_write(matrix, doc_type="standard")
+        if item.rule_id == RULE_DOC_TYPE_VARIANT
+    ]
+    assert hits and hits[0].fix_hint
+
+
+def test_variant_rule_message_lists_allowed_variants() -> None:
+    """`fix_hint` 可自修复：报出该 doc_type 允许的变体（M06 agent 依此改写后重试）。"""
+    hits = [
+        item
+        for item in validate_write(node("table.failure_mode", format="html"), doc_type="lang")
+        if item.rule_id == RULE_DOC_TYPE_VARIANT
+    ]
+    assert not hits, "基底 `table` 未被 `lang` 放行 → 应归 atom 规则"
+
+
+# ── DDL 取值域一致性（模型层 ↔ §4 DDL）────────────────────────────────────
+
+
+def test_doc_type_domain_matches_ddl_check() -> None:
+    """`M01.DOC_TYPES` 与 §4 DDL `docs_doc_type_check` 取值域逐项一致（防漂移）。
+
+    同一取值域的两处载体：模型层决定组合规则判据（M09A `M01.doc_type.*`），DDL 决定
+    `docs.doc_type` 可写值。只改一侧即坏——放宽 DDL 会写出无规则的 `doc_type`
+    （`get_doc_type_rule` 抛 `KeyError`），只加模型值则写入被 DB 拒。
+    方案 C 的结论是**保持 5 值**，故 DDL 无需变更；本断言把该结论钉死（含顺序：`DOC_TYPES`
+    是判据域口径，DDL 列表须与之一致）。
+    """
+    constraint = next(item for item in docs.constraints if item.name == "docs_doc_type_check")
+    assert tuple(re.findall(r"'([^']*)'", str(constraint.sqltext))) == DOC_TYPES
