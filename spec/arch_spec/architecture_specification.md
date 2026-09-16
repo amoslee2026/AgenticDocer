@@ -775,6 +775,13 @@ systemd --user: agenticdocer-api.service
 规模调优（ADR-009）: shared_buffers=8GB、work_mem=64MB、max_connections=200
                      应用池 pool_size=20/max_overflow=10；autovacuum scale_factor=0.05（nodes/events）
                      分区维护：nodes HASH(64)、events RANGE(月)；新分区由定时任务或 pg_partman 创建
+可观测性（ADR-010）:
+  AgenticLogger: program="agenticdocer"，输出 logs/<module>_<command>_<ts>.jsonl
+  日志轮转: 按天/按大小（LOG_RETENTION_DAYS=30、LOG_MAX_MB=500）→ 超出归档至 logs/archive/
+  SLOW_QUERY_MS=200（M02 查询包装器 warn 阈值，与 §1.4 点查指标对齐）
+  指标端点: GET /api/v1/admin/metrics、GET /api/v1/admin/health（admin 专属）
+  基准套件: uv run pytest tests/perf/ -m perf --benchmark-json=build/perf.json
+  注意: 日志为运行态（可轮转可丢弃）；**审计权威源仍是 PG `events` 表**（P2/P6）
 ```
 
 ## 6. 横切关注点
@@ -783,7 +790,8 @@ systemd --user: agenticdocer-api.service
 |---|---|
 | 身份与鉴权（B2/B3） | **全端点鉴权**（含读）：agent 走 SSH 签名（Ed25519，每请求），WebUI 走会话 Cookie（SSH 挑战-响应换取）。验签身份写入 `WriteContext(actor=<user_id>, source="agent"\|"webui")`；`X-Actor` 必须与验签身份一致（不一致 → 403）。RBAC 四角色 + 文档集级 grant（§3 M10、ADR-007） |
 | 序列化（A11） | pydantic `alias_generator=to_camel`；HTTP JSON 一律 camelCase；DB 与 Python 内部 snake_case |
-| 日志 | Agentic Logger SDK（AGENTS.md 强制）；结构化字段：module(M##)、event_id、doc_id、rule_id |
+| 日志（ADR-010） | **AgenticLogger SDK**（AGENTS.md 强制）：`AgentLogger(program="agenticdocer", command=<模块>)`；字段 `module`(M##.子域)/`rid`(请求追踪)/`dur`(ms)/`error_code`(DTO_*)/`doc_id`；HTTPS 端点与 CLI 均经 `observability/logger.py` 单一适配层。**禁止**业务代码直用 `print`/`logging`。**日志 ≠ 审计**：运行日志可轮转丢弃，审计事件落 `events` 表（append-only） |
+| 可观测性边界（P6） | 系统运行**不依赖 LLM**：AgenticLogger 为确定性本地库（无网络/无推理）；日志的 agent 可读性是**可选优势**，非运行期依赖 |
 | 错误 | ConflictError→409、ValidationError→422、NotFound→404；Violation 结构统一 |
 | ID | 应用侧 UUIDv7（时间有序）；`doc_id` 采用 `SPEC-*` 映射（A22，映射表见 §6） |
 | 时间 | UTC（timestamptz）；展示本地化 |
