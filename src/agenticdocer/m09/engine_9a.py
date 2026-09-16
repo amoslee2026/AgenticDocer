@@ -440,6 +440,8 @@ def _doc_type_violations(node: NodeIn, doc_type: str) -> list[Violation]:
             fix_hint="调整规则映射或扩展 doc_type 组合规则（REQ-M01-F03）",
         )
     ]
+
+
 def _table_violations(node: NodeIn) -> list[Violation]:
     """表格原子（E1-a）：`format` 与 `fragment` 形态必须一致（md 管道表 / html 片段）。"""
     if node.atom_type not in TABLE_ATOMS:
