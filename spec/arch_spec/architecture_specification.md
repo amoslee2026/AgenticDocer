@@ -833,8 +833,7 @@ REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
 
-
-
+#### 4.3.1 应用层 RBAC（M10，批注 B1/B2/B3）
 
 见 §3 M10「权限矩阵」。DB 层仅区分属主（迁移）与应用（最小权限）；用户级权限（四角色 + 文档集级 grant）由 **M10 应用层**强制，落 `users`/`grants` 表（§4）。
 
