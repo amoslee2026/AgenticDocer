@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import pathlib
 from uuid import UUID
 
 import pytest
