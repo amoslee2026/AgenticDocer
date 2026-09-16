@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from sqlalchemy import insert, update
+from sqlalchemy import delete, insert, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from agenticdocer.m09 import run_quality_gate, run_quality_gate_sync
