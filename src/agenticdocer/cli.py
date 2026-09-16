@@ -637,7 +637,6 @@ def _require_identity(client: SigningClient, need: Need) -> Mapping[str, Any]:
 def _resolve_user_id(client: SigningClient, username: str, need: Need) -> str:
     """用户名 / userId → userId（M07 端点按 ``user_id`` 取资源）。"""
     if _looks_like_uuid(username):
-            "authCheck": f"GET {_ME}" if action.startswith("import") or action == "quality-gate" else None,
     users = client.json("GET", "/api/v1/users", params={"status": None}, need=need)
     for user in users if isinstance(users, list) else []:
         if isinstance(user, Mapping) and user.get("username") == username:
@@ -672,8 +671,9 @@ def _dry_plan(context: typer.Context, action: str, **arguments: Any) -> bool:
         {
             "dryRun": True,
             "action": action,
-            "arguments": {key: str(value) if isinstance(value, Path) else value for key, value in arguments.items()},
-            "authCheck": f"GET {_ME}" if action.startswith("import") else None,
+            "authCheck": (
+                f"GET {_ME}" if action.startswith("import") or action == "quality-gate" else None
+            ),
         }
     )
     return True
