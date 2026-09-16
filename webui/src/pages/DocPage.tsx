@@ -91,7 +91,7 @@ export function DocPage() {
     return map;
   }, [nodes]);
 
-  // 选中节点默认落到当前章节的 section 节点
+  const rendered = renderCache.get(currentSection ?? "<full>") ?? null;
   useEffect(() => {
     if (selectedNode || nodes.length === 0) {
       return;
@@ -157,10 +157,13 @@ export function DocPage() {
             </button>
           ) : null}
         </div>
-      </div>
-      {notice ? <div className="notice">{notice}</div> : null}
-
-      <div className="split">
+  const sessionRole = session?.role ?? "reader";
+  const canReview = roleAtLeast(sessionRole, "reviewer");
+  const canWrite = roleAtLeast(sessionRole, "editor");
+  const nextStatus = NEXT_STATUS[doc.status];
+  if (!session) {
+    return null;
+  }
         <div className="card">
           <div className="card-head">
             <div className="tabs" style={{ margin: 0, borderBottom: "none" }}>
