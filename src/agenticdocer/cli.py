@@ -25,6 +25,7 @@
 
     uv run agenticdocer --help
     uv run agenticdocer auth whoami
+    uv run agenticdocer quality-gate --json
     uv run agenticdocer doc list --json
     uv run agenticdocer logs stats --group-by error_code
 """
