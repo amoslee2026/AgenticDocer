@@ -251,11 +251,10 @@ def test_import_dry_run_does_not_touch_db_or_network(tmp_path: Path) -> None:
     assert payload["authCheck"] == "GET /api/v1/auth/me"
     assert not (tmp_path / "import_work").exists()
 
+
 def _json(text: str) -> dict[str, Any]:
     """取输出里的 JSON 主体（``--json``/``--dry-run`` 输出不含其它前缀）。"""
     return json.loads(text[text.index("{") :])
-    start = text.index("{")
-    return json.loads(text[start:])
 
 
 # ----------------------------------------------------------------------
