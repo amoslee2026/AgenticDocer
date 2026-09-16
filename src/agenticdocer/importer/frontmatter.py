@@ -302,14 +302,20 @@ def parse_frontmatter(
 
 
 def doc_in_from_meta(doc_meta: dict[str, Any]) -> DocIn:
-    """`ParseResult.doc_meta` → :class:`DocIn`（提交期重建，proposals.json 往返用）。"""
+    """`ParseResult.doc_meta` → :class:`DocIn`（提交期重建，proposals.json 往返用）。
+
+    派生键 `doc_slug`/`doc_subtype` 与 :meth:`Frontmatter.meta` 逐键一致（往返不丢细分）。
+    """
     frontmatter = doc_meta.get("frontmatter")
     if not isinstance(frontmatter, dict):
         raise ValidationError("doc_meta 缺少 frontmatter 全量字段（无法重建 DocIn）", entity="doc")
+    meta = {**frontmatter, "doc_slug": str(doc_meta.get("doc_slug", ""))}
+    if doc_meta.get("doc_subtype") is not None:
+        meta["doc_subtype"] = str(doc_meta["doc_subtype"])
     return DocIn(
         doc_id=str(doc_meta["doc_id"]),
         doc_type=str(doc_meta["doc_type"]),
         title=str(doc_meta["title"]),
-        meta={**frontmatter, "doc_slug": str(doc_meta.get("doc_slug", ""))},
+        meta=meta,
         source_ref=None if doc_meta.get("source_ref") is None else str(doc_meta["source_ref"]),
     )
