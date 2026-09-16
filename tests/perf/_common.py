@@ -579,17 +579,30 @@ def _base_table(relation: str) -> str:
 
 
 async def pg_info(db: Any) -> dict[str, Any]:
-    """库级事实：PG 版本、13 张基表体积（不含分区行，故无重复计数）、`nodes` 分区数。"""
+    """库级事实：PG 版本、表体积、`nodes` 分区数、与整库大小的对账值。
+
+    `table_bytes` 为**基表**视图（分区归并到 `nodes`/`events`，即 §4 的 13 表口径）；
+    `relation_bytes` 为**叶子关系**视图（逐分区，供分区均衡/热点排查）；
+    `database_bytes` 为 `pg_database_size`（对账上界，含 WAL/目录/扩展，故略大于前面之和）。
+    """
     version = str(await scalar(db, "SHOW server_version"))
-    sizes = {str(name): int(size) for name, size in await all_rows(db, _SIZES_SQL)}
-    total = sum(sizes.values())
+    relations = {str(name): int(size) for name, size in await all_rows(db, _SIZES_SQL)}
+    grouped: dict[str, int] = {}
+    for name, size in relations.items():
+        grouped[_base_table(name)] = grouped.get(_base_table(name), 0) + size
+    total = sum(relations.values())
     parts = int(await scalar(db, "SELECT count(*) FROM pg_partition_tree('nodes') WHERE isleaf"))
+    database_bytes = int(await scalar(db, "SELECT pg_database_size(current_database())"))
     return {
         "server_version": version,
         "nodes_partition_count": parts,
-        "table_bytes": sizes,
+        "table_bytes": dict(sorted(grouped.items(), key=lambda item: -item[1])),
+        "relation_bytes": relations,
+        "relation_count": len(relations),
         "total_bytes": total,
         "total_human": human_bytes(total),
+        "database_bytes": database_bytes,
+        "database_human": human_bytes(database_bytes),
     }
 
 
