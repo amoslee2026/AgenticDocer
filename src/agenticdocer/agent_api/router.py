@@ -17,17 +17,17 @@
 「角色硬上限 + 文档集级 grant 收窄」判定（`deps.authorize_doc`）。身份一律取自验签结果
 （`X-Actor` 已删除）；`source` 由凭据类型判定（签名 → `agent`，Cookie → `webui`）。
 
-**写入门（REQ-M06-F01/F02）**：`validate_write` 在写入前做「atom_type 已注册 → 该 doc_type
-允许该原子 → `content` 合 JSON Schema → `content.text` 非空（A10 派生）」四步判定，失败抛
-`ValidationRejected`（422 + `violations[]`，每条含 `fix_hint`），agent 据以修正后重试。
-判定口径全部取自 M01（`ATOM_SCHEMAS` / `is_atom_allowed` / `derive_text`，P5 单一口径）——
-M09A 交付后同一判定由 `m09.validate_write` 暴露，届时本函数退化为其调用点。
+**写入门（REQ-M06-F01/F02）**：判据**全部由 M09A 承担**（P5 判据单点）——
+`m09.validate_write(node, doc_type=…)` 报告 atom 注册 / JSON Schema / `content.text` 存在性与
+派生漂移 / 锚 `<doc_id>#` 前缀 / 自指父 / 表格 `format ↔ fragment` / 外部叶引用 / doc_type 组合规则；
+本模块只保留 HTTP 层语义：补全 `content.text`（A10 写入职责）→ 把 `Violation[]` 映射为
+`422 + ErrorResponse.violations`（`fix_hint` 原样透传，供 agent 自修复重试）。
 """
 
 from __future__ import annotations
 
 import asyncio
-import re
+
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -82,7 +82,7 @@ log = get_logger("m06.api")
 
 router = APIRouter(prefix="/api/v1", tags=["agent"])
 
-_MISSING_FIELD_RE = re.compile(r"'([^']+)' is a required property")
+
 
 
 # ── 请求/响应 DTO（camelCase 序列化由 `Model` 基类保证，§6 横切 A11）──────
