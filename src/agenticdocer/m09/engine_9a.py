@@ -54,9 +54,9 @@ from agenticdocer.model import (
     Violation,
     allowed_atom_types,
     derive_text,
+    get_atom_schema,
     is_atom_allowed,
     normalize_body,
-    get_atom_schema,
 )
 
 __all__ = [
