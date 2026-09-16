@@ -31,6 +31,18 @@ section_meta: "@meta"
 
 ## 1. 原则、Agent Context 与依赖规则
 
+> **编号命名空间（V11 修复——阅读本文档前必读）**：本项目存在**三套独立编号**，极易混淆，现明确区分：
+> | 前缀 | 含义 | 出处 | 示例 |
+> |---|---|---|---|
+> | **`P#`** | 架构**原则**不变量（§1.1） | 本文档 | `P6` = 运行期 LLM 无关 |
+> | **`A#`** | **it.arch 首轮对抗评审**问题编号（v1.2 时期，A1–A25） | `functional_specification.md` §3、`.review/issues.md` | `A2` = 软删语义 |
+> | **`B#`** | **用户批注**编号（2026-09-16，B1–B11） | 本文档 §8「批注处置表」 | `B2` = SSH 鉴权 |
+> | **`S#`** | 安全专项评审问题（SecAuthReview，S1–S16） | `functional_specification.md` §安全评审 |
+> | **`V#`** | 架构专项评审问题（ArchV13Review，V1–V24） | 同上 |
+> | **`REQ-M##-F##`** | 功能需求编号 | `functional_specification.md` | `REQ-M10-F01` |
+>
+> **注意**：`idea/clarifications.md` 的假设台账使用**自己的** `B1–B16`——与本文档「批注 B#」**撞号但含义不同**。引用 idea 层假设时一律写作 **`idea-B#`**（如 `idea-B6` = 原「单机无鉴权」假设）。
+
 > [!TODO] 应该提供CLI和skill ，供coding agent调用
 >
 > **处置（B3/B11）**：已落地，见 §9.2 CLI 工具族、§9.3 Skill 清单。
@@ -51,7 +63,7 @@ section_meta: "@meta"
 
 | 项 | 值 |
 |---|---|
-| 模块数量 | 11 模块（M01–M11）+ 1 边界（M-LR）+ 1 横切（M12 可观测性） |
+| 模块数量 | **11 功能模块（M01–M11）+ 1 边界（M-LR）+ 1 横切（M12 可观测性）** —— **V7 修复**：原「9 模块」为 v1.2 遗留，与 §1.3 矩阵/§2 结构/functional REQ 三处不一致，现统一；M11 属 L4 接口层（§1.3/§3 M11） |
 | 依赖深度 | 最长链 M01 → M02 → M03 → M04 → M06/M07（深度 5） |
 | 参考文档 | 本规范 + `../idea/design_doc.md`（设计依据）+ `../idea/clarifications.md`（B/Q 台账） |
 
