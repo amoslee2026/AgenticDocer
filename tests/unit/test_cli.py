@@ -441,6 +441,18 @@ def test_network_failure_is_actionable(
     assert "agenticdocer-api" in result.stderr
 
 
+def test_server_error_hint_points_at_logs(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str]
+) -> None:
+    """5xx 不吐堆栈，指向带 rid 的日志查询（服务端错误也要可操作）。"""
+    transport, _ = fake_api(responder=_Fault(500, {"message": "boom"}))
+    patch_transport(monkeypatch, transport)
+    result = run("doc", "list", "--json", env_key=key_pair[0])
+    assert result.exit_code == 1
+    assert "HTTP 500" in result.stderr
+    assert "agenticdocer logs query --level ERROR" in result.stderr
+
+
 def test_min_role_mapping_matches_m10_matrix() -> None:
     assert cli._min_role("read") == "reader"
     assert cli._min_role("write") == "editor"

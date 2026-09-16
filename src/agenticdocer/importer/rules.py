@@ -55,6 +55,7 @@ __all__ = [
     "match_html_image",
     "match_list_item",
     "match_block_html",
+    "match_empty_table_fragment",
     "match_toc_marker",
     "match_toc_line",
     "match_glossary_marker",
@@ -249,6 +250,16 @@ RULES: dict[str, Rule] = {
             "match_block_html",
         ),
         Rule(
+            "F04.table.text-empty",
+            RULE_SET_VERSION,
+            "无文本投影的表格块（如仅含 <img> 的 1×1 转换残留壳）→ 兜底 note(format=html，"
+            "不计覆盖率；A10 要求 content.text 非空，而 table 的 text 只能由 fragment 去标签派生）",
+            "note",
+            "fallback",
+            False,
+            "match_empty_table_fragment",
+        ),
+        Rule(
             "F03.unmapped.catch-all",
             RULE_SET_VERSION,
             "未匹配任何形态规则的块 → 兜底 note（零静默丢弃的最后一道闸）",
@@ -412,6 +423,15 @@ def match_block_html(line: str) -> re.Match[str] | None:
     return _BLOCK_HTML_RE.match(line)
 
 
+def match_empty_table_fragment(text: str) -> bool:
+    """HTML 表格块去标签后无文本（A10 的 `content.text` 无从派生）。
+
+    语料实测（PCIe §7.9.2.4，7 份共 1 处）：转换器把一张图片包成 1×1 表格壳
+    （`<table><tr><td><img src="…"></td></tr></table>`），块内无任何文本节点。
+    """
+    return "<table" in text and not html_to_text(text).strip()
+
+
 def match_toc_marker(title: str) -> re.Match[str] | None:
     """目录类标题（Contents / Table of Figures / List of Tables / Index …）。"""
     return _TOC_MARKER_RE.match(clean_text(title))
@@ -507,6 +527,7 @@ MATCHERS: dict[str, Callable[..., Any]] = {
     "match_html_image": match_html_image,
     "match_list_item": match_list_item,
     "match_block_html": match_block_html,
+    "match_empty_table_fragment": match_empty_table_fragment,
     "match_toc_marker": match_toc_marker,
     "match_toc_line": match_toc_line,
     "match_glossary_marker": match_glossary_marker,
