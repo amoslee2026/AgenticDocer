@@ -521,6 +521,10 @@ SPEC_FIELDS: dict[type, set[str]] = {
     User: {"user_id", "username", "role", "status", "created_at", "updated_at"},
     SshKey: {"key_id", "fingerprint", "user_id", "public_key", "key_type", "added_at", "revoked_at"},
     Grant: {"grant_id", "user_id", "scope", "value", "permission", "granted_by", "granted_at"},
+
+    # 基类与 doc_type 组合规则（REQ-M01-F03）
+    Model: set(),
+    DocTypeRule: {"doc_type", "allowed_atom_types", "required_atom_types", "required_meta_fields"},
 }
 
 
