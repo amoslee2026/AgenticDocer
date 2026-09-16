@@ -36,6 +36,7 @@ from . import (
     events_consistency,
     perf_health,
     render_consistency,
+    section_range_consistency,
     terms,
 )
 from .context import GateContext
@@ -61,9 +62,12 @@ DETECTORS: Final[dict[str, Detector]] = {
     assets_missing.DETECTOR_ID: assets_missing.detect,
     render_consistency.DETECTOR_ID: render_consistency.detect,
     events_consistency.DETECTOR_ID: events_consistency.detect,
+    section_range_consistency.DETECTOR_ID: section_range_consistency.detect,
     perf_health.DETECTOR_ID: perf_health.detect,
 }
-"""detector 登记表（key = `QualityReport.detector_id`；§3 M09 声明的 6 项）。"""
+"""detector 登记表（key = `QualityReport.detector_id`）：§3 M09 声明的 6 项 + Main 批准新增的
+`section_range_consistency`（M02 B-2 区间契约兜底）。声明序即报告顺序，**只增不改序**——
+调用方（M11 `quality-gate` 的缺省集合）按各自子集过滤时，相对顺序不变。"""
 
 DETECTOR_IDS: Final[tuple[str, ...]] = tuple(DETECTORS)
 """声明序 = 报告顺序（常量，便于机检与快照）。"""
