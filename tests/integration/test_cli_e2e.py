@@ -92,11 +92,18 @@ async def _probe(url: str) -> str | None:
             await connection.execute(text("SELECT 1"))
         return None
     except Exception as exc:  # noqa: BLE001 - 连接问题一律降级为 skip
-        return f"{type(exc).__name__}: {exc}"
-    finally:
-        await engine.dispose()
-
-
+        env = {**self.env, "AGENTICDOCER_SSH_KEY": str(self.keys[actor])}
+        return subprocess.run(
+            [sys.executable, "-m", "agenticdocer.cli", *args],
+            cwd=ROOT,
+            env=env,
+            input=stdin,
+            stdin=None if stdin is not None else subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
 async def _admin_sql(url: str, *statements: str) -> None:
     """在维护库 `postgres` 上执行 DDL（建/删隔离库）。"""
     engine = create_async_engine(url, isolation_level="AUTOCOMMIT")
@@ -110,10 +117,9 @@ async def _admin_sql(url: str, *statements: str) -> None:
 
 def _free_port() -> int:
     with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
-
-
+def _payload(stdout: str) -> object:
+    """取 stdout 的 JSON（``--json`` 输出即完整 JSON）。"""
+    return json.loads(stdout[stdout.index("{") :] if "{" in stdout else stdout)
 def _write_key(work: Path, name: str) -> tuple[Path, Path]:
     """生成 Ed25519 私钥（OpenSSH PEM）+ 公钥文件；返回 ``(私钥, 公钥)``。"""
     key = ed25519.Ed25519PrivateKey.generate()
