@@ -30,6 +30,7 @@ import asyncio
 import statistics
 import sys
 from pathlib import Path
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
@@ -136,16 +137,24 @@ async def run_bench(args: argparse.Namespace) -> Bench:
     baseline: dict[str, Any] | None = None
     try:
         if args.fresh:
-            # `--fresh` 会清空实体表：先把**真实语料**的密度基线（存储/节点）留下来，
-            # 供「§1.4 的 20–54GB 是否合理」按真实内容密度做交叉校验（合成语料密度偏低）。
+            # `--fresh` 会清空实体表：先把**真实语料**的密度基线（存储/节点）留下来，供
+            # 「§1.4 的 20–54GB 是否合理」按真实内容密度做交叉校验（合成语料密度偏小）。
+            # **仅当库内只有语料（无合成文档）**时该基线才代表真实密度——否则只作记录。
             pre_state = await counts(db)
             if pre_state["nodes"]:
+                pre_corpus_docs = int(await scalar(
+                    db, "SELECT count(*) FROM docs WHERE doc_id NOT LIKE 'SPEC-SYN-%'"
+                ))
+                pre_syn_docs = pre_state["docs"] - pre_corpus_docs
                 pre_info = await pg_info(db)
                 baseline = {
                     "docs": pre_state["docs"],
+                    "corpus_docs": pre_corpus_docs,
+                    "synthetic_docs": pre_syn_docs,
                     "nodes": pre_state["nodes"],
                     "total_bytes": pre_info["total_bytes"],
                     "bytes_per_node": pre_info["total_bytes"] / pre_state["nodes"],
+                    "is_corpus_baseline": pre_corpus_docs > 0 and pre_syn_docs == 0,
                 }
             await truncate_entities(db)
 
