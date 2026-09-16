@@ -1,6 +1,5 @@
 import { useState } from "react";
-import type { HealthReportDTO, MetricsSnapshotDTO } from "../api/types";
-import { ApiError } from "../api/client";
+import type { MetricsSnapshotDTO } from "../api/types";
 import { adminApi } from "../api/endpoints";
 import { useFetch } from "../api/useFetch";
 
