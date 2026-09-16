@@ -184,8 +184,8 @@ events: Final = Table(
     Column("op", Text, nullable=False),
     Column("payload", JSONB, nullable=False),
     Column("actor", Text, nullable=False),
-    _ts("ts", nullable=False),
-    Column("ts", TIMESTAMP(timezone=True), primary_key=True, nullable=False),
+    # PK 含分区键（ADR-009）：events PK = (event_id, ts)
+    Column("ts", TIMESTAMP(timezone=True), primary_key=True, nullable=False, server_default=text("now()")),
     CheckConstraint(
         "entity IN ('doc','node','ref','comment','schema','auth')",
         name="events_entity_check",
