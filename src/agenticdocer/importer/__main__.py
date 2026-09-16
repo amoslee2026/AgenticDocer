@@ -20,6 +20,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from agenticdocer.importer.bulk import BULK_ROWS_PER_TRANSACTION
 from agenticdocer.importer.cli import (
     DEFAULT_ACTOR,
     run_commit,
@@ -62,6 +63,18 @@ def build_parser() -> argparse.ArgumentParser:
     commit_cmd.add_argument("--actor", default=DEFAULT_ACTOR)
     commit_cmd.add_argument("--source-root", default=None, type=Path)
     commit_cmd.add_argument("--no-assets", action="store_true", help="跳过图片资产同步")
+    commit_cmd.add_argument(
+        "--bulk",
+        action="store_true",
+        help="批量路径（ADR-009 §3：COPY + 每 5k 行一事务）",
+    )
+    commit_cmd.add_argument(
+        "--bulk-mode",
+        choices=("online", "initial_load"),
+        default="online",
+        help="online=在线增量（默认）；initial_load=仅空文档全量装载",
+    )
+    commit_cmd.add_argument("--batch-size", type=int, default=BULK_ROWS_PER_TRANSACTION, help="每批行数")
 
     stats_cmd = sub.add_parser("stats", help="规则覆盖率/兜底率/待确认条数")
     stats_cmd.add_argument("doc_slug", nargs="?", default=None)
@@ -93,6 +106,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ctx=None if args.actor == DEFAULT_ACTOR else _ctx(args.actor),
                 sync_assets_too=not args.no_assets,
                 source_root=args.source_root,
+                bulk=args.bulk,
+                bulk_mode=args.bulk_mode,
+                batch_size=args.batch_size,
             )
         )
         _emit(report.model_dump(by_alias=True, mode="json", exclude={"violations"}))

@@ -10,6 +10,7 @@
   （CLI 装配由 M11 完成；`python -m agenticdocer.importer` 等价入口见 `__main__.py`）。
 """
 
+from agenticdocer.importer.bulk import BULK_ROWS_PER_TRANSACTION, bulk_insert_nodes
 from agenticdocer.importer.assets_sync import (
     AssetRef,
     collect_refs,
@@ -26,6 +27,7 @@ from agenticdocer.importer.cli import (
     REVIEW_STATE_NAME,
     check_proposals,
     commit_document,
+    commit_document_bulk,
     decision_summary,
     load_parse_result,
     load_review_state,
@@ -96,6 +98,9 @@ __all__ = [
     "report",
     "rule_counts",
     "scan_blocks",
+    # bulk（ADR-009 §3）
+    "BULK_ROWS_PER_TRANSACTION",
+    "bulk_insert_nodes",
     # assets
     "AssetRef",
     "collect_refs",
@@ -112,6 +117,7 @@ __all__ = [
     "atom_content",
     "check_proposals",
     "commit_document",
+    "commit_document_bulk",
     "decision_summary",
     "load_parse_result",
     "load_review_state",

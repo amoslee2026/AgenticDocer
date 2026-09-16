@@ -48,11 +48,13 @@ from agenticdocer.model import (
     Violation,
     WriteContext,
     get_doc_type_rule,
+    new_uuid7,
 )
 from agenticdocer.observability import get_logger
 from agenticdocer.store import Storage, ValidationError, get_storage
 
 from .assets_sync import source_root_for, sync_assets
+from .bulk import BULK_ROWS_PER_TRANSACTION, bulk_insert_nodes
 from .frontmatter import doc_in_from_meta
 from .parser import atom_content, fallback_anchors, log_parse_stats, parse_markdown, report
 from .rules import RULE_SET_VERSION
@@ -595,23 +597,23 @@ async def commit_document(
         }
         known = known_nodes.get(anchor)
         if known is None:
-            node_id = new_uuid7() if bulk else None
+            # 身份在**规划期**分配（两路一致）：父链与 cross_ref 目标因此可在写入前解析
+            node_id = new_uuid7()
             plan.append(NodeIn(node_id=node_id, **incoming))  # type: ignore[arg-type]
-            if node_id is not None:
-                new_specs.append((anchor, node_id, incoming))
-                anchor_ids[anchor] = node_id
+            new_specs.append((anchor, node_id, incoming))
+            anchor_ids[anchor] = node_id
         else:
             node_id = known.node_id
+            anchor_ids[anchor] = node_id
             if any(getattr(known, name) != incoming[name] for name in _MUTABLE):
                 node_in = NodeIn(node_id=node_id, **incoming)  # type: ignore[arg-type]
                 plan.append(node_in)
                 updates.append(node_in)
-            anchor_ids[anchor] = node_id
         if level is not None:
-            stack.append((level, node_id if node_id is not None else anchor_ids[anchor]))
-        committed.append((proposal, node_id if node_id is not None else anchor_ids[anchor]))
+            stack.append((level, node_id))
+        committed.append((proposal, node_id))
 
-    nodes_created = len(new_specs) if bulk else sum(1 for node_in in plan if node_in.node_id is None)
+    nodes_created = len(new_specs)
     if bulk:
         with log.timer("commit_bulk", module="m03.bulk", doc_id=doc.doc_id, rows=len(new_specs)):
             outcome = await bulk_insert_nodes(store.db, new_specs, context, rows_per_transaction=batch_size)
@@ -695,6 +697,9 @@ async def run_commit(
     storage: Storage | None = None,
     sync_assets_too: bool = True,
     source_root: Path | str | None = None,
+    bulk: bool = False,
+    bulk_mode: Literal["online", "initial_load"] = "online",
+    batch_size: int = BULK_ROWS_PER_TRANSACTION,
 ) -> CommitReport:
     """`commit <doc_slug>`：读提议 + 审核结论 → 校验 → 入库 → 资产同步 → 落 `commit_report.json`。"""
     context = ctx or DEFAULT_CTX
@@ -707,7 +712,15 @@ async def run_commit(
         log.warn("import commit with pending items", doc_slug=doc_slug, pending=summary["pending"])
     store = storage or get_storage()
     with log.timer("commit_import", module="m03.cli", doc_slug=doc_slug):
-        commit = await commit_document(result, context, storage=store, accepted=accepted)
+        commit = await commit_document(
+            result,
+            context,
+            storage=store,
+            accepted=accepted,
+            bulk=bulk,
+            bulk_mode=bulk_mode,
+            batch_size=batch_size,
+        )
         assets: AssetSyncReport | None = None
         if sync_assets_too:
             refs = result.doc_meta.get("asset_refs", {}) or {}

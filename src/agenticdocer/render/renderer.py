@@ -265,23 +265,23 @@ async def _resolve_and_export(
 ) -> tuple[dict[str, str], int, list[str]]:
     """图片 ``src`` → 产物相对路径；并把资产字节从 CAS 导出到 ``<out_dir>/assets/``。
 
-    返回 ``(src→新 src 映射, 导出资产数, 未能解析的 src 清单)``。无法解析的引用原样保留
-    （P4 直通），交由 M09B ``assets_missing`` 与 M03 ``assets_sync`` 处置。
+    资产路径**一次批量取回**（``get_asset_paths``，PERF B-2：消 N+1 点查）；缺失项（元数据缺行
+    或字节缺失）不在返回值里 → 该引用原样保留（P4 直通），计入 ``unresolved``，交由 M09B
+    ``assets_missing`` 与 M03 ``assets_sync`` 处置。
+
+    返回 ``(src→新 src 映射, 导出资产数, 未能解析的 src 清单)``。
     """
     mapping: dict[str, str] = {}
     exported: dict[str, str] = {}
     unresolved: list[str] = []
-    for src in srcs:
-        asset_id = asset_id_of(src)
-        if asset_id is None:
+    pairs = [(src, asset_id_of(src)) for src in srcs]
+    paths = await storage.get_asset_paths([asset_id for _, asset_id in pairs if asset_id])
+    for src, asset_id in pairs:
+        source_path = paths.get(asset_id) if asset_id else None
+        if source_path is None:
             unresolved.append(src)
             continue
         if asset_id not in exported:
-            try:
-                source_path = await storage.get_asset_path(asset_id)
-            except NotFoundError:
-                unresolved.append(src)
-                continue
             # 扩展名以 CAS（`assets.path`，由 M02 按 MIME 决定）为准：源引用的后缀可能过时
             suffix = source_path.suffix.lstrip(".").lower()
             name = f"{asset_id}.{suffix}" if suffix else asset_id
