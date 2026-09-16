@@ -135,10 +135,32 @@ sequenceDiagram
 
 **鉴权审计流**：所有 401/403、用户/授权/密钥变更 → `events(entity='auth', op∈{login,logout,fail,user_change,grant_change,key_change})` → 供审计查询（不参与实体折叠）。
 
-@df6
+## DF-6 可观测性数据流（v1.4 新增：ADR-010）
+
+```mermaid
+flowchart LR
+    subgraph SYS["AgenticDocer 运行期（无 LLM 依赖，P6）"]
+        M10b["M10 鉴权"] -->|rid, dur, error_code| M12["M12 observability<br/>（logger.py 单一适配层）"]
+        M06b["M06/M07 API"] -->|rid, dur, status| M12
+        M02b["M02 存储"] -->|dur, 慢查询| M12
+        M04b["M04 渲染"] -->|dur（整档/章节）| M12
+        M03b["M03 导入"] -->|进度, 覆盖率| M12
+        M09b["M09B perf_health"] -->|容量巡检| M12
+    end
+    M12 -->|structured JSONL| LOG[("logs/*.jsonl<br/>轮转保留")]
+    LOG -->|agentic-logger stats/trace/query| Q1["本地查询（CLI）"]
+    LOG -->|聚合| Q2["GET /admin/metrics<br/>GET /admin/health（admin）"]
+    Q1 -->|rid 全链路| DIAG["故障定位 / 性能分析"]
+    Q2 --> DIAG
+    BENCH["tests/perf/bench_*.py<br/>（离线可复现）"] --> DIAG
+    DIAG -.->|审计权威源（分离）| EV[("PG events<br/>append-only")]
+    EXT["外部 coding agent（可选消费者）"] -.->|读日志/调用 CLI| Q1
+```
+
+> **P6 说明**：「外部 coding agent」为**可选消费者**（虚线），系统运行不依赖其存在；无 LLM 凭据或断网时，M12 的采集/查询/基准全部可用。审计权威源（`events` 表）与运行日志（JSONL）**分离**：日志轮转会丢弃运行痕迹，但审计事件不可丢。
+
 
 ## 数据驻留与边界
-
 
 | 数据 | 位置 | 生命周期 |
 |---|---|---|
