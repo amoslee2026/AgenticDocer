@@ -29,7 +29,6 @@ if str(_HERE) not in sys.path:
 import pytest  # noqa: E402
 
 from _common import (  # noqa: E402
-    ROOT,
     TARGET_COVERAGE,
     Bench,
     Stopwatch,
