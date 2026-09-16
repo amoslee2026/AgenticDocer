@@ -66,13 +66,10 @@ from agenticdocer.model import (
     SshKey,
     Term,
     User,
-    get_atom_schema,
-)
-from agenticdocer.model.types import UserStatus
-    User,
     UserStatus,
     get_atom_schema,
 )
+from agenticdocer.model.types import UserStatus
 from agenticdocer.observability import (
     HealthReport,
     MetricsSnapshot,
