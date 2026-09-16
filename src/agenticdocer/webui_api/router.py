@@ -105,7 +105,7 @@ from agenticdocer.store.schema import (
     terms as terms_table,
 )
 
-from .deps import (
+from agenticdocer.agent_api.deps import (
     AdminAuth,
     DatabaseDep,
     ReadAuth,
