@@ -8,18 +8,14 @@ import type {
   GrantDTO,
   HealthReportDTO,
   MetricsSnapshotDTO,
-  NodeDTO,
-  NodeSnapshotDTO,
-  RenderOutputDTO,
-  RoleInfoDTO,
-  SchemaDTO,
   SectionDTO,
   SessionDTO,
+  SshKeyDTO,
   TableEditPayload,
   TermDTO,
   UserDTO,
+  EventDTO,
 } from "./types";
-
 // ── M10 鉴权 ────────────────────────────────────────────────────────────
 
 export const authApi = {
