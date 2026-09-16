@@ -49,17 +49,11 @@ from agenticdocer.model import (
     is_atom_allowed,
 )
 from agenticdocer.observability import get_logger
-from agenticdocer.store import ForbiddenError, Storage, ValidationError, get_storage
+from agenticdocer.store import Storage, ValidationError, get_storage
 
-from .assets_sync import ref_counts, sync_assets
+from .assets_sync import source_root_for, sync_assets
 from .frontmatter import doc_in_from_meta
-from .parser import (
-    PROPOSAL_ID_FORMAT,
-    atom_type_counts,
-    fallback_anchors,
-    log_parse_stats,
-    parse_markdown,
-    report,
+from .parser import atom_content, fallback_anchors, log_parse_stats, parse_markdown, report
 )
 from .rules import RULE_SET_VERSION
 

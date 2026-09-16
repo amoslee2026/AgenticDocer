@@ -328,11 +328,11 @@ __all__ = [
     "CTX",
     "FRONTMATTER_FIELDS",
     "blocks_to_nodes",
+    "bulk_ingest_markdown",
     "heading_depth",
     "ingest_markdown",
     "node_contents",
     "split_blocks",
     "split_frontmatter",
     "window_with_images",
-    "_jsonable",
 ]
