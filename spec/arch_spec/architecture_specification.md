@@ -535,7 +535,8 @@ def bootstrap_admin(public_key_path: Path) -> User:
 | reader | ✗ | ✗ | ✗ | ✗ | ✅ | ✗ |
 
 **鉴权审计（S1/S10 修复）**：所有鉴权失败（401/403）与用户/授权/密钥变更落 `events`（`entity='auth'`，**已加入 DDL CHECK 与 Event Literal**）。**失败事件的 actor 固定为 `anonymous`**（身份尚未验证），请求中自述的身份值一律记入 `claimed_*` 字段并与验证结果区分，**不得**直接写入 `user_id`/`key_fingerprint`（防污染审计，S10）。成功登录/变更事件的 actor 为验签所得真实 `user_id`。
-
+    已存在 admin 且键文件变更时不自动改写（以 DB 为准）。"""
+```
 **grant 语义（S5 修复）**：`scope ∈ {doc_type, doc}` **二选一**（`repo` 已删除——docs/nodes 无 repo 字段，属悬空概念）；`GrantTarget = DocTypeTarget(value) | DocTarget(doc_id)`（类型已补入 §3.0）。grant 为**收窄器**：角色决定「能做什么」，grant 决定「在哪些文档上」。
 
 **速率限制（S7 修复）**：`/auth/challenge` 与 `/auth/login` 按 IP 限流（默认 10 次/分钟，`AUTH_RATE_LIMIT_PER_MIN` 可配）；**验签失败的请求不写 nonces 表**（nonce 仅在验签通过后消费）；`auth` 失败事件按 `(ip, 5min)` 聚合计数（避免审计淹没）。
