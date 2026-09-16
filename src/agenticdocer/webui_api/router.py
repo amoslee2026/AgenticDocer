@@ -727,11 +727,16 @@ async def admin_metrics(
     since: datetime | None = Query(default=None, description="窗口起点（省略 → 近 window 秒）"),
     window: int = Query(default=_DEFAULT_WINDOW_SECONDS, ge=1, le=86400),
 ) -> MetricsSnapshot:
-    """在线指标快照（端点耗时/慢查询/鉴权失败/渲染，ADR-010）。"""
+    """在线指标快照（端点耗时/慢查询/鉴权失败/渲染，ADR-010）。
+
+    `log_dir` 显式传入：M12 `snapshot()` 的 `log_dir` 形参当前遮蔽了同名模块函数
+    （`metrics.py` 缺省分支 `log_dir()` → `TypeError`），显式传目录既绕开该缺陷又保持
+    「聚合进程默认日志目录」的语义（已报 M12/Main）。
+    """
     moment = _as_utc(since) if since is not None else datetime.now(timezone.utc) - timedelta(
         seconds=window
     )
-    return snapshot(moment, window)
+    return snapshot(moment, window, log_dir=log_directory())
 
 
 @router.get("/admin/health", response_model=HealthReport)
