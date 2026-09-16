@@ -499,6 +499,7 @@ async def test_asset_roundtrip_and_missing_detection(storage: Storage) -> None:
         ),
         None,
         CTX,
+    )
     # 三种引用形态都要认（M03 报告：导入期只有前两种，不含 assets/ 前缀）
     figure_missing = "1" * 64
     html_missing = "2" * 64

@@ -438,7 +438,7 @@ def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: .
 payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE
 ```
   **规范化规则（双方不得另行规范化）**：`RAW_PATH` = 请求行中路径 + `?` + query 的**原样字节**（不百分号解码、不去点段、不增删尾部斜杠）；**query string 参与签名**——篡改 query 任一参数 → 401。
-- **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 用 `rsa-sha2-512` + **PSS**。CLI 与 WebUI 登录页共用**同一验签器**。
+- **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 用 `rsa-sha2-512`（**验签先试 PSS 再回落 v1.5**——实测 ssh-keygen 输出 v1.5；签名固定 PSS）。CLI 与 WebUI 登录页共用**同一验签器**。
 - **校验顺序（S3/S7 修复）**：① `X-Timestamp` 偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]（**未来偏移容忍 30s**）→ ② `X-SSH-Key-Id` 查 `ssh_keys`（active）→ ③ **验签** → ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。失败：401（无/坏凭据）、403（公钥未注册或角色不足）。
 
 **WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖客户端自述字段**（S14 修复：**已删除 `X-Actor` 头**，身份一律以验签结果为准）。
