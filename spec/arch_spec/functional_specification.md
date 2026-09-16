@@ -91,8 +91,6 @@ section_meta: "@meta"
 | REQ-M12-F05 | 容量健康巡检（分区/索引/膨胀/连接池/归档） | M12 | P1 | 2 |
 | REQ-M12-F06 | **运行期 LLM 无关约束（P6）的机械验证** | M12 | P0 | 1 |
 
-| REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
-
 ## 功能详细说明
 
 ### REQ-M01-F01: 原子类型 Schema 注册
