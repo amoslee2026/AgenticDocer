@@ -234,7 +234,7 @@ sequenceDiagram
 | 项 | 风险/问题 | 缓解 |
 |---|---|---|
 | 解析质量（M03） | 大文件（3.4MB/2.7万行）解析器性能与正确性 | 半自动审核（B11）；分章节增量解析；语料回归常态化 |
-| Q2 | PG 实例现状/凭据；node/npm 可用性 | 环境调研回填；缺 node 时前端延后（后端先行） |
+| GigaRAG ingest 路径漂移 | ingest.sh 默认 `LIGHTRAG_INPUT_DIR=/mnt/big10T/lxx/lightrag/inputs`，本机实际为 `/home/lxx/lightrag/inputs`（/mnt/big10T 不存在） | 恢复摄入（C7 解禁）前以环境变量覆盖并实测；已在 summary.md 记录 |
 | Q3/Q4/Q5 | 表单引擎/节点粒度/模板引擎 | Phase 5 ADR 裁决（对应 arch_spec 的 ADR） |
 | 规模上限 | 超 B10 量化值 | 触发再评估（索引/缓存/分区） |
 | LightRAG 联调 | 未验证同库多表实际行为 | Q1 已据源码核实；联调前不阻塞（C7） |
