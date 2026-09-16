@@ -496,3 +496,530 @@ def table_meta(fragment: str, *, markdown: bool = False) -> dict[str, int]:
         columns = max(columns, count)
         cells += count
     return {"rows": len(data_rows), "cols": columns, "cells": cells, "max_colspan": 1}
+
+
+_MD_TABLE_DELIMITER_RE: Final = re.compile(r"^[ \t]*\|?[\s:|-]+\|?[ \t]*$")
+
+
+# ── 原子提议构造（规则 → 原子）──────────────────────────────────────────
+
+
+def _absorbed_by_heading(
+    blocks: Sequence[Block], sections: Sequence[Section], owner: Sequence[int | None]
+) -> tuple[dict[int, list[Block]], list[Block]]:
+    """→ (标题块下标 → 并入该条款的正文段落, 序言段落)。
+
+    序言段落 = 首个标题之前的段落（无归属）；它们并入一个 `preamble` 条款节点，
+    保证「零静默丢弃」（源块数 = 承接 + 兜底，见 :func:`report`）。
+    """
+    absorbed: dict[int, list[Block]] = {section.block_index: [] for section in sections}
+    preamble: list[Block] = []
+    for index, block in enumerate(blocks):
+        if block.kind == rules.HEADING or block.rule_id != "R11.paragraph.clause-body":
+            continue
+        section_index = owner[index]
+        if section_index is None:
+            preamble.append(block)
+        else:
+            absorbed[sections[section_index].block_index].append(block)
+    return absorbed, preamble
+
+
+def _term_of(section: Section) -> str:
+    """词条名：标题去编号后的余下文本（无编号标题即标题本身）。"""
+    numbered = rules.parse_numbering(section.raw_title)
+    if numbered is not None and numbered[1]:
+        return numbered[1]
+    return section.title or section.raw_title
+
+
+def _clause_pending(
+    section: Section | None,
+    block: Block,
+    prose: Sequence[Block],
+) -> _Pending:
+    """标题 → clause 节点（正文段落并入 `content.fragment`，ADR-006）。"""
+    fragment = "\n\n".join([block.text, *(item.text for item in prose)])
+    end = prose[-1].end if prose else block.end
+    return _Pending(
+        block=block,
+        atom_type="clause",
+        format="md",
+        content=_content(
+            "clause",
+            fragment=fragment,
+            text=_strip_heading_markers(fragment),
+            raw=fragment,
+        ),
+        level=section.rank if section is not None else 1,
+        section_path=section.path if section is not None else (),
+        anchor_title=section.title if section is not None else "preamble",
+        body_text=fragment,
+        heading=True,
+        extra={"source_lines": (block.start, end)},
+    )
+
+
+def _definition_heading_pending(section: Section, block: Block, prose: Sequence[Block]) -> _Pending:
+    """术语区词条标题 → definition 节点（fragment 含标题行，渲染零改写）。"""
+    fragment = "\n\n".join([block.text, *(item.text for item in prose)])
+    end = prose[-1].end if prose else block.end
+    return _Pending(
+        block=block,
+        atom_type="definition",
+        format="md",
+        content=_content(
+            "definition",
+            fragment=fragment,
+            text=_strip_heading_markers(fragment),
+            term=_term_of(section),
+        ),
+        level=section.rank,
+        section_path=section.path,
+        anchor_title=section.title,
+        body_text=fragment,
+        heading=True,
+        extra={"source_lines": (block.start, end)},
+    )
+
+
+def _definition_paragraph_pending(block: Block, match: re.Match[str]) -> _Pending:
+    """术语区 `术语 释义…` 段落 → definition 节点。"""
+    return _Pending(
+        block=block,
+        atom_type="definition",
+        format="md",
+        content=_content("definition", fragment=block.text, text=block.text, term=match.group("term")),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _table_pending(block: Block) -> _Pending:
+    """表格块 → table 节点（`fragment` 原样直通；`meta` 为结构统计，E1-a）。"""
+    markdown = block.rule_id == "R04.table.markdown"
+    return _Pending(
+        block=block,
+        atom_type="table",
+        format="md" if markdown else "html",
+        content=_content("table", fragment=block.text, meta=table_meta(block.text, markdown=markdown)),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _code_pending(block: Block) -> _Pending:
+    """围栏代码块 → code 节点（整段围栏进 `fragment`；`text` 为围栏内原文）。"""
+    opening = rules.match_fence(block.lines[0])
+    language = opening.group("lang") if opening is not None else ""
+    closed = len(block.lines) > 1 and rules.match_fence(block.lines[-1]) is not None
+    inner = "\n".join(block.lines[1:-1] if closed else block.lines[1:])
+    return _Pending(
+        block=block,
+        atom_type="code",
+        format="md",
+        content=_content(
+            "code",
+            fragment=block.text,
+            text=inner.strip() or block.text,
+            language=language or None,
+        ),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+_HTML_ALT_RE: Final = re.compile(r"\balt\s*=\s*[\"']?(?P<alt>[^\"'>]*)", re.IGNORECASE)
+
+
+def _figure_pending(block: Block) -> _Pending:
+    """图片块 → figure 节点（`asset_ref` = 文件名 sha256；无 `fragment`，渲染期由 M04 合成）。"""
+    if block.rule_id == "R06.figure.image":
+        match = rules.match_md_image(block.text)
+        alt = match.group("alt") if match is not None else ""
+        source = match.group("src") if match is not None else block.text
+    else:
+        match = rules.match_html_image(block.text)
+        source = match.group("src") if match is not None else block.text
+        alt_match = _HTML_ALT_RE.search(block.text)
+        alt = alt_match.group("alt") if alt_match is not None else ""
+    ref = collect_refs(f'![{alt}]({source})')[0]
+    return _Pending(
+        block=block,
+        atom_type="figure",
+        format="html" if block.rule_id == "R07.figure.html-img" else "md",
+        content=_content(
+            "figure",
+            text=alt.strip() or source,
+            alt=alt.strip() or None,
+            asset_ref=ref.sha256,
+        ),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _note_pending(block: Block) -> _Pending:
+    """列表块 → note 节点（原样 `fragment`，渲染期直通）。"""
+    return _Pending(
+        block=block,
+        atom_type="note",
+        format="md",
+        content=_content("note", fragment=block.text, text=block.text),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _cross_ref_pending(block: Block, doc_id: str) -> _Pending:
+    """交叉引用块 → cross_ref 节点（+ 提交期 refs 边）。"""
+    return _Pending(
+        block=block,
+        atom_type="cross_ref",
+        format="md",
+        content=_content("cross_ref", text=block.text, ref_kind="see_also", target_doc_id=doc_id),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _example_pending(block: Block) -> _Pending:
+    """示例块 → example 节点。"""
+    return _Pending(
+        block=block,
+        atom_type="example",
+        format="md",
+        content=_content("example", fragment=block.text, text=block.text),
+        level=None,
+        section_path=(),
+        anchor_title="",
+        body_text=block.text,
+    )
+
+
+def _plan(
+    blocks: Sequence[Block],
+    sections: Sequence[Section],
+    owner: Sequence[int | None],
+    doc_id: str,
+) -> list[_Pending]:
+    """块序列 → 待定锚原子序列（**文档序**，即最终 `ordinal` 序）。"""
+    absorbed, preamble = _absorbed_by_heading(blocks, sections, owner)
+    preamble_at = preamble[0].start if preamble else None
+    pending: list[_Pending] = []
+    counters: dict[tuple[int | None, str], int] = {}
+    for index, block in enumerate(blocks):
+        rule = rules.RULES[block.rule_id]
+        section_index = owner[index]
+        section = sections[section_index] if section_index is not None else None
+        if block.kind == rules.HEADING:
+            assert section is not None
+            prose = absorbed.get(section.block_index, [])
+            if block.rule_id == rules.DEFINITION_RULE_ID:
+                pending.append(_definition_heading_pending(section, block, prose))
+            else:
+                pending.append(_clause_pending(section, block, prose))
+            continue
+        if block.rule_id == "R11.paragraph.clause-body":
+            if block.start == preamble_at:  # 序言：并入单个 preamble 条款节点
+                pending.append(_clause_pending(None, block, preamble))
+            continue
+        key = (section_index, rule.atom_type)
+        counters[key] = counters.get(key, 0) + 1
+        title = f"{rule.atom_type}-{counters[key]}"
+        if block.rule_id == rules.DEFINITION_BODY_RULE_ID:
+            match = rules.match_definition_paragraph(block.text)
+            assert match is not None  # 规则命中即已匹配
+            item = _definition_paragraph_pending(block, match)
+        elif block.rule_id in ("R03.table.html", "R04.table.markdown"):
+            item = _table_pending(block)
+        elif block.rule_id == "R05.code.fenced":
+            item = _code_pending(block)
+        elif block.rule_id in ("R06.figure.image", "R07.figure.html-img"):
+            item = _figure_pending(block)
+        elif block.rule_id == "R08.list.note":
+            item = _note_pending(block)
+        elif block.rule_id == "R09.cross_ref.sentence":
+            item = _cross_ref_pending(block, doc_id)
+        elif block.rule_id == "R10.example.callout":
+            item = _example_pending(block)
+        else:  # 兜底规则：F01/F02/F03（结构无锚字段，锚由解析期单点定，见 doc_meta["fallback"]）
+            item = _Pending(
+                block=block,
+                atom_type=rule.atom_type,
+                format="html" if block.kind == rules.HTML_RESIDUE else "md",
+                content=None,
+                level=None,
+                section_path=section.path if section is not None else (),
+                anchor_title=title,
+                body_text=block.text,
+                fallback=True,
+            )
+        if item.section_path == () and section is not None:
+            item.section_path = section.path
+        if not item.anchor_title:
+            item.anchor_title = title
+        pending.append(item)
+    return pending
+
+
+def _resolve_cross_refs(pending: Sequence[_Pending]) -> dict[str, int]:
+    """把 `See Section 1.2.3` 解析到**本档内**已定锚的章节（同一文档内可解析者）。
+
+    未解析的引用保留为「文档级 see_also 边」（`dst_node_id IS NULL`）——M09B
+    `broken_refs` 巡检的口径来源（ADR-009：dst 不校验，悬空目标由巡检报告）。
+    """
+    by_path = {
+        section_path_str(item.section_path): item.extra["anchor"]
+        for item in pending
+        if item.heading and item.section_path and "anchor" in item.extra
+    }
+    total = resolved = 0
+    unresolved: list[str] = []
+    for item in pending:
+        if item.atom_type != "cross_ref" or item.content is None:
+            continue
+        total += 1
+        match = _XREF_TARGET_RE.search(str(item.content.get("text", "")))
+        target = by_path.get(match.group(1)) if match is not None else None
+        if target is None:
+            unresolved.append(str(item.content.get("text", ""))[:160])
+            continue
+        item.content["target_anchor"] = target
+        resolved += 1
+    return {"total": total, "resolved": resolved, "unresolved": unresolved}
+
+
+def fallback_anchors(result: ParseResult) -> dict[str, str]:
+    """兜底提议 `proposal_id` → 锚（`RawFallback` 无锚字段，锚在解析期定于 `doc_meta`）。"""
+    mapping = result.doc_meta.get("fallback")
+    return dict(mapping) if isinstance(mapping, dict) else {}
+
+
+# ── 统计与报告 ───────────────────────────────────────────────────────────
+
+
+def coverage(stats: ParseStats) -> float:
+    """规则覆盖率 = 携带 `rule_id` 的源块数 ÷ 总源块数（design_doc §10；目标 ≥95%）。"""
+    return stats.rule_covered / stats.total_blocks if stats.total_blocks else 0.0
+
+
+def atom_type_counts(result: ParseResult) -> dict[str, int]:
+    """各原子类型计数（含兜底原子；变体按基底名计数）。"""
+    counts: dict[str, int] = {}
+    for proposal in result.proposals:
+        kind = proposal.atom.atom_type.split(".", 1)[0]
+        counts[kind] = counts.get(kind, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def rule_counts(result: ParseResult) -> dict[str, int]:
+    """各规则命中计数（`rule_id` → 提议数）。"""
+    counts: dict[str, int] = {}
+    for proposal in result.proposals:
+        counts[proposal.rule_id] = counts.get(proposal.rule_id, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def report(result: ParseResult) -> dict[str, Any]:
+    """解析统计报告（`stats` CLI 的输出口径；coverage/兜底率/待确认条数/未映射清单）。"""
+    stats = result.stats
+    blocks = result.doc_meta.get("blocks") if isinstance(result.doc_meta.get("blocks"), dict) else {}
+    unmapped_reasons: dict[str, int] = {}
+    for item in result.unmapped:
+        unmapped_reasons[item.reason] = unmapped_reasons.get(item.reason, 0) + 1
+    return {
+        "doc_id": result.doc_meta.get("doc_id"),
+        "doc_slug": result.doc_meta.get("doc_slug"),
+        "total_blocks": stats.total_blocks,
+        "rule_covered": stats.rule_covered,
+        "fallback": stats.fallback,
+        "pending": stats.pending,
+        "coverage": round(coverage(stats), 6),
+        "fallback_ratio": round(stats.fallback / stats.total_blocks, 6) if stats.total_blocks else 0.0,
+        "proposals": len(result.proposals),
+        "absorbed": blocks.get("absorbed"),
+        "blocks_by_kind": blocks.get("by_kind", {}),
+        "atom_types": atom_type_counts(result),
+        "rules": rule_counts(result),
+        "unmapped": {"count": len(result.unmapped), "reasons": unmapped_reasons},
+        "asset_refs": result.doc_meta.get("asset_refs", {}),
+        "cross_ref": {
+            key: value
+            for key, value in (result.doc_meta.get("cross_ref") or {}).items()
+            if key != "unresolved"
+        },
+    }
+
+
+COVERAGE_TARGET: Final = 0.95
+"""规则覆盖率目标（§1.4 指标：规则覆盖率 ≥95%；低于目标记 WARN）。"""
+
+
+def log_parse_stats(result: ParseResult, *, module: str = "m03.parser", **extra: Any) -> dict[str, Any]:
+    """落解析统计（M12 度量：覆盖率/兜底率/待确认条数；低于目标记 WARN）并返回报告。"""
+    summary = report(result)
+    fields: dict[str, Any] = {
+        "doc_id": summary["doc_id"],
+        "doc_slug": summary["doc_slug"],
+        "total_blocks": summary["total_blocks"],
+        "rule_covered": summary["rule_covered"],
+        "coverage": summary["coverage"],
+        "fallback": summary["fallback"],
+        "fallback_ratio": summary["fallback_ratio"],
+        "pending": summary["pending"],
+        "atom_types": summary["atom_types"],
+        **extra,
+    }
+    emit = log.info if summary["coverage"] >= COVERAGE_TARGET else log.warn
+    emit("import parse stats", module=module, **fields)
+    return summary
+
+
+# ── 入口 ─────────────────────────────────────────────────────────────────
+
+
+def parse_text(
+    text: str,
+    *,
+    doc_slug: str,
+    source_path: Path | None = None,
+) -> ParseResult:
+    """解析 markdown 文本 → :class:`ParseResult`（确定性：同一输入逐字节一致）。"""
+    frontmatter: Frontmatter = parse_frontmatter(text, doc_slug=doc_slug, source_path=source_path)
+    doc_id = frontmatter.doc_id
+    lines = frontmatter.body.split("\n")
+    blocks = classify(scan_blocks(lines, first_line=frontmatter.body_start))
+    sections, owner = build_sections(blocks)
+    pending = _plan(blocks, sections, owner, doc_id)
+    anchors = assign_anchors(
+        doc_id,
+        [SectionRef(item.section_path, item.anchor_title, item.body_text) for item in pending],
+    )
+    for item, anchor in zip(pending, anchors):
+        item.extra["anchor"] = anchor
+
+    proposals: list[Proposal] = []
+    unmapped: list[UnmappedBlock] = []
+    fallback_map: dict[str, str] = {}
+    for position, (item, anchor) in enumerate(zip(pending, anchors)):
+        proposal_id = PROPOSAL_ID_FORMAT.format(position + 1)
+        if item.fallback:
+            fallback = RawFallback(
+                atom_type=item.atom_type,
+                format=item.format,
+                text=item.block.text,
+                source_lines=item.source_lines,
+            )
+            proposals.append(
+                Proposal(
+                    proposal_id=proposal_id,
+                    rule_id=item.block.rule_id,
+                    confident=item.block.confident,
+                    source_lines=item.source_lines,
+                    atom=fallback,
+                )
+            )
+            unmapped.append(
+                UnmappedBlock(
+                    source_lines=item.source_lines,
+                    reason=rules.RULES[item.block.rule_id].description,
+                    fallback=fallback,
+                )
+            )
+            fallback_map[proposal_id] = anchor
+            continue
+        proposals.append(
+            Proposal(
+                proposal_id=proposal_id,
+                rule_id=item.block.rule_id,
+                confident=item.block.confident,
+                source_lines=item.source_lines,
+                atom=NodeIn(
+                    node_id=None,
+                    doc_id=doc_id,
+                    atom_type=item.atom_type,
+                    format=item.format,
+                    ordinal=position,
+                    parent_node_id=None,  # 层级由 (level, ordinal) 在提交期重建（node_id 提交期才产生）
+                    level=item.level,
+                    anchor=anchor,
+                    content=item.content or {},
+                ),
+            )
+        )
+
+    cross_ref = _resolve_cross_refs(pending)
+    by_kind: dict[str, int] = {}
+    for block in blocks:
+        by_kind[block.kind] = by_kind.get(block.kind, 0) + 1
+    rule_covered = sum(1 for block in blocks if rules.RULES[block.rule_id].category == "mapped")
+    stats = ParseStats(
+        total_blocks=len(blocks),
+        rule_covered=rule_covered,
+        fallback=len(blocks) - rule_covered,
+        pending=sum(1 for proposal in proposals if not proposal.confident),
+    )
+    if stats.total_blocks != stats.rule_covered + stats.fallback:  # 零静默丢弃（不变量）
+        log.error(
+            "block accounting mismatch",
+            total_blocks=stats.total_blocks,
+            rule_covered=stats.rule_covered,
+            fallback=stats.fallback,
+            error_code="DTO_PARSE_ACCOUNTING",
+        )
+    asset_refs = collect_refs(text)
+    doc_meta: dict[str, Any] = {
+        **frontmatter.doc_meta,
+        "body_start": frontmatter.body_start,
+        "blocks": {
+            "total": len(blocks),
+            "absorbed": sum(
+                1
+                for block in blocks
+                if rules.RULES[block.rule_id].category == "mapped"
+                and block.kind in (rules.PARAGRAPH,)
+                and block.rule_id == "R11.paragraph.clause-body"
+            ),
+            "by_kind": by_kind,
+        },
+        "asset_refs": {**ref_counts(asset_refs), "refs": unique_refs(asset_refs)},
+        "cross_ref": cross_ref,
+        "fallback": fallback_map,
+    }
+    return ParseResult(
+        doc_meta=doc_meta,
+        proposals=proposals,
+        unmapped=unmapped,
+        stats=stats,
+    )
+
+
+def parse_markdown(path: Path | str, doc_slug: str | None = None) -> ParseResult:
+    """解析 markdown 文件（§3 M03 接口）。
+
+    `doc_slug` 缺省 = 源文件名去 `.md`（§3 M03：「如 `IHI0024_AMBA_APB_spec`」），
+    仅用于导入工作区（`data/import_work/<doc_slug>/`）；`doc_id` 一律取 frontmatter `spec_id`。
+    """
+    source = Path(path)
+    slug = doc_slug or source.stem
+    text = source.read_text(encoding="utf-8")
+    with log.timer("parse_markdown", module="m03.parser", doc_slug=slug, bytes=len(text)):
+        return parse_text(text, doc_slug=slug, source_path=source)
+
+
+def parse(path: Path | str, doc_slug: str | None = None) -> ParseResult:
+    """`parse_markdown` 的别名（§3 M03 接口名与 CLI 子命令同名）。"""
+    return parse_markdown(path, doc_slug)
