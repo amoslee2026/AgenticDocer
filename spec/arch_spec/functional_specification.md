@@ -80,6 +80,12 @@ section_meta: "@meta"
 | REQ-M11-F01 | CLI：导入/删除/修改/读取工具族（B3/B11） | M11 | P1 | 2 |
 | REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
 | REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P0 | 1 |
+| REQ-M12-F01 | AgenticLogger 全面接入（全模块统一出口） | M12 | P0 | 1 |
+| REQ-M12-F02 | 请求级追踪（rid 贯穿鉴权→API→存储→渲染） | M12 | P0 | 1 |
+| REQ-M12-F03 | 在线性能指标（API/慢查询/鉴权/渲染） | M12 | P1 | 2 |
+| REQ-M12-F04 | 性能基准套件（tests/perf/，可复现验收） | M12 | P1 | 2 |
+| REQ-M12-F05 | 容量健康巡检（分区/索引/膨胀/连接池/归档） | M12 | P1 | 2 |
+| REQ-M12-F06 | **运行期 LLM 无关约束（P6）的机械验证** | M12 | P0 | 1 |
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
 | REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
 | REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
@@ -333,6 +339,42 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 封装 `agenticdocer doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
 
+
+### REQ-M12-F01: AgenticLogger 全面接入
+
+所有模块统一经 `observability/logger.py` 适配层调用 AgenticLogger SDK（`program="agenticdocer"`，`command=<模块/子命令>`）；禁止业务代码直接 `print`/`import logging`。
+
+**验收标准**：(a) 每个模块产生结构化 JSONL 日志（含 `module`/`rid`/`ts`）；(b) lint 规则检出并拒绝业务代码中的 `print`/`logging` 直接使用（白名单仅适配层）；(c) 日志按 `INTERCHANGE.md` 规范可被 `agentic-logger` CLI 解析（`agentic-logger stats` 有输出）。
+
+### REQ-M12-F02: 请求级追踪（rid 贯穿）
+
+每次 HTTP 请求或 CLI 调用生成一个 `rid`，贯穿 M10 鉴权 → M06/M07 路由 → M02 存储 → M04 渲染全链路。
+
+**验收标准**：(a) 单次请求的所有日志行共享同一 `rid`；(b) `agenticdocer logs trace --rid <id>` 输出该请求完整链路（含各阶段 `dur`）；(c) 并发请求的 `rid` 不串（ContextVar 正确传播，含 async 任务）。
+
+### REQ-M12-F03: 在线性能指标
+
+采集 API 耗时（端点 × P50/95/99）、错误率（端点 × error_code）、慢查询 Top-N（> `SLOW_QUERY_MS`）、鉴权失败率、渲染耗时（整档/章节）、导入进度；经 `GET /api/v1/admin/metrics?since=&window=` 查询快照。
+
+**验收标准**：(a) 指标端点返回 `MetricsSnapshot` 结构且数值与实际请求相符（注入已知延迟的测试请求验证）；(b) 仅 admin 可访问（其他角色 403）；(c) 慢查询被正确识别（构造 > 阈值查询）；(d) 超指标请求产生 `error_code=DTO_PERF_EXCEEDED`。
+
+### REQ-M12-F04: 性能基准套件
+
+`tests/perf/` 提供 `bench_point_query.py`（点查 P95）、`bench_render.py`（整档+章节）、`bench_auth.py`（验签+会话）、`bench_scale.py`（合成 10,000 文档）、`bench_import.py`（导入吞吐与覆盖率）。
+
+**验收标准**：(a) 每个基准可独立运行并输出所测指标（P50/P95/P99 或吞吐）；(b) 结果落 `build/perf.json`（可对比历史）；(c) `bench_scale.py` 完成 10k 文档灌入并测得分区后点查/渲染指标（ADR-009 规模验收证据）；(d) 基准在无 LLM 凭据、断网环境可运行（P6）。
+
+### REQ-M12-F05: 容量健康巡检
+
+巡检表/分区行数与膨胀、索引使用率（`idx_scan=0` 建议清理）、autovacuum 滞后、连接池饱和度、events 分区完整性与归档逾期；输出 `HealthReport`（`verdict` + `advice`）。
+
+**验收标准**：(a) `agenticdocer stats --health` 输出全部巡检项；(b) 构造缺失分区/膨胀/连接池打满场景时 `verdict` 转为 `degraded`/`fail` 且 `advice` 给出具体建议；(c) 接入 M09B `perf_health` detector（质量门可调用）。
+
+### REQ-M12-F06: 运行期 LLM 无关约束（P6）的机械验证
+
+验证系统任何运行路径都不依赖 LLM。
+
+**验收标准**（四项全过）：(a) `import` 白名单 lint 通过——业务代码无 `openai`/`anthropic`/`transformers`/`torch`/`litellm` 等推理 SDK 引用；(b) **断网环境下全功能测试通过**（e2e 在 `--no-network` 或屏蔽出网时全绿）；(c) `uv tree` 依赖树无推理类依赖；(d) 端到端测试在**无任何 LLM 凭据**（无相关环境变量）环境下通过。
 **验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
 
 ## 不支持的功能（声明）
