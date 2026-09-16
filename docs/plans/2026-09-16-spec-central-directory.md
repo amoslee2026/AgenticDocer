@@ -710,7 +710,7 @@ test -d /home/lxx/wrk/GigaPie/spec && echo "REF-GIGAPIE-SPEC OK"
 test -d /home/lxx/wrk/Arion/spec/PRD && echo "REF-ARION-PRD OK"
 test -d /home/lxx/wrk/nova2026/archExplorer/spec && echo "REF-NOVA-ARCHEXPLORER OK"
 ```
-
+git -C /home/lxx/wrk/GigaRAG status --short -- README.md corpus/03_reviewed corpus/04_ingested scripts/ingest.sh scripts/README.md   # 精确到计划修改文件；scripts/convert 等 untracked 历史遗留不在判定内（R6）
 - [ ] **Step 3: ingest 读源端到端（K3，复用 Task 4 命令）+ 双仓状态检查（K5）**
 
 ```bash
