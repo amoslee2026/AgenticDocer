@@ -959,7 +959,9 @@ def parse_text(
                     node_id=None,
                     doc_id=doc_id,
                     atom_type=item.atom_type,
-                    format=item.format,
+                    # ordinal = 源行号（稳定：与 proposal.source_lines[0] 恒等，
+                    # 重解析/审核筛选都不改变块序；M04 按 ordinal 拼接即还原源序）
+                    ordinal=item.source_lines[0],
                     ordinal=position,
                     parent_node_id=None,  # 层级由 (level, ordinal) 在提交期重建（node_id 提交期才产生）
                     level=item.level,
