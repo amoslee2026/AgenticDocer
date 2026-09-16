@@ -108,6 +108,7 @@ export function HistoryPanel({ node }: { node: NodeDTO }) {
                   <span>{event.ts.replace("T", " ").slice(0, 19)}</span>
                   <span>{event.eventId}</span>
                 </div>
+                <div className="tl-body">{payloadSummary(event)}</div>
                 <button className="ghost" disabled={pointBusy} onClick={() => void viewAt(event)}>
                   回看此事件后的状态
                 </button>
