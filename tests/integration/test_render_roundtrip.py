@@ -293,7 +293,7 @@ async def test_render_section_scoped_and_fast(
     nodes = await storage.get_doc_nodes(doc_id)
     sections = list_sections(nodes)
     assert sections, "应能识别出 level-1/2 章节"
-    target = sections[1] if len(sections) > 1 else sections[0]
+    target = max(sections, key=lambda section: section.node_count)
     subtree = section_subtree(nodes, target.node_id)
     assert len(subtree) >= 1
 
@@ -311,8 +311,53 @@ async def test_render_section_scoped_and_fast(
     leaked = [f for f in other_fragments if f and f in body]
     assert leaked == [], f"章节产物混入章节外内容：{leaked[:1]}"
     print(f"[M04] render_section 耗时 {elapsed * 1000:.1f}ms（子树 {len(subtree)} 节点）")
+    print(
+        f"[M04] render_section {elapsed * 1000:.1f}ms"
+        f"（AMBA 最大章节：{len(subtree)} 节点 / 全档 {len(nodes)} 节点）"
+    )
     assert elapsed < 1.0, f"分章节渲染超预算：{elapsed:.3f}s"
 
+
+@pytest.mark.perf
+@pytest.mark.asyncio
+async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path: Path) -> None:
+    """**最大文档**（CXL 3.59MB / 13,835 块）：两式往返 + P4 片段证据 + 渲染耗时（§1.4）。
+
+    入库走 ``bulk_ingest_markdown``（基准夹具，见其 docstring）：本测试测量的是读取与渲染成本。
+    """
+    _require(CXL)
+    doc_id = f"SPEC-CXL-FULL-{next(_SEQ)}"
+    doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
+    source_form = normalize_markdown(source)
+
+    # (a) 解析保真
+    assert await normalize(doc_id, storage=storage) == source_form
+
+    started = time.perf_counter()
+    result = await render_document(doc_id, tmp_path / "full", storage=storage)
+    document_ms = (time.perf_counter() - started) * 1000
+    product = Path(result.out_path).read_text(encoding="utf-8")
+
+    # (b) 渲染保真
+    assert normalize_markdown(product) == source_form
+    # P4：全部 HTML 表格片段逐字节出现（含 <img> 者：引用未落库 → 原样直通）
+    nodes = await storage.get_doc_nodes(doc_id)
+    fragments = _table_fragments(nodes)
+    assert len(fragments) == 1243
+    assert all(fragment in product for fragment in fragments)
+
+    sections = list_sections(nodes)
+    target = max(sections, key=lambda section: section.node_count)
+    started = time.perf_counter()
+    await render_section(doc_id, target.node_id, tmp_path / "full", storage=storage)
+    section_ms = (time.perf_counter() - started) * 1000
+
+    print(
+        f"[M04] 全档（CXL 3.59MB/{len(nodes)} 节点）：render_document {document_ms:.0f}ms；"
+        f"render_section {section_ms:.0f}ms（最大章节 {target.node_count} 节点）"
+    )
+    assert section_ms < 1000, f"分章节渲染超预算：{section_ms:.0f}ms"
+    assert document_ms < 3000, f"整档渲染超上限：{document_ms:.0f}ms"
 
 @pytest.mark.asyncio
 async def test_render_missing_targets_raise_not_found(
