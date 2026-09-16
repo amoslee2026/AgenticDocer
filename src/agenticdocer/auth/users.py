@@ -121,9 +121,14 @@ def _db(db: Database | None) -> Database:
     return db if db is not None else get_database()
 
 
+def _mapping(row: Any) -> dict[str, Any]:
+    """SQLAlchemy 行 / 普通 dict → 列名字典（写入路径回读刚构造的记录时用 dict）。"""
+    return dict(row) if isinstance(row, Mapping) else row_to_dict(row)
+
+
 def user_from_row(row: Any) -> User:
     """``users`` 行 → :class:`~agenticdocer.model.User`。"""
-    return build_model(User, row_to_dict(row))
+    return build_model(User, _mapping(row))
 
 
 def ssh_key_from_row(row: Any) -> SshKey:
@@ -131,14 +136,14 @@ def ssh_key_from_row(row: Any) -> SshKey:
 
     DDL 无 ``fingerprint`` 列（``key_id`` 即指纹），M01 模型要求该字段，故此处补齐。
     """
-    data = row_to_dict(row)
+    data = _mapping(row)
     data["fingerprint"] = data["key_id"]
     return build_model(SshKey, data)
 
 
 def grant_from_row(row: Any) -> Grant:
     """``grants`` 行 → :class:`~agenticdocer.model.Grant`。"""
-    return build_model(Grant, row_to_dict(row))
+    return build_model(Grant, _mapping(row))
 
 
 # ------------------------------------------------------------ 行读取（事务内共享）
