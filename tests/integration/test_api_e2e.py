@@ -510,19 +510,49 @@ async def test_agent_flow_read_write_render_diff(
     )
     assert reviewed.status_code == 200 and reviewed.json()["status"] == "reviewed"
 
-    # ── 表格回写（B6/V8：行列 JSON → content，expectedVersion 乐观锁）
-    table_write = await admin.request(
+    # ── 表格回写（B6/V8）：`<table>` HTML 片段恒**不可编辑**（P4 零改写直通，B6(d)）
+    html_edit = await admin.request(
         "PATCH",
         f"/api/v1/nodes/{table_node['nodeId']}/table",
-        {"rows": [["Name"], ["A"], ["B"]], "expectedVersion": 1, "headerNames": ["Name"]},
+        {"rows": [["Name"], ["A"]], "expectedVersion": 1, "headerNames": ["Name"]},
+    )
+    assert html_edit.status_code == 403, html_edit.text
+
+    # md 管道表（format=md）才走可编辑控件：行列 JSON → content，expectedVersion 乐观锁
+    pipe_table = await admin.post(
+        "/api/v1/nodes",
+        _node_body(
+            doc_id,
+            "1.3 Pipe Registers",
+            ordinal=3,
+            level=2,
+            parent_node_id=UUID(chapter_node["nodeId"]),
+            atom_type="table",
+            content={
+                "fragment": "| Name | Bits |\n| --- | --- |\n| CTRL | 7:0 |",
+                "meta": {"rows": 2, "cols": 2, "cells": 4, "max_colspan": 1},
+            },
+        ),
+    )
+    assert pipe_table.status_code == 200, pipe_table.text
+    pipe_node = pipe_table.json()
+
+    table_write = await admin.request(
+        "PATCH",
+        f"/api/v1/nodes/{pipe_node['nodeId']}/table",
+        {
+            "rows": [["Name", "Bits"], ["CTRL", "7:0"], ["STATUS", "15:8"]],
+            "expectedVersion": 1,
+            "headerNames": ["Name", "Bits"],
+        },
     )
     assert table_write.status_code == 200, table_write.text
     assert table_write.json()["content"]["meta"]["rows"] == 3
-    assert "<td" in table_write.json()["content"]["fragment"]
+    assert table_write.json()["version"] == 2
     assert (
         await admin.request(
             "PATCH",
-            f"/api/v1/nodes/{table_node['nodeId']}/table",
+            f"/api/v1/nodes/{pipe_node['nodeId']}/table",
             {"rows": [["X"]], "expectedVersion": 1},
         )
     ).status_code == 409
