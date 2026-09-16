@@ -184,7 +184,6 @@ async def _store_single_table_doc(storage: Storage, doc_id: str, fragment: str) 
         CTX,
     )
 
-
     content = {"fragment": fragment, "meta": table_meta(table_cells(fragment))}
     content["text"] = derive_text("table", content)
     await storage.upsert_node(
