@@ -170,16 +170,6 @@ def _mask_img_src(fragment: str) -> str:
     )
 
 
-def _mask_img_src(fragment: str) -> str:
-    import re
-
-    return re.sub(
-        r'(<img\b[^>]*?\bsrc\s*=\s*")([^"]*)(")',
-        r"\1@@\3",
-        fragment,
-    )
-
-
 async def _store_single_table_doc(storage: Storage, doc_id: str, fragment: str) -> None:
     """单节点文档：一个 ``format='html'`` 的表格节点（图片重写路径的最小复现）。"""
     await storage.upsert_doc(
@@ -193,8 +183,7 @@ async def _store_single_table_doc(storage: Storage, doc_id: str, fragment: str) 
         None,
         CTX,
     )
-    from agenticdocer.model import derive_text
-    from agenticdocer.render import table_cells, table_meta
+
 
     content = {"fragment": fragment, "meta": table_meta(table_cells(fragment))}
     content["text"] = derive_text("table", content)
