@@ -584,6 +584,7 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
         records.append({
             "file": str(path.relative_to(ROOT)),
             "doc_slug": path.stem,
+            "bytes": len(text.encode("utf-8")),
             "proposals": len(result.proposals),
             "rule_covered": result.stats.rule_covered,
             "blocks": result.stats.total_blocks,
