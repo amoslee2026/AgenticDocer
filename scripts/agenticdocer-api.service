@@ -40,7 +40,6 @@ PrivateTmp=true
 #   —— 本服务工作目录就在 /home 下且需读写 logs/、data/、build/，
 #      这两项会与其冲突（需 ReadWritePaths 逐条豁免，反而更易漏）。
 #      单机私有部署下用 PrivateTmp + NoNewPrivileges 已足够。
-***
 
 [Install]
 WantedBy=default.target
