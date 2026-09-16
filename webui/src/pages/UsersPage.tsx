@@ -270,7 +270,7 @@ export function UsersPage() {
               </thead>
               <tbody>
                 {grants.map((grant: GrantDTO) => (
-                  <tr key={`${grant.userId}-${grant.scope}-${grant.value}-${grant.permission}`}>
+                  <tr key={grant.grantId}>
                     <td>{users.find((user) => user.userId === grant.userId)?.username ?? grant.userId}</td>
                     <td>{grant.scope}</td>
                     <td>
@@ -281,7 +281,7 @@ export function UsersPage() {
                       <button
                         className="ghost danger"
                         disabled={busy}
-                        onClick={() => void run(() => userApi.deleteGrant(grant.userId), "授权已撤销。")}
+                        onClick={() => void run(() => userApi.deleteGrant(grant.grantId), "授权已撤销。")}
                       >
                         撤销
                       </button>
