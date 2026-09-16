@@ -63,6 +63,7 @@ UNNAMED: Final = "(unnamed)"
 
 UNASSIGNED_TEST: Final = "(unassigned)"
 """覆盖缺口哨兵：覆盖项尚无测试（schema 的 `test` 要求非空字符串）。"""
+
 _FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
 UNKNOWN_STATUS: Final = "unknown"
 """`status` 未标注时的取值。"""
@@ -232,9 +233,9 @@ def parse_vplan(xml_text: str, *, name: str | None = None) -> VPlan:
     :raises ValidationError: XML 不合法、根元素名不在 :data:`VPLAN_ROOT_TAGS`、
         或文档内不含任何 `feature`（空计划即格式错误，不产出空矩阵）。
     """
-    if any(marker in xml_text.lower() for marker in _XML_DECL_RE):
-        # 不给外部实体/DTD 留入口（stdlib ElementTree 不解析外部实体，但先拒为快）
     if any(marker in xml_text.lower() for marker in _FORBIDDEN_DECL_MARKERS):
+        # 不给外部实体/DTD 留入口（stdlib ElementTree 不解析外部实体，但先拒为快）
+        raise ValidationError("vPlan XML 含 DOCTYPE/ENTITY 声明（拒绝解析）", entity="doc")
     try:
         root = ElementTree.fromstring(xml_text)
     except ElementTree.ParseError as exc:
