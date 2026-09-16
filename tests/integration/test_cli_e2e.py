@@ -21,6 +21,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import Final
 from pathlib import Path
 
 import pytest
@@ -60,6 +61,8 @@ def username_for(actor: str) -> str:
 
 
 ADMIN_USERNAME = username_for("admin")
+ROLE_TO_ROLE: Final = {**{name: name for name in ROLE_ACTORS}, "probe": "reader", "revokable": "editor"}
+"""actor 键 → 角色（探针用户专用角色；全量跑时互不争用）。"""
 EPOCH_ISO = "2020-01-01T00:00:00Z"
 """`doc diff` 的起点下界（全新文档的默认区间为空）。"""
 
@@ -297,8 +300,10 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
         _wait_ready(api_url, server)
         boot = handle.ok("auth", "bootstrap", "--json")
         assert isinstance(boot, dict) and boot["username"] == ADMIN_USERNAME, boot
-        # 每个 actor 自建独立身份（唯一用户名 + 唯一密钥）：互不争用，也不依赖库内既有用户
-        for actor, role in ((*((name, name) for name in ROLE_ACTORS), ("probe", "reader"), ("revokable", "editor"))):
+        # 每个 actor 自建独立身份（唯一用户名 + 唯一密钥）：互不争用，也不依赖库内既有用户。
+        # 注意：自举用的 admin 公钥与 actor "admin" 是**同一把**——它只经 bootstrap 登记一次，
+        # 不再 user key add（公钥全局唯一，重复登记会 409）。
+        for actor, role in ROLE_TO_ROLE.items():
             handle.ok("user", "add", "--username", handle.user(actor), "--role", role, "--json")
             handle.ok(
                 "user", "key", "add", "--username", handle.user(actor),

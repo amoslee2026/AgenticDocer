@@ -207,10 +207,19 @@ DATA_DETECTORS = ["broken_refs", "terms", "assets_missing", "render_consistency"
 
 
 async def test_clean_sample_passes_gate(storage: Storage, sample: Sample) -> None:
-    """干净样本：五个数据面 detector 全空（`perf_health` 见下一用例）。"""
+    """干净样本：五个数据面 detector 全空（`perf_health` 见下一用例）。
+
+    四个 doc 维度的 detector 断言**绝对零违规**；`terms` 因词表无 doc 维度（种子/绑定悬空
+    是**全局**判据），只断言「种子已载入（夹具负责）且无指向本样本的违规」——共享库里他人
+    数据不属于本用例的断言范围（否则等于断言一个本用例不拥有的全局不变量）。
+    """
     result = await gate(storage, sample.doc_id, DATA_DETECTORS)
     assert set(result) == set(DATA_DETECTORS)
     for detector_id, violations in result.items():
+        if detector_id == "terms":
+            assert terms.RULE_TERMS_SEED_MISSING not in rules(violations), violations
+            assert not [item for item in violations if sample.doc_id in item.path], violations
+            continue
         assert violations == [], f"{detector_id}: {violations}"
 
 
