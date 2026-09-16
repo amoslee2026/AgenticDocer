@@ -341,6 +341,7 @@ async def _probe(dsn: str, timeout: float) -> _Probe:
             "events 尚未按 ts RANGE 分区（ADR-009 §4.2）：月初写入前请完成分区化，"
             "否则归档逾期检查不可用"
         )
+        probe.degraded = True
     return probe
 
 
