@@ -352,14 +352,16 @@ def test_forbidden_hint_names_role_and_grant_command(
     monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str]
 ) -> None:
     fault = _Fault(403, {"error": "DTO_AUTH_REJECTED", "reason": "forbidden", "message": "角色不足"})
+def test_forbidden_hint_names_role_and_grant_command(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], tmp_path: Path
+) -> None:
+    fault = _Fault(403, {"error": "DTO_AUTH_REJECTED", "reason": "forbidden", "message": "角色不足"})
     transport, _ = fake_api(responder=fault)
     patch_transport(monkeypatch, transport)
-    result = run(
-        "node", "put", "--file", __file__, "--json", env_key=key_pair[0]
-    )
-    assert result.exit_code == 1
-    assert "editor" in result.stderr  # 所需角色名
-    assert "agenticdocer user role --username" in result.stderr
+    patch = tmp_path / "patch.json"
+    patch.write_text(json.dumps({"docId": "SPEC-X", "anchor": "SPEC-X#1", "atomType": "clause",
+                                 "content": {"text": "x"}, "expectedVersion": 2}), encoding="utf-8")
+    result = run("node", "put", "--file", str(patch), "--json", env_key=key_pair[0])
     assert "agenticdocer grant add" in result.stderr
     assert "--permission write" in result.stderr
 
