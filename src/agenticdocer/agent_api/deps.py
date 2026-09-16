@@ -49,6 +49,7 @@ __all__ = [
     "ReadAuth",
     "ReviewAuth",
     "StorageDep",
+    "ErrorResponse",
     "ValidationRejected",
     "WriteAuth",
     "authorize_doc",
@@ -125,3 +126,22 @@ async def authorize_doc(
         doc_type=doc.doc_type,
     )
     return doc
+
+
+class ErrorResponse(Model):
+    """统一错误响应体（§6 错误映射；`app.py` 的异常处理器按此形状序列化）。
+
+    - 401/403/404/409：`error` + `message`（+ 可选的 `code`/`entity`/`entityId`）；
+    - 422：额外给出 `violations[]`（REQ-M06-F02：agent 据 `fixHint` 修正后重试）；
+    - `code` 为 M12 的 `DTO_*` 业务错误码（如 `DTO_ANCHOR_CONFLICT`）。
+
+    本模型经 `FastAPI(responses=…)` 挂到各错误状态码（见 `app.create_app`），使 M08/M11
+    客户端能从 OpenAPI 取到**类型化**的错误契约，而非仅文档描述。
+    """
+
+    error: str
+    message: str
+    code: str | None = None
+    entity: str | None = None
+    entity_id: str | None = None
+    violations: list[Violation] = []
