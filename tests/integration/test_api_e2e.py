@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -25,7 +25,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+
 
 from agenticdocer.app import create_app
 from agenticdocer.auth import sessions, signing
@@ -452,7 +452,7 @@ async def test_agent_flow_read_write_render_diff(
     assert (await admin.get(f"/api/v1/nodes/{node_id}")).status_code == 404
     orphaned = await admin.get(f"/api/v1/comments?node_id={node_id}")
     assert orphaned.status_code == 200
-    assert {item["state"] for item in orphaned.json()} == {"open", "orphaned", "resolved"} - {"open", "resolved"} | {"orphaned"} or True
+    assert {item["state"] for item in orphaned.json()} == {"resolved", "orphaned"}
     assert "orphaned" in {item["state"] for item in orphaned.json()}
     assert (
         await admin.get(f"/api/v1/docs/{doc_id}/nodes?include_deleted=true")
