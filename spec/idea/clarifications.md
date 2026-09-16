@@ -69,7 +69,7 @@ section_meta: "@meta"
 | Q | 问题 | 现状 |
 |---|---|---|
 | Q1 | LightRAG PG 后端能否「同实例同库不同表」共存？ | **已解决**（本地源码证据 2026-09-16）：lightrag-hku 1.5.6 含 `kg/postgres_impl.py`、`kg/pgtable_impl.py`；表名 `LIGHTRAG_*`（含 workspace 列/索引），与业务表天然隔离，**支持同库多表共存** |
-| Q2 | 本机 PG 实例现状（现有 database/凭据/容量）；node/npm 可用性 | 调研中（LocalEnvFacts） |
+| Q2 | 本机 PG 实例现状（现有 database/凭据/容量）；node/npm 可用性 | **已解决**（2026-09-16 实测，本机 TeraFab）：PG **16.15**（Podman 容器 `pgvector/pgvector:pg16`，:5432 可达），现有库 mem0/vectest/gigapie_gigapie/gigapie_test → 新建 `agenticdocer` 库可行；node v22.22.3 / npm 10.9.8 可用；uv 0.12.7 + Python 3.11 可用（系统 python3=3.6.8 过老）；**/mnt/big10T 不存在**（数据落 home）；lightRAG v1.5.6 运行中（JSON 文件模式） |
 | Q3 | 表单引擎选型（RJSF/JSON Forms/自研） | Phase 5 ADR |
 | Q4 | 结构化粒度（条款 vs 段落为最小节点） | 试点裁决，ADR 记录 |
 | Q5 | 渲染模板引擎（Jinja2 vs 程序化生成） | Phase 5 ADR |
