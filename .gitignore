@@ -15,7 +15,3 @@ temp/
 build/
 dist/
 .venv/
-
-# skill 本地状态
-.skills_local/
-idea/.logs/
