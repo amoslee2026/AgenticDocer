@@ -46,6 +46,7 @@ _CHAPTER = re.compile(r"^Chapter\s+(\d+)", re.IGNORECASE)
 _IMAGE_ONLY = re.compile(r"^!\[(?P<alt>[^\]]*)\]\((?P<src>[^)\s]+)\)\s*$")
 _ASSET_ID = re.compile(r"([0-9a-f]{64})")
 _BULLET = re.compile(r"^\s*([-*+]|\d{1,9}[.)])\s+")
+
 FRONTMATTER_FIELDS = (
     "title",
     "type",
