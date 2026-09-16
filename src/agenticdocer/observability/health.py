@@ -266,6 +266,7 @@ class _Probe:
     )
     advice: list[str] = field(default_factory=list)
     hard_fail: bool = False
+    degraded: bool = False
 
 
 def _next_month_start(now: dt.datetime) -> dt.datetime:
@@ -391,9 +392,13 @@ async def health(
         pool=pool_health(engine),
     )
     if probe.advice:
-        advice = [*probe.advice, *report.advice]
+        verdict: Literal["ok", "degraded", "fail"] = report.verdict
+        if probe.hard_fail:
+            verdict = "fail"
+        elif probe.degraded and verdict == "ok":
+            verdict = "degraded"
         report = report.model_copy(
-            update={"advice": advice, "verdict": "fail" if probe.hard_fail else report.verdict}
+            update={"advice": [*probe.advice, *report.advice], "verdict": verdict}
         )
 
     logger.info(
