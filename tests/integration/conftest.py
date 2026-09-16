@@ -26,14 +26,19 @@ from agenticdocer.store import Database, Storage
 ROOT = Path(__file__).resolve().parents[2]
 APP_URL_DEFAULT = "postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer_test"
 OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer_test"
-
-
 def _app_url() -> str:
     return os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL") or APP_URL_DEFAULT
 
 
-def _owner_url() -> str:
-    return os.environ.get("MIGRATION_DATABASE_URL") or OWNER_URL_DEFAULT
+def _owner_url(app_url: str) -> str:
+    """用属主凭据连**同一个**（测试）库：just swap user/password, keep the database name。
+
+    绝不使用 `MIGRATION_DATABASE_URL` 的库名——那指向 `agenticdocer`（生产/开发库），
+    而本夹具会 `DROP SCHEMA public CASCADE`。
+    """
+    app = make_url(app_url)
+    owner = make_url(os.environ.get("MIGRATION_DATABASE_URL") or OWNER_URL_DEFAULT)
+    return str(app.set(username=owner.username, password=owner.password))
 
 
 async def _probe(url: str) -> str | None:
@@ -46,7 +51,6 @@ async def _probe(url: str) -> str | None:
         return f"{type(exc).__name__}: {exc}"
     finally:
         await engine.dispose()
-
 
 async def _drop_and_recreate_public_schema(owner_url: str) -> None:
     engine = create_async_engine(owner_url, isolation_level="AUTOCOMMIT", poolclass=NullPool)

@@ -332,9 +332,9 @@ def test_schema_def_asset_and_term():
 
 
 def test_user_sshkey_grant_and_session():
-    owner = uuid4()
-    admin = uuid4()
     user = User(
+        user_id=owner, username="alice", role="admin", status="active", created_at=NOW, updated_at=NOW
+    )
         user_id=str(owner), username="alice", role="admin", status="active", created_at=NOW, updated_at=NOW
     )
     key = SshKey(
@@ -373,7 +373,7 @@ def test_user_sshkey_grant_and_session():
     assert session.expires_at - session.created_at == timedelta(hours=8)
 
     with pytest.raises(ValidationError):
-        User(user_id=str(uuid4()), username="bob", role="owner", status="active", created_at=NOW, updated_at=NOW)
+        User(user_id=uuid4(), username="bob", role="owner", status="active", created_at=NOW, updated_at=NOW)
     with pytest.raises(ValidationError):
         SshKey(
             key_id="k",
@@ -385,9 +385,24 @@ def test_user_sshkey_grant_and_session():
             revoked_at=None,
         )
     with pytest.raises(ValidationError):
-        Grant(grant_id="g", user_id="u", scope="repo", value="x", permission="write", granted_by=None, granted_at=NOW)
+        Grant(grant_id="g", user_id=owner, scope="repo", value="x", permission="write", granted_by=None, granted_at=NOW)
     with pytest.raises(ValidationError):
-        Grant(grant_id="g", user_id="u", scope="doc", value="x", permission="admin", granted_by=None, granted_at=NOW)
+        Grant(grant_id="g", user_id=owner, scope="doc", value="x", permission="admin", granted_by=None, granted_at=NOW)
+
+
+def test_user_ids_are_uuid7_and_accept_http_string_form():
+    """Main 裁决：user 标识统一 UUID7（对齐 DDL uuid 列）；HTTP JSON 传来的字符串可解析。"""
+    owner = uuid4()
+    user = User(
+        user_id=str(owner), username="alice", role="editor", status="active", created_at=NOW, updated_at=NOW
+    )
+
+    assert user.user_id == owner
+    assert isinstance(user.user_id, UUID)
+    assert user.model_dump(mode="json", by_alias=True)["userId"] == str(owner)
+
+    with pytest.raises(ValidationError):
+        User(user_id="not-a-uuid", username="bob", role="reader", status="active", created_at=NOW, updated_at=NOW)
 
 
 # ── 授权目标（S5：repo 已删除）与联合类型判别 ────────────────────────────
