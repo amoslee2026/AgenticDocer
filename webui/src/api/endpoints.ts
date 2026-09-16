@@ -5,7 +5,7 @@ import type {
   CommentDTO,
   DocDiffDTO,
   DocDTO,
-  GrantDTO,
+  EventDTO,
   HealthReportDTO,
   MetricsSnapshotDTO,
   NodeDTO,
@@ -18,8 +18,6 @@ import type {
   SshKeyDTO,
   TableEditPayload,
   TermDTO,
-  UserDTO,
-  EventDTO,
   UserDTO,
 } from "./types";
 // ── M10 鉴权 ────────────────────────────────────────────────────────────
