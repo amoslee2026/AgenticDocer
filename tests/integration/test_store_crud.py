@@ -754,6 +754,8 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     by_interval = await storage.get_section_nodes(doc_id, first_child.node_id)
     assert [n.node_id for n in by_interval] == [first_child.node_id]
 
+    assert len(by_interval) != len(by_cte)  # detector 前提：两者行数不等即暴露脏数据
+
 
 async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> None:
     """脏数据成环（A→B→A）时递归必须有界：不死循环、不重复，语义与 M04 visited 一致。"""
@@ -787,4 +789,3 @@ async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> No
     assert await storage.get_subtree(root.node_id, doc_id=doc_id) == section_subtree(
         await storage.get_doc_nodes(doc_id), root.node_id
     )
-    assert len(by_interval) != len(by_cte)  # detector 前提：两者行数不等即暴露脏数据
