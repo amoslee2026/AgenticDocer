@@ -195,7 +195,7 @@ def _node_body(
         "ordinal": ordinal,
         "parentNodeId": None if parent_node_id is None else str(parent_node_id),
         "level": level,
-        "anchor": anchor,
+        "anchor": f"{doc_id}#{anchor}",  # M01 锚口径 `<doc_id>#…`（M09A `M09A.anchor.doc_id` 强校验）
         "content": content,
         "expectedVersion": expected_version,
     }
@@ -234,7 +234,7 @@ async def test_agent_flow_read_write_render_diff(
     chapter_node = chapter.json()
     assert chapter_node["nodeId"] and chapter_node["version"] == 1
     assert chapter_node["docId"] == doc_id and chapter_node["atomType"] == "clause"
-    assert chapter_node["status"] == "active" and chapter_node["anchor"] == "1 Scope"
+    assert chapter_node["status"] == "active" and chapter_node["anchor"] == f"{doc_id}#1 Scope"
 
     section = await admin.post(
         "/api/v1/nodes",
@@ -259,7 +259,6 @@ async def test_agent_flow_read_write_render_diff(
             parent_node_id=UUID(chapter_node["nodeId"]),
             atom_type="table",
             content={
-                "text": "reg a reg b",
                 "fragment": "<table><tr><th>Name</th></tr><tr><td>A</td></tr></table>",
                 "meta": {"rows": 2, "cols": 1, "cells": 2, "max_colspan": 1},
             },
@@ -285,7 +284,7 @@ async def test_agent_flow_read_write_render_diff(
         _node_body(doc_id, "1.3 Bad", ordinal=3, atom_type="nonsense", content={"text": "x"}),
     )
     assert unknown.status_code == 422
-    assert unknown.json()["violations"][0]["ruleId"] == "m01.atom_type.unregistered"
+    assert unknown.json()["violations"][0]["ruleId"] == "M09A.atom.unknown"
 
     # ── 点查（doc_id 可选 → 分区裁剪；ADR-009 V16）与乐观锁
     node_id = chapter_node["nodeId"]
@@ -336,7 +335,9 @@ async def test_agent_flow_read_write_render_diff(
     assert listing and {"nodeId", "anchor", "title", "level", "ordinal", "childCount"} <= set(
         listing[0]
     )
-    assert any(item["anchor"] == "1 Scope" and item["childCount"] >= 3 for item in listing)
+    assert any(
+        item["anchor"] == f"{doc_id}#1 Scope" and item["childCount"] >= 3 for item in listing
+    )
 
     # ── 渲染（整档 + 单章节，B10）
     rendered = await admin.get(f"/api/v1/docs/{doc_id}/render")
@@ -407,7 +408,7 @@ async def test_agent_flow_read_write_render_diff(
     content_change = next(entry for entry in edited if entry["field"] == "content")
     assert content_change["before"]["text"] == "Scope of the document"
     assert content_change["after"]["text"] == "Scope of the document (revised)"
-    assert content_change["anchor"] == "1 Scope"
+    assert content_change["anchor"] == f"{doc_id}#1 Scope"
 
     empty = await admin.get(f"/api/v1/docs/{doc_id}/diff?from=1&to=1")
     assert empty.status_code == 200
