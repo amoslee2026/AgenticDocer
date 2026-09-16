@@ -1,9 +1,13 @@
-"""M01 原子定义：八类原子的 JSON Schema、2 变体与 ``content.text`` 派生（A10/R5）。
+"""M01 原子定义：八类原子的 JSON Schema、4 变体与 ``content.text`` 派生（A10/R5）。
 
 - 权威来源：§3 M01（`ATOM_TYPES` / `ATOM_VARIANTS` / `get_json_schema` / `derive_text`）、
   design_doc §5.1（内容原子与格式策略 E1）、functional REQ-M01-F01（schema 注册与加载）。
-- `ATOM_SCHEMAS` 即 `schemas` 表（§4）的种子内容：key = `type_name`（八类 + 2 变体），
+- `ATOM_SCHEMAS` 即 `schemas` 表（§4）的种子内容：key = `type_name`（八类 + 4 变体：
+  `table.register_field` / `figure.state_machine` / `table.failure_mode` / `table.coverage_matrix`），
   value = JSON Schema（draft 2020-12）；M02 落库、M09A 加载校验，两侧同一份定义（P5）。
+  两个新变体按 doc_type 差异化放行（见 `doc_types.DOC_TYPE_RULES.allowed_atom_variants`）：
+  `table.failure_mode` 仅 `safety`（FMEA/FTA，idea.md §4.5），
+  `table.coverage_matrix` 仅 `product`（UCIS/vPlan，idea.md §4.3）。
 - `extra="forbid"` 的等价物是 ``additionalProperties: false``：拼错字段即违规，
   schema 变更必须显式升版并产生 `schema` 事件（REQ-M01-F01）。
 - ``text`` 为**一切原子的必填字段**：FTS 生成列 `nodes.text_fts` 只读 `content->>'text'`
@@ -29,9 +33,16 @@ __all__ = [
 ]
 
 ATOM_TYPES: tuple[str, ...] = ("clause", "definition", "table", "figure", "code", "example", "note", "cross_ref")
-ATOM_VARIANTS: tuple[str, ...] = ("table.register_field", "figure.state_machine")
+ATOM_VARIANTS: tuple[str, ...] = (
+    "table.register_field",
+    "figure.state_machine",
+    "table.failure_mode",
+    "table.coverage_matrix",
+)
 
-TABLE_ATOMS: frozenset[str] = frozenset({"table", "table.register_field"})
+TABLE_ATOMS: frozenset[str] = frozenset(
+    {"table", "table.register_field", "table.failure_mode", "table.coverage_matrix"}
+)
 """表格类原子：`content.fragment` 必为原样 HTML 片段（design_doc §5.1，E1-a）。"""
 
 _DIALECT = "https://json-schema.org/draft/2020-12/schema"
@@ -69,6 +80,33 @@ _REGISTER_FIELD_PROP: dict[str, Any] = {
         "description": {"type": "string"},
     },
     "required": ["field"],
+    "additionalProperties": False,
+}
+_FAILURE_MODE_PROP: dict[str, Any] = {
+    "type": "object",
+    "description": "失效模式行（FMEA/FTA；idea.md §4.5「失效模式/影响/严重度/检测方法/RPN」）",
+    "properties": {
+        "failure_mode": {"type": "string", "minLength": 1, "description": "失效模式（FMEA 首列）"},
+        "effect": {"type": "string", "description": "影响（对模块/系统级失效后果）"},
+        "severity": {"type": "string", "description": "严重度（原样保真：1-10 或 S1-S4 等评标体系）"},
+        "detection_method": {"type": "string", "description": "检测方法（DFT/仿真/形式验证等）"},
+        "rpn": {"type": "integer", "minimum": 0, "description": "风险优先数 RPN（严重度 × 发生度 × 检测度）"},
+        "mitigation": {"type": "string", "description": "缓解措施（可选；idea.md §4.5 FMEA 行）"},
+    },
+    "required": ["failure_mode", "effect", "severity", "detection_method", "rpn"],
+    "additionalProperties": False,
+}
+_COVERAGE_ROW_PROP: dict[str, Any] = {
+    "type": "object",
+    "description": "覆盖矩阵行（UCIS/vPlan：feature → sub-feature → coverage item → test → status）",
+    "properties": {
+        "feature": {"type": "string", "minLength": 1, "description": "特性（vPlan `<Feature>` / UCIS feature）"},
+        "sub_feature": {"type": "string", "minLength": 1, "description": "子特性"},
+        "coverage_item": {"type": "string", "minLength": 1, "description": "覆盖项（bin/cross/断言名）"},
+        "test": {"type": "string", "minLength": 1, "description": "关联测试名"},
+        "status": {"type": "string", "minLength": 1, "description": "覆盖状态（原样保真：各工具取值不同）"},
+    },
+    "required": ["feature", "sub_feature", "coverage_item", "test", "status"],
     "additionalProperties": False,
 }
 _TRANSITION_PROP: dict[str, Any] = {
@@ -125,6 +163,26 @@ ATOM_SCHEMAS: dict[str, dict[str, Any]] = {
             "fields": {"type": "array", "items": _REGISTER_FIELD_PROP, "minItems": 1},
         },
         ("fragment", "meta", "register", "fields"),
+    ),
+    "table.failure_mode": _schema(
+        "table.failure_mode",
+        "表格变体：失效模式分析表（FMEA/FTA；行 = 失效模式/影响/严重度/检测方法/RPN[/缓解措施]）",
+        {
+            "fragment": {**_FRAGMENT_PROP, "minLength": 1},
+            "meta": _TABLE_META_PROP,
+            "modes": {"type": "array", "items": _FAILURE_MODE_PROP, "minItems": 1},
+        },
+        ("fragment", "meta", "modes"),
+    ),
+    "table.coverage_matrix": _schema(
+        "table.coverage_matrix",
+        "表格变体：覆盖矩阵（UCIS/vPlan；行 = feature/sub-feature/coverage item/test/status）",
+        {
+            "fragment": {**_FRAGMENT_PROP, "minLength": 1},
+            "meta": _TABLE_META_PROP,
+            "matrix": {"type": "array", "items": _COVERAGE_ROW_PROP, "minItems": 1},
+        },
+        ("fragment", "meta", "matrix"),
     ),
     "figure": _schema(
         "figure",
