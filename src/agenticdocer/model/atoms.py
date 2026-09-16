@@ -248,11 +248,15 @@ def derive_text(atom_type: str, content: Mapping[str, Any]) -> str:
     - 表格类（``table`` / ``table.register_field``）：由 ``fragment``（原样 HTML）去标签，
       单元格按行列序拼接；
     - ``cross_ref``：取可见引用文本，缺省退化为 ``target_anchor`` / ``target_doc_id``；
-    - ``figure.state_machine``：无 ``text`` 时由状态集合与迁移集合拼接；
+    - ``figure.state_machine``：无 ``text``/``fragment`` 时由状态集合与迁移集合拼接；
     - 其余原子：``text`` 原样返回；缺 ``text`` 时用 ``fragment``（HTML 则去标签，md/文本原样）。
 
+    :raises UnknownAtomTypeError: ``atom_type`` 无注册 schema（REQ-M01-F01）。
     :raises ValueError: 派生结果为空——M01 保证 `content.text` 非空，空值即写入错误。
     """
+    if atom_type not in ATOM_SCHEMAS:
+        raise UnknownAtomTypeError(f"未注册的 atom_type：{atom_type!r}；无 schema 的类型不得写入")
+
     if atom_type in TABLE_ATOMS:
         fragment = content.get("fragment")
         derived = html_to_text(str(fragment)) if fragment else ""
@@ -260,19 +264,15 @@ def derive_text(atom_type: str, content: Mapping[str, Any]) -> str:
         derived = str(content.get("text") or content.get("target_anchor") or content.get("target_doc_id") or "")
     else:
         text = content.get("text")
+        fragment = content.get("fragment")
         if text:
             derived = str(text)
-        elif (fragment := content.get("fragment")) is not None:
-            pass
-        else:
-            fragment = None
-        if fragment is not None and not content.get("text"):
-            pass
-        fragment = content.get("fragment")
-        if atom_type == "figure.state_machine" and not fragment:
+        elif atom_type == "figure.state_machine" and not fragment:
             states = [str(state) for state in content.get("states") or ()]
             transitions = [
-                f"{item.get('from')}->{item.get('to')}" for item in content.get("transitions") or () if isinstance(item, Mapping)
+                f"{item.get('from')}->{item.get('to')}"
+                for item in content.get("transitions") or ()
+                if isinstance(item, Mapping)
             ]
             derived = " ".join([*states, *transitions])
         elif fragment:
