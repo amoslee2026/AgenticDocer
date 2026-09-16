@@ -687,6 +687,14 @@ async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
     with pytest.raises(NotFoundError):
         await storage.get_section_nodes(doc_id, child_b.node_id)
 
+    # 诊断接口（M09B detector 用）：干净文档两法一致；`level` 为空的节点无法用区间法判定 → None
+    assert await storage.check_section_range(doc_id, root.node_id) is True
+    assert await storage.check_section_range(doc_id, new_uuid7()) is False
+    levelless = await storage.upsert_node(
+        node_in(doc_id, ordinal=7, anchor=f"{doc_id}#3"), None, CTX
+    )
+    assert await storage.check_section_range(doc_id, levelless.node_id) is None
+
 
 async def test_get_asset_paths_batch(storage: Storage) -> None:
     """批量资产路径：单查、去重、缺失项不出现（消 M04 的 N+1）。"""
@@ -755,6 +763,12 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     assert [n.node_id for n in by_interval] == [first_child.node_id]
 
     assert len(by_interval) != len(by_cte)  # detector 前提：两者行数不等即暴露脏数据
+
+    # 关键：诊断接口绕开自愈，故能看见公开接口**看不见**的脏数据 ——
+    # second_child 的 get_section_nodes 已自愈（返回正确结果），但 check_section_range 仍报 False；
+    # 若 detector 直接比较公开接口与 CTE，就会漏掉「多收」方向的契约破坏。
+    assert await storage.check_section_range(doc_id, second_child.node_id) is False
+    assert await storage.check_section_range(doc_id, first_child.node_id) is False
 
 
 async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> None:
