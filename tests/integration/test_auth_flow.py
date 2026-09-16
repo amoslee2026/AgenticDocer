@@ -888,18 +888,22 @@ async def test_auth_audit_events_cover_all_mutations(
 
 
 async def test_session_resolution_slides_expiry(
-    database: Database, key_material: dict[str, Path]
+    client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
     """会话 TTL 8h 滑动续期；未知/过期 token → ``None``（并清行）。"""
-    user = await auth_users.create_user("alice", "editor", actor=SYSTEM_ACTOR, db=database)
-    session, token = await sessions.create_session(user.user_id, db=database)
+    user, _ = await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
+    _, token = await _login_with_ssh_key(client, database, key_material["editor_ed25519"])
+    (initial_expires,) = (
+        await _rows(database, "SELECT expires_at FROM sessions WHERE user_id = :u", u=user.user_id)
+    )[0]
 
     resolved = await sessions.resolve_session(token, db=database)
     assert resolved is not None and resolved.user_id == user.user_id
-    expires = await _scalar(
-        database, "SELECT expires_at FROM sessions WHERE session_id = :sid", sid=session.session_id
-    )
-    assert expires > session.expires_at - timedelta(seconds=1)
+    (slid_expires,) = (
+        await _rows(database, "SELECT expires_at FROM sessions WHERE user_id = :u", u=user.user_id)
+    )[0]
+    assert slid_expires >= initial_expires  # 每次解析都把 expires_at 前移一个 TTL
+    assert slid_expires - initial_expires < timedelta(seconds=5)  # 同一次请求内的滑动幅度
 
     assert await sessions.resolve_session("bogus-token", db=database) is None
     async with database.transaction() as db_session:
