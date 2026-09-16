@@ -882,6 +882,7 @@ def test_middleware_logs_rejection_raised_by_inner_middleware(logs: Path) -> Non
     assert entry["error_code"] == "DTO_AUTH_REJECTED"
     assert entry["ctx"]["status"] == 401
 
+
 def test_middleware_logs_unhandled_exception_as_error(logs: Path) -> None:
     with TestClient(_make_app(), raise_server_exceptions=False) as client:
         response = client.get("/crash")
