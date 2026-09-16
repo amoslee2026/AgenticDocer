@@ -177,8 +177,19 @@ def test_write_contracts_expose_optimistic_locks(spec: dict[str, Any]) -> None:
     assert "expectedVersion" in schemas["StatusChange"]["properties"]
     assert "expectedVersion" in schemas["CommentStateChange"]["properties"]
     # 节点写入体 = NodeIn 全字段 + expectedVersion（§3 M06「NodeIn + expected_version」）
-    node_in = set(schemas["NodeIn"]["properties"])
-    assert node_in <= set(schemas["NodeUpsert"]["properties"])
+    # 节点写入体 = §3.0 `NodeIn` 全字段 + `expectedVersion`（§3 M06「NodeIn + expected_version」）
+    node_in_fields = {
+        "nodeId",
+        "docId",
+        "atomType",
+        "format",
+        "ordinal",
+        "parentNodeId",
+        "level",
+        "anchor",
+        "content",
+    }
+    assert node_in_fields <= set(schemas["NodeUpsert"]["properties"])
 
 
 def test_diff_contract(spec: dict[str, Any]) -> None:

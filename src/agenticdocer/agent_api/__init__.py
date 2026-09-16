@@ -26,7 +26,7 @@ from .deps import (
     request_database,
     request_storage,
 )
-from .router import NodeUpsert, RefWrite, RenderOutput, router, validate_write
+from .router import NodeUpsert, RefWrite, RenderOutput, SectionDTO, router, validate_write
 
 __all__ = [
     "AdminAuth",
@@ -36,6 +36,7 @@ __all__ = [
     "ReadAuth",
     "RefWrite",
     "RenderOutput",
+    "SectionDTO",
     "ReviewAuth",
     "StorageDep",
     "ValidationRejected",
