@@ -445,15 +445,6 @@ class _TableMeta(HTMLParser):
     口径：`rows` = `<tr>` 个数；`cells` = `<td>`/`<th>` 个数；`max_colspan` = colspan 最大值；
     `cols` = 各逻辑行 colspan 之和的最大值（即最大逻辑列数）。
     """
-    return content
-
-
-class _TableMeta(HTMLParser := __import__("html.parser", fromlist=["HTMLParser"]).HTMLParser):  # type: ignore[misc]
-    """HTML 表格结构统计（E1-a：rows/cols/cells/max_colspan，供 M09B 行列断言）。
-
-    口径：`rows` = `<tr>` 个数；`cells` = `<td>`/`<th>` 个数；`max_colspan` = colspan 最大值；
-    `cols` = 各逻辑行 colspan 之和的最大值（即最大逻辑列数）。
-    """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -484,19 +475,24 @@ class _TableMeta(HTMLParser := __import__("html.parser", fromlist=["HTMLParser"]
         self.handle_starttag(tag, attrs)
 
 
-def table_meta(fragment: str, *, markdown: bool) -> dict[str, int]:
-    """表格结构元数据（HTML 片段用 HTMLParser 统计；md 表格按行/单元格切分统计）。"""
+def table_meta(fragment: str, *, markdown: bool = False) -> dict[str, int]:
+    """表格结构元数据（HTML 片段用 :class:`_TableMeta` 统计；md 表格按行/单元格统计）。"""
     if not markdown:
         parser = _TableMeta()
         parser.feed(fragment)
         parser.close()
-        return {"rows": parser.rows, "cols": parser.cols, "cells": parser.cells, "max_colspan": parser.max_colspan}
+        return {
+            "rows": parser.rows,
+            "cols": parser.cols,
+            "cells": parser.cells,
+            "max_colspan": parser.max_colspan,
+        }
     rows = [line for line in fragment.split("\n") if line.strip()]
-    data_rows = [line for line in rows if not re.fullmatch(r"[ \t]*\|?[\s:|-]+\|?[ \t]*", line)]
+    data_rows = [line for line in rows if not _MD_TABLE_DELIMITER_RE.fullmatch(line)]
     columns = 0
     cells = 0
     for line in data_rows:
-        count = len([cell for cell in line.strip().strip("|").split("|")])
+        count = len(line.strip().strip("|").split("|"))
         columns = max(columns, count)
         cells += count
     return {"rows": len(data_rows), "cols": columns, "cells": cells, "max_colspan": 1}
