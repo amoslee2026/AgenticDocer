@@ -30,6 +30,7 @@ from .errors import (
     BOOTSTRAP_HINT,
     AuthError,
     AuthenticationError,
+    BootstrapError,
     RateLimitError,
     SignatureFormatError,
     SignatureVerificationError,
