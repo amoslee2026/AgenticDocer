@@ -45,7 +45,7 @@ AgenticDocer 单体（FastAPI + PG16）
 ├── M05 检索         内部实现（对外能力归 LightRAG，ADR-008）
 ├── M06/M07 接口     28 端点（agent API + WebUI API）
 ├── M08 前端         React + TS + Vite（schema 驱动表单）
-├── M09 校验         M09A schema 引擎 + M09B 质量门（6 detector）
+├── M09 校验         M09A schema 引擎 + M09B 质量门（8 detector）
 ├── M10 鉴权         SSH 公钥签名（SSHSIG）/ RBAC 四角色 / 会话 / 自举
 ├── M11 CLI          31 命令 + 6 skill（供 coding agent 调用）
 ├── M12 可观测性     AgenticLogger + rid 追踪 + 指标 + 健康巡检
