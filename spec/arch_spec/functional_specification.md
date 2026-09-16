@@ -80,9 +80,9 @@ section_meta: "@meta"
 | REQ-M11-F01 | CLI：导入/删除/修改/读取工具族（B3/B11） | M11 | P1 | 2 |
 | REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
 | REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P0 | 1 |
+| REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P1 | 2（随 M10 起陆续交付） |
+| REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | **P0** | **1**（随 M10 交付，V12） |
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
-| REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
-| REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
 | REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P1 | 2（随 M10 起陆续交付） |
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | **P0** | **1**（随 M10 交付，V12） |
 | REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
