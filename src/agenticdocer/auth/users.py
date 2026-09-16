@@ -724,16 +724,19 @@ async def log_auth_failure(
     status_code: int = 401,
     claimed_key_id: str | None = None,
     claimed_user_id: str | None = None,
+    verified_user_id: str | None = None,
     db: Database | None = None,
 ) -> None:
     """鉴权失败审计（REQ-M10-F05d/e；**S10**）。
 
-    载荷只含**失败原因**与 ``claimed_*``（请求自述身份），不含密钥材料、不写身份列，
-    ``actor='anonymous'``（身份未通过验证）。按 ``(ip, reason, 5min)`` 聚合：窗口内首条
-    落事件、后续只计数，换窗时补一条 ``occurrences`` 汇总事件（避免审计淹没，S7）。
+    载荷只含**失败原因**、``claimed_*``（请求自述身份，未经核验）与 ``verified_user_id``
+    （**已验签/会话核验的身份**，仅授权拒绝即 403 场景才有），不含密钥材料、不写身份列；
+    ``actor`` 恒为 ``anonymous``（S10 字面）。按 ``(ip, reason, verified_user_id, 5min)``
+    聚合：窗口内首条落事件、后续只计数，换窗时补一条 ``occurrences`` 汇总事件（避免审计淹没，S7）。
+    聚合键含已验证身份，故**每个被拒主体的首条事件都带确定性归因**（SecAudit AUD-4）。
     """
     bucket_start = int(time.time() // _FAILURE_BUCKET_SECONDS)
-    key = (ip or "unknown", reason)
+    key = (ip or "unknown", reason, verified_user_id or "")
     pending: _FailureBucket | None = None
     with _failure_lock:
         current = _failure_buckets.get(key)
@@ -747,7 +750,12 @@ async def log_auth_failure(
         _failure_buckets[key] = entry
     if pending is not None:
         await _write_failure_event(
-            reason, ip=ip, bucket=pending, aggregated=True, db=db
+            reason,
+            ip=ip,
+            bucket=pending,
+            aggregated=True,
+            verified_user_id=verified_user_id,
+            db=db,
         )
     await _write_failure_event(
         reason,
@@ -756,6 +764,7 @@ async def log_auth_failure(
         aggregated=False,
         claimed_key_id=claimed_key_id,
         claimed_user_id=claimed_user_id,
+        verified_user_id=verified_user_id,
         db=db,
     )
 
