@@ -404,7 +404,8 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
         print()
         print(render_table(["指标", "实测", "单位", "目标", "判定", "路径"], rows))
 
-    degraded = bench.degraded()
+        print("\n!! 降级路径（`degraded` 标记项，如 ADR-009 V16 的「不带 doc_id」点查）"
+              "——结果**不得**与正常路径混为一谈：")
     if degraded:
         print("\n!! 降级路径（ADR-009 V16：`node_id` 单列点查无法分区裁剪）——结果**不得**与正常路径混为一谈：")
         for item in degraded:
