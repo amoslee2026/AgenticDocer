@@ -44,6 +44,7 @@ from .quality_9b import (
     GateContext,
     detector_ids,
     get_detector,
+    resolve_detectors,
     run_quality_gate,
     run_quality_gate_sync,
 )
