@@ -232,7 +232,12 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                         f"返回 0，故按 relkind='r' 取分区子表）；对账 pg_database_size = "
                         f"{info['database_human']}"),
             metric("scale.bytes_per_node", round(bytes_per_node, 1), unit="B",
-                   note="含索引放大；合成语料内容密度低于真实规范，故偏小"),
+                   note="13 张基表（表+索引+TOAST）÷ 节点数；§1.4 以 0.5–4KB/节点 推演存储区间"),
+            metric("scale.projected_storage_gib_at_target_scale",
+                   round(bytes_per_node * TARGET_NODES / 1024**3, 2), unit="GiB",
+                   target=(20.0, 54.0), comparison="range",
+                   note="**§1.4 存储指标的直接判定**：按本次实测 B/节点 外推 13.4M 节点，"
+                        "对照 §1.4「≈20–54GB」"),
             metric("scale.ingest_hours_at_target_scale",
                    round(TARGET_NODES / ingest["nodes_per_s"] / 3600, 2) if ingest["nodes_per_s"] else None,
                    unit="h",

@@ -188,7 +188,7 @@ def metric(
     value: Any,
     *,
     unit: str = "",
-    target: float | None = None,
+    target: Any = None,
     comparison: str = "<=",
     degraded: bool = False,
     note: str = "",
@@ -373,7 +373,7 @@ def goal_text(item: Metric) -> str:
     """指标目标的可读后缀（无目标值 → 记「记录项」，避免格式化 None）。"""
     if item.target is None:
         return "（记录项）"
-    return f"（目标 {item.comparison}{item.target:g} → {item.verdict}）"
+    return f"（目标 {target_text(item.target, item.comparison)} → {item.verdict}）"
 
 
 def _compact(value: Any, *, text_limit: int = 160, list_limit: int = 8) -> Any:
@@ -406,7 +406,7 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
 
     rows = []
     for item in bench.metrics:
-        target = "" if item.target is None else f"{item.comparison}{item.target:g}"
+        target = target_text(item.target, item.comparison)
         rows.append([
             item.name,
             f"{item.value:g}" if isinstance(item.value, (int, float)) and not isinstance(item.value, bool)
@@ -1060,6 +1060,7 @@ __all__ = [
     "save",
     "scalar",
     "synthetic_markdown",
+    "target_text",
     "timed",
     "timing_stats",
     "trim_metrics",
