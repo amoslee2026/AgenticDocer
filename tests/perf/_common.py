@@ -723,7 +723,7 @@ async def explain_partitions(
     from sqlalchemy import text
 
     safe_node = str(UUID(str(node_id)))
-    clause = f" AND doc_id = '{doc_id.replace(chr(39), chr(39) * 2)}'" if doc_id else ""
+    clause = f" AND doc_id = {_sql_literal(doc_id)}" if doc_id else ""
     sql = _EXPLAIN_SQL.format(node=safe_node, doc=clause)
     async with db.session() as session:
         if force_generic:
