@@ -54,9 +54,8 @@ from agenticdocer.importer.vplan import (
     UNKNOWN_STATUS,
     coverage_matrix_atom,
     coverage_matrix_content,
-from agenticdocer.model import DOC_TYPES, get_atom_schema, is_atom_allowed
 )
-from agenticdocer.model import DOC_TYPES, get_atom_schema
+from agenticdocer.model import DOC_TYPES, get_atom_schema, is_atom_allowed
 from agenticdocer.store import ValidationError
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
