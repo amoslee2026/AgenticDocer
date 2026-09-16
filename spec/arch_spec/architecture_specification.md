@@ -106,7 +106,7 @@ section_meta: "@meta"
 **M11 依赖声明（V7）**：M11（CLI/skill）→ 依赖 **M06/M07 的 HTTP 契约**（CLI 不直连 DB，除 `auth bootstrap`）+ **M10**（签名与身份）；属 L4 接口层。矩阵中不单列 M11 行（其依赖通过 M06/M07/M10 体现），此处显式声明以免遗漏。
 > **M12 说明**：可观测性为**横切关注点**（非业务模块），所有模块经 `observability/logger.py` 单一适配层调用 AgenticLogger SDK（ADR-010）；M12 自身不依赖任何业务模块（保证无环）。M08 不直连 M12（前端日志经 M07 转写）。
 
-**M05 降级说明（批注 A7/A10/B5）**：M05 保留实现但**不再暴露公开端点**，仅作为 M-LR 导出的内部依赖（LightRAG 增量导出需 refs 图结构）；M06 的 `/traverse`、`/search` 端点随之删除。见 ADR-008。
+**M05 降级说明（批注 B5）**：M05 保留实现但**不再暴露公开端点**，仅作为 M-LR 导出的内部依赖（LightRAG 增量导出需 refs 图结构）；M06 的 `/traverse`、`/search` 端点随之删除。见 ADR-008。
 
 ### 1.4 非功能需求（量化，与 B10 对齐）
 
@@ -505,7 +505,7 @@ def run_quality_gate(scope: QualityScope) -> list[QualityReport]:
        events_consistency 用 M02.apply_events 重放比对当前态。"""
 ```
 
-### M10 鉴权与用户管理（新增；批注 A1/A2/B2/B3）
+### M10 鉴权与用户管理（新增；批注 B1/B2/B3）
 
 ```python
 # 身份与密钥
@@ -764,7 +764,7 @@ CREATE TABLE terms (
   kind               text NOT NULL CHECK (kind IN ('glossary','normative-keyword'))
 );
 
--- ============ 鉴权与用户（M10；批注 A1/A2/B2/B3）============
+-- ============ 鉴权与用户（M10；批注 B1/B2/B3）============
 CREATE TABLE users (
   user_id    uuid PRIMARY KEY,
   username   text NOT NULL UNIQUE,
@@ -909,7 +909,7 @@ systemd --user: agenticdocer-api.service
 
 ## 7. 与 idea 层的偏差声明
 
-**结论：本版（v1.3）为方向性变更，需回写 idea 层**。批注 A1/A2/A3/A5/A8/A9/A11 改变了原设计的假设与范围：
+**结论：本版（v1.3）为方向性变更，需回写 idea 层**。批注 B1/B2/B3/B6/B9/B10/B11 改变了原设计的假设与范围：
 1. **B6「单机、单用户、无鉴权」作废** → 全端点 SSH 鉴权 + WebUI 会话 + RBAC（ADR-007）
 2. **B10「≤100k 节点/≤500 文档」作废** → ≥10,000 文档/≈13.4M 节点（ADR-009）
 3. **M05 检索能力外移** → 降级为 M-LR 内部接口，语义检索归 LightRAG（ADR-008）
