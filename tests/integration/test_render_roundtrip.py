@@ -42,7 +42,7 @@ from agenticdocer.render import (
 from agenticdocer.render.editable import TableEdit, TableGrid, parse_table_fragment
 from agenticdocer.store import ConflictError, NotFoundError, Storage
 
-from .corpus_ingest import (
+from corpus_ingest import (
     CORPUS_ROOT,
     CTX,
     ingest_markdown,
