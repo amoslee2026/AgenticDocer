@@ -488,7 +488,7 @@ def test_sync_entry_is_repeatable_in_process(
 
     assert [report.detector_id for report in first] == ["broken_refs", "terms"]
     assert [report.detector_id for report in second] == ["broken_refs", "terms"]
-    # 生产态：M06 lifespin 已把 TERMS_SEED 载入 → terms 面应为零违规
+    # 生产态：M06 lifespan 启动已把 TERMS_SEED 载入 → 种子面应为零违规
     assert second[1].violations == []
 
 
