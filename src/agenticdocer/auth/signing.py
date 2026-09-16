@@ -136,7 +136,6 @@ def normalize_key_id(key_id: str) -> str:
     return KEY_ID_PREFIX + stripped
 
 
-
 def timestamp_now(moment: datetime | None = None) -> str:
     """``X-Timestamp`` 文本（ISO 8601 UTC 秒级；服务端原样参与载荷）。"""
     return (moment or datetime.now(timezone.utc)).astimezone(timezone.utc).strftime(
