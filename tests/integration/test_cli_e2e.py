@@ -383,7 +383,9 @@ def test_stats_import_coverage_and_health_gate(service: _Service) -> None:
 
     health = service.ok("stats", "--health", "--json", actor="admin")
     assert isinstance(health, dict)
-    assert health["verdict"] in ("ok", "degraded", "fail")
+    # 刚迁移的隔离库是健康态：verdict 必须是 ok，且不得出现「未分区」假建议
+    assert health["verdict"] == "ok", health
+    assert not any("分区" in advice for advice in health.get("advice") or []), health
 
     denied = service.fails("stats", "--health", "--json", actor="editor")
     assert "admin" in denied.stderr

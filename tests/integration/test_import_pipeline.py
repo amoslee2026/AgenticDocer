@@ -156,7 +156,7 @@ def accept_all(work_dir: pathlib.Path, doc_slug: str) -> None:
 
 def test_corpus_parse_report(corpus_results) -> None:
     """7 份真实语料的解析报告：覆盖率、块数、原子计数、兜底、引用识别。"""
-    totals = {"blocks": 0, "covered": 0, "fallback": 0, "proposals": 0, "md_refs": 0, "html_refs": 0}
+    totals = {"blocks": 0, "covered": 0, "fallback": 0, "proposals": 0, "md_refs": 0, "html_refs": 0, "f04": 0}
     atoms: dict[str, int] = {}
     lines = ["", f"{'doc':52s} {'blocks':>7s} {'covered':>7s} {'fallback':>8s} {'nodes':>6s} {'cov':>7s}"]
     for name, result in corpus_results.items():
@@ -177,6 +177,7 @@ def test_corpus_parse_report(corpus_results) -> None:
         totals["proposals"] += len(result.proposals)
         totals["md_refs"] += summary["asset_refs"]["md"]
         totals["html_refs"] += summary["asset_refs"]["html"]
+        totals["f04"] += summary["rules"].get("F04.table.text-empty", 0)
         lines.append(
             f"{name:52s} {stats.total_blocks:7d} {stats.rule_covered:7d} {stats.fallback:8d} "
             f"{len(result.proposals):6d} {summary['coverage']:7.4f}"
@@ -194,8 +195,9 @@ def test_corpus_parse_report(corpus_results) -> None:
     # design_doc §5.2 实测口径：md 形式 1,019 + HTML <img> 80 = 1,099
     assert totals["md_refs"] == 1_019
     assert totals["html_refs"] == 80
-    # HTML 表格 2,440（§5.1 实测），md 图片 1,019，围栏代码块 18 行 → 9 块
-    assert atoms["table"] == 2_440
+    # HTML 表格 2,440（§5.1 实测）= table 原子 + F04 兜底（无文本投影的表格壳）
+    assert atoms["table"] + totals["f04"] == 2_440
+    assert totals["f04"] == 1, "仅 1 处无文本表格壳（PCIe §7.9.2.4：转换器把图包成 1×1 表格）"
     assert atoms["definition"] > 0  # 术语区词条（PCIe「Terms and Acronyms」+ AMBA Glossary）
     assert atoms["note"] > 0        # 列表 + 目录区兜底
     assert atoms["figure"] == 1_019
@@ -225,7 +227,11 @@ def test_corpus_html_tables_are_verbatim_passthrough(corpus_results) -> None:
         path = next(item for item in corpus_paths() if item.name == name)
         source = path.read_text(encoding="utf-8")
         tables = [p for p in result.proposals if p.atom.atom_type == "table"]
-        assert len(tables) == source.count("<table"), f"{name}: 表格节点数与源 <table> 不一致"
+        shells = [p for p in result.proposals if p.rule_id == "F04.table.text-empty"]
+        assert len(tables) + len(shells) == source.count("<table"), f"{name}: 表格节点数与源 <table> 不一致"
+        for proposal in shells:  # 兜底路径同样零改写（原文整段保留在 content.fragment）
+            assert proposal.atom.format == "html"
+            assert proposal.atom.text in source
         for proposal in tables:
             atom = proposal.atom
             fragment = atom.content["fragment"]
@@ -423,6 +429,11 @@ async def test_review_then_commit_creates_refs(storage: Storage, database, tmp_p
     assert len(cross) == 1 and cross[0].atom.content.get("target_anchor")
     target = next(p for p in result.proposals if p.atom.anchor == cross[0].atom.content["target_anchor"])
 
+    refs_before = await count(
+        database,
+        "SELECT count(*) FROM events WHERE entity = 'ref' AND op = 'add' AND payload->>'dst_doc' = :d",
+        d="SPEC-STD-CROSS-1.0",
+    )
     state = run_review(
         "cross-doc", work_dir=work, answers=iter(["a", "a"]), out=lambda _: None, accept_confident=True
     )
@@ -449,7 +460,7 @@ async def test_review_then_commit_creates_refs(storage: Storage, database, tmp_p
         database,
         "SELECT count(*) FROM events WHERE entity = 'ref' AND op = 'add' AND payload->>'dst_doc' = :d",
         d="SPEC-STD-CROSS-1.0",
-    ) == 1
+    ) - refs_before == 1, "本次提交新增 1 条 ref add 事件（events 为 append-only，按增量断言）"
 
 
 async def test_rejected_proposals_are_not_committed(storage: Storage, database, tmp_path) -> None:

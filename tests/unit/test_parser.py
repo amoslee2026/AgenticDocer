@@ -373,6 +373,23 @@ def test_figure_atom_uses_content_addressed_asset_ref(parsed) -> None:
     assert figure.atom.content["text"]
 
 
+def test_image_only_table_takes_fallback_path(tmp_path: pathlib.Path) -> None:
+    """无文本投影的表格壳 → 兜底 note(html)（REQ-M03-F04；A10 无从派生 text）。"""
+    doc = FRONTMATTER + (
+        "# 1 图壳\n\n图壳段落。\n\n"
+        '<table><tr><td rowspan=1 colspan=1><img src="images/' + IMAGE_SHA + '.jpg"/></td></tr></table>\n'
+    )
+    result = parse_markdown(write(tmp_path, doc, "shell.md"), "shell")
+    shells = [p for p in result.proposals if p.rule_id == "F04.table.text-empty"]
+    assert len(shells) == 1
+    shell = shells[0]
+    assert shell.atom.atom_type == "note" and shell.atom.format == "html"
+    assert shell.atom.text.startswith("<table>") and IMAGE_SHA in shell.atom.text
+    assert not shell.confident and result.unmapped[0].source_lines == shell.source_lines
+    assert result.stats.fallback == 1
+    assert check_proposals(result) == [], "兜底路径同样通过 M09A 门禁"
+
+
 def test_cross_ref_atom_resolves_target_anchor(parsed) -> None:
     cross = next(p for p in parsed.proposals if p.atom.atom_type == "cross_ref")
     assert cross.atom.content["ref_kind"] == "see_also"

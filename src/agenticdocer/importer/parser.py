@@ -385,7 +385,8 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
                 blocks, position, toc_mode, glossary_mode
             )
         elif block.rule_id in _STRUCTURAL_RULES:
-            pass
+            if block.rule_id == "R03.table.html" and rules.match_empty_table_fragment(block.text):
+                rule_id = "F04.table.text-empty"  # A10 无从派生 text → 兜底保留（REQ-M03-F04）
         elif toc_mode:
             rule_id = rules.TOC_RULE_ID
         elif block.kind == rules.PARAGRAPH:
@@ -842,7 +843,7 @@ def _plan(
             item = _Pending(
                 block=block,
                 atom_type=rule.atom_type,
-                format="html" if block.kind == rules.HTML_RESIDUE else "md",
+                format="html" if block.kind in (rules.HTML_RESIDUE, rules.TABLE_HTML) else "md",
                 content=None,
                 level=None,
                 section_path=section.path if section is not None else (),
