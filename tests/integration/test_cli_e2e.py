@@ -149,14 +149,9 @@ def _write_key(work: Path, name: str) -> tuple[Path, Path]:
     return private, public
 
 
-def _payload(stdout: str) -> object:
-    """取 stdout 的 JSON（``--json`` 即完整 JSON；兼容前导空白）。"""
     text = stdout.strip()
-    for opener in ("{", "["):
-        if opener in text:
-            text = text[text.index(opener) :]
-            break
-    return json.loads(text)
+    starts = [text.index(char) for char in "{[" if char in text]
+    return json.loads(text[min(starts) :] if starts else text)
 
 @dataclass
 class _Service:
