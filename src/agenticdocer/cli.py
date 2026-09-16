@@ -685,7 +685,7 @@ def command(application: typer.Typer, *args: Any, **kwargs: Any) -> Callable[[Ca
     def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         def wrapper(*fargs: Any, json_output: bool = False, dry_run: bool = False, **fkwargs: Any) -> Any:
-            context = fkwargs.get("context")
+            context = fargs[0] if fargs and isinstance(fargs[0], typer.Context) else fkwargs.get("context")
             if isinstance(context, typer.Context):
                 cli = _ctx(context)
                 cli.json_mode = cli.json_mode or bool(json_output)
