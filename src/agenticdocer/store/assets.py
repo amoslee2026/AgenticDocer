@@ -113,20 +113,27 @@ class AssetRepository(Repository):
         引用口径 = M04 重写后的 `assets/<sha256>.<ext>`（在 `content` 全文里扫描，PG 侧
         用 `regexp_matches(... , 'g')` 去重，避免把 13M 行拉进 Python）。
         """
-        statement = text(
-            "SELECT DISTINCT m[1] AS asset_id FROM ("
-            "  SELECT regexp_matches(content::text, :pattern, 'g') AS m FROM nodes"
-            "  WHERE status = 'active' AND (:doc_id IS NULL OR doc_id = :doc_id)"
-            ") AS matched"
-        )
-        async with self.db.session() as session:
-            referenced = list(
-                (
-                    await session.execute(
-                        statement, {"pattern": r"assets/([0-9a-f]{64})", "doc_id": doc_id}
-                    )
-                ).scalars()
+        # 两种形态分别成句：`:doc_id IS NULL` 这类「裸 NULL 参数」在 asyncpg 下无法
+        # 推断类型（AmbiguousParameterError），且按 doc_id 过滤还能吃分区裁剪。
+        pattern = r"assets/([0-9a-f]{64})"
+        if doc_id is None:
+            statement = text(
+                "SELECT DISTINCT m[1] AS asset_id FROM ("
+                "  SELECT regexp_matches(content::text, :pattern, 'g') AS m FROM nodes"
+                "  WHERE status = 'active'"
+                ") AS matched"
             )
+            params: dict[str, Any] = {"pattern": pattern}
+        else:
+            statement = text(
+                "SELECT DISTINCT m[1] AS asset_id FROM ("
+                "  SELECT regexp_matches(content::text, :pattern, 'g') AS m FROM nodes"
+                "  WHERE status = 'active' AND doc_id = :doc_id"
+                ") AS matched"
+            )
+            params = {"pattern": pattern, "doc_id": doc_id}
+        async with self.db.session() as session:
+            referenced = list((await session.execute(statement, params)).scalars())
             known = {
                 row.asset_id: Path(row.path)
                 for row in (
