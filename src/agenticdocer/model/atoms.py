@@ -303,7 +303,8 @@ def _looks_like_html(text: str) -> bool:
 def derive_text(atom_type: str, content: Mapping[str, Any]) -> str:
     """生成 ``content.text``（A10/R5）——该字段的**唯一生成口径**，写入前必调。
 
-    - 表格类（``table`` / ``table.register_field``）：由 ``fragment``（原样 HTML）去标签，
+    - 表格类（``table`` 及其变体 ``table.register_field`` / ``table.failure_mode`` /
+      ``table.coverage_matrix``，即 ``TABLE_ATOMS``）：由 ``fragment``（原样 HTML）去标签，
       单元格按行列序拼接；
     - ``cross_ref``：取可见引用文本，缺省退化为 ``target_anchor`` / ``target_doc_id``；
     - ``figure.state_machine``：无 ``text``/``fragment`` 时由状态集合与迁移集合拼接；
