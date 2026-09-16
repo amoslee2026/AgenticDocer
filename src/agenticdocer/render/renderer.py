@@ -38,7 +38,13 @@ import yaml
 
 from agenticdocer.model import C5_META_FIELDS, TABLE_ATOMS, Doc, Node, RenderResult
 from agenticdocer.observability import get_logger
-from agenticdocer.store import ASSET_REF_PATTERN, NotFoundError, Storage, get_storage
+from agenticdocer.store import (
+    ASSET_HASH_PATTERN,
+    ASSET_REF_PATTERN,
+    NotFoundError,
+    Storage,
+    get_storage,
+)
 
 from .editable import REGISTER_FIELD_COLUMNS, TableGrid, build_table_fragment
 from .sections import section_subtree
