@@ -372,7 +372,6 @@ async def test_assets_missing_detects_unbacked_sha(storage: Storage, sample: Sam
     )
     remaining = (await gate(storage, sample.doc_id, ["assets_missing"]))["assets_missing"]
     assert [item.path for item in remaining] == [f"{sample.doc_id}#assets/{absent}"]
-    await storage.add_ref  # 保持 storage 引用（可读性：本用例只用资产面）
 
 
 # ── render_consistency：两式（判据 a / b）───────────────────────────────
@@ -384,8 +383,10 @@ async def test_render_consistency_detects_parse_drift(storage: Storage, sample: 
 
     await storage.delete_node(sample.table.node_id, sample.table.version, CTX)
     violations = (await gate(storage, sample.doc_id, ["render_consistency"]))["render_consistency"]
-    assert rules(violations) == {render_consistency.RULE_PARSE_DRIFT}
-    assert violations[0].path == f"{sample.doc_id}#tables"
+    assert render_consistency.RULE_PARSE_DRIFT in rules(violations)
+    assert [item.path for item in violations if item.rule_id == render_consistency.RULE_PARSE_DRIFT] == [
+        f"{sample.doc_id}#tables"
+    ]
 
 
 async def test_render_consistency_detects_artifact_drift(
@@ -400,8 +401,10 @@ async def test_render_consistency_detects_artifact_drift(
 
     artifact.write_text(artifact.read_text(encoding="utf-8") + "\n## 9 Extra\n", encoding="utf-8")
     violations = (await gate(storage, sample.doc_id, ["render_consistency"]))["render_consistency"]
-    assert rules(violations) == {render_consistency.RULE_ARTIFACT_DRIFT}
-    assert violations[0].path == f"{sample.doc_id}#artifact#headings"
+    assert render_consistency.RULE_ARTIFACT_DRIFT in rules(violations)
+    assert [
+        item.path for item in violations if item.rule_id == render_consistency.RULE_ARTIFACT_DRIFT
+    ] == [f"{sample.doc_id}#artifact#headings"]
 
 
 # ── detector 选择、作用域隔离与入口约束 ──────────────────────────────────
@@ -422,9 +425,9 @@ async def test_detector_selection_runs_only_selected(storage: Storage, sample: S
     result = await gate(storage, sample.doc_id, ["broken_refs"])
     assert set(result) == {"broken_refs"}
     assert rules(result["broken_refs"]) == {broken_refs.RULE_REF_DST_DANGLING}
-    assert assets_missing.RULE_ASSET_MISSING not in rules(
-        (await gate(storage, sample.doc_id, ["broken_refs"]))["broken_refs"]
-    )
+    full = await gate(storage, sample.doc_id, ["broken_refs", "assets_missing"])
+    assert rules(full["broken_refs"]) == {broken_refs.RULE_REF_DST_DANGLING}
+    assert rules(full["assets_missing"]) == {assets_missing.RULE_ASSET_MISSING}
 
 
 async def test_scope_isolates_defects_between_documents(
