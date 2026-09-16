@@ -36,6 +36,9 @@ from typing import Final
 
 from agenticdocer.model import Model, normalize_body
 
+from .editable import table_cells, table_meta
+from .renderer import body_text, iter_image_srcs
+
 __all__ = [
     "NormalForm",
     "TableNF",
