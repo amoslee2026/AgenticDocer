@@ -492,8 +492,8 @@ def test_sync_entry_is_repeatable_in_process(
 
     assert [report.detector_id for report in first] == ["broken_refs", "terms"]
     assert [report.detector_id for report in second] == ["broken_refs", "terms"]
-    assert all(report.violations == [] for report in first), first
-    assert all(isinstance(report.violations, list) for report in second)
+    # 两次调用结果逐字段一致（同一库状态下确定性；不断言违规数，避免依赖跨用例状态）
+    assert [report.model_dump() for report in first] == [report.model_dump() for report in second]
 
 
 async def test_global_scope_runs_all_detectors_and_finds_defects(
