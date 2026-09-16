@@ -683,13 +683,21 @@ async def authorize_user(
     """读取 grant → 判定（:func:`agenticdocer.auth.rbac.authorize`）→ 违规落审计事件。
 
     M06/M07 的推荐入口：判定逻辑在 ``rbac``（纯函数、可单测），此处负责 I/O 与审计。
+
+    **审计归因**（SecAudit AUD-4）：此处身份**已通过验签/会话**，与 S10 针对的「未验证身份」
+    不同。为既不违反 S10 字面（失败事件 ``actor='anonymous'``）又不丢失确定性归因，事件仍记
+    ``actor='anonymous'``，但把已验证身份写进 ``payload.verified_user_id``——与 ``claimed_*``
+    （自述值）在字段名上明确区分。
     """
     grants = await load_grants(user.user_id, db=db)
     try:
         authorize(user, perm, target, grants=grants, doc_type=doc_type)
     except ForbiddenError:
         await log_auth_failure(
-            "forbidden", status_code=403, claimed_user_id=str(user.user_id), db=db
+            "forbidden",
+            status_code=403,
+            verified_user_id=str(user.user_id),
+            db=db,
         )
         raise
 
