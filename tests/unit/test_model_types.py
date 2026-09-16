@@ -494,9 +494,6 @@ SPEC_FIELDS: dict[type, set[str]] = {
     ParseResult: {"doc_meta", "proposals", "unmapped", "stats"},
     Event: {"event_id", "entity", "entity_id", "op", "payload", "actor", "ts"},
     DocTypeTarget: {"kind", "value"},
-    User: {"user_id", "username", "role", "status", "created_at", "updated_at"},
-    SshKey: {"key_id", "fingerprint", "user_id", "public_key", "key_type", "added_at", "revoked_at"},
-    Grant: {"grant_id", "user_id", "scope", "value", "permission", "granted_by", "granted_at"},
     SearchHit: {"node_id", "doc_id", "anchor", "score"},
     TraversalHit: {"node_id", "doc_id", "anchor", "hops", "via"},
     RenderResult: {"doc_id", "out_path", "assets_exported"},
@@ -514,10 +511,11 @@ SPEC_FIELDS: dict[type, set[str]] = {
     Asset: {"asset_id", "mime", "bytes", "origin", "path"},
     Term: {"term", "definition_node_id", "kind"},
     Session: {"session_id", "user_id", "token_hash", "created_at", "expires_at", "last_seen_at"},
-    # §3 M10
-    User: {"user_id", "username", "role", "status"},
-    SshKey: {"key_id", "fingerprint", "public_key", "added_at", "revoked_at"},
-    Grant: {"grant_id", "user_id", "scope", "value", "permission"},
+
+    # §3 M10 + §4 DDL 补列（Main 裁决：M10/M02 回读三表全列）
+    User: {"user_id", "username", "role", "status", "created_at", "updated_at"},
+    SshKey: {"key_id", "fingerprint", "user_id", "public_key", "key_type", "added_at", "revoked_at"},
+    Grant: {"grant_id", "user_id", "scope", "value", "permission", "granted_by", "granted_at"},
 }
 
 
