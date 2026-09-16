@@ -48,7 +48,6 @@ DOC_SLUG = "M11-E2E"
 STARTUP_TIMEOUT = 40.0
 
 SOURCE_MD = f"""---
-spec_id: {DOC_ID}
 title: M11 CLI 端到端样例
 type: composite
 purpose: spec
@@ -64,7 +63,7 @@ spec_revision: "1.0"
 source: corpus/01_raw/specifications/test/m11.pdf
 converted_by: mineru
 converted_at: 2026-09-16
-    assert isinstance(parsed, dict) and parsed["docMeta"]["doc_id"] == DOC_ID
+reviewed_by: tester
 reviewed_at: 2026-09-16
 ---
 
@@ -80,6 +79,7 @@ reviewed_at: 2026-09-16
 
 - 断言：驱动到被测器件的一段激励。
 """
+
 # ----------------------------------------------------------------------
 # 隔离库 + 进程夹具
 # ----------------------------------------------------------------------
@@ -325,7 +325,16 @@ def imported(service: _Service) -> dict[str, object]:
     src = service.work / "spec.md"
     src.write_text(SOURCE_MD, encoding="utf-8")
     parsed = service.ok("import", "parse", str(src), "--doc-slug", DOC_SLUG, "--json", actor="editor")
-    return {"doc_id": DOC_ID, "node_id": node_ids[0], "node_ids": node_ids}
+    assert isinstance(parsed, dict) and parsed["docMeta"]["doc_id"] == DOC_ID
+
+    reviewed = service.ok(
+        "import", "review", DOC_SLUG, "--accept-confident", "--json", actor="editor", stdin="a\n" * 64
+    )
+    assert isinstance(reviewed, dict)
+    committed = service.ok("import", "commit", DOC_SLUG, "--json", actor="editor")
+    assert isinstance(committed, dict)
+    assert committed["docId"] == DOC_ID
+    assert committed["violations"] == []
     assert committed["accepted"] >= 1
 
     diff = service.ok("doc", "diff", DOC_ID, "--json", actor="reader")
