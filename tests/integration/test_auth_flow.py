@@ -123,6 +123,12 @@ def app(database: Database) -> FastAPI:
     async def list_docs(ctx: middleware.AuthContext = Depends(middleware.require_auth)) -> dict:
         return {"actor": ctx.actor, "source": ctx.source, "username": ctx.user.username}
 
+    @application.get("/api/v1/docs/{doc_id}")
+    async def get_doc(
+        doc_id: str, ctx: middleware.AuthContext = Depends(middleware.require_auth)
+    ) -> dict:
+        return {"docId": doc_id, "actor": ctx.actor}
+
     @application.post("/api/v1/docs")
     async def create_doc(
         payload: dict, ctx: middleware.AuthContext = Depends(middleware.require_permission("write"))
