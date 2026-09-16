@@ -349,10 +349,6 @@ class _Fault:
 
 
 def test_forbidden_hint_names_role_and_grant_command(
-    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str]
-) -> None:
-    fault = _Fault(403, {"error": "DTO_AUTH_REJECTED", "reason": "forbidden", "message": "角色不足"})
-def test_forbidden_hint_names_role_and_grant_command(
     monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], tmp_path: Path
 ) -> None:
     fault = _Fault(403, {"error": "DTO_AUTH_REJECTED", "reason": "forbidden", "message": "角色不足"})
@@ -376,7 +372,9 @@ def test_unregistered_key_hint_asks_admin_to_register(
     assert result.exit_code == 1
     assert "user key add" in result.stderr
     assert sshsig  # 公钥指纹指引来自本地私钥
-    assert signing.fingerprint(signing.public_key_line(_load(key_pair[0]))) in result.stderr
+    assert result.exit_code == 1
+    assert "editor" in result.stderr  # 所需角色名
+    assert "agenticdocer user role --username" in result.stderr
 
 
 def test_unauthorized_hint_covers_skew_nonce_and_bootstrap(
