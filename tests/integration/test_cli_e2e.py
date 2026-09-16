@@ -49,7 +49,7 @@ STARTUP_TIMEOUT = 40.0
 
 SOURCE_MD = f"""---
 title: M11 CLI 端到端样例
-type: composite
+EPOCH_ISO = "2020-01-01T00:00:00Z"
 purpose: spec
 audience: both
 direction: input
@@ -341,7 +341,8 @@ def imported(service: _Service) -> dict[str, object]:
     assert committed["violations"] == []
     assert committed["accepted"] >= 1
 
-    diff = service.ok("doc", "diff", DOC_ID, "--json", actor="reader")
+    # 全新文档的「当前 vs 上一次变更」区间为空 → 显式指定起点，取到全部 added 节点
+    diff = service.ok("doc", "diff", DOC_ID, "--from", EPOCH_ISO, "--json", actor="reader")
     assert isinstance(diff, dict)
     node_ids = [change["nodeId"] for change in diff["changes"] if change["op"] in ("added", "modified")]
     assert node_ids, diff
