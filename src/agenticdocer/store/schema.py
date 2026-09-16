@@ -430,8 +430,9 @@ def privilege_statements(
         notes.append(f"role {app_role!r} absent: grants skipped (owner creates roles per §4.3)")
         return [], notes
 
+    database = connection.execute(text("SELECT current_database()")).scalar_one()
     statements = [
-        f"GRANT CONNECT ON DATABASE {connection.dialect.identifier_preparer.quote(connection.engine.url.database)} TO {app_role}",
+        f"GRANT CONNECT ON DATABASE {database} TO {app_role}",
         f"GRANT USAGE ON SCHEMA public TO {app_role}",
         f"GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO {app_role}",
     ]
