@@ -409,7 +409,14 @@ class _Pending:
     anchor_title: str
     body_text: str
     fallback: bool = False
+    heading: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def source_lines(self) -> tuple[int, int]:
+        """来源行区间（clause 节点含并入的正文段落范围，见 `extra["source_lines"]`）。"""
+        value = self.extra.get("source_lines")
+        return value if isinstance(value, tuple) else self.block.source_lines
 
 
 def _strip_heading_markers(text: str) -> str:
