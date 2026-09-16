@@ -485,10 +485,13 @@ def test_snapshot_defaults_to_process_log_dir(
     而当时全部指标用例都显式传 `log_dir=`，故未覆盖该缺省路径。
     """
     monkeypatch.setenv("LOG_DIR", str(logs))
-    snap = snapshot(since=_since(), window=600)
+    get_logger("m06.router").info("req", dur=5, route="/default-path", status=200)
+
+    snap = snapshot(since=_since(), window=600)  # 不传 log_dir
     assert isinstance(snap, MetricsSnapshot)
     assert snap.window_seconds == 600
-    assert snap.endpoints == [] and snap.slow_queries == []
+    # 必须真的读到缺省目录下的日志（仅断言「空」会掩盖「落到了别的目录」）。
+    assert [metric.route for metric in snap.endpoints] == ["/default-path"]
 
 
 def test_snapshot_on_empty_dir_is_zeroed(logs: Path) -> None:
