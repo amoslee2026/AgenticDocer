@@ -62,10 +62,16 @@ SCHEMA_TYPE = f"clause.test-{_TOKEN}"
 
 @pytest.fixture(scope="module")
 def keys(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    """三把测试私钥（admin / editor / reader）；`.pub` 与私钥同名。"""
+    """四把**本次运行唯一**的测试私钥（`bootstrap` / `admin` / `editor` / `reader`）。
+
+    `bootstrap` 专供 `ADMIN_SSH_PUBKEY_FILE`（M10 自举用），**不与任何测试身份共用**：
+    用户公钥在库里**全局唯一**（防身份冒用），若自举键与本模块自有 admin 键相同，则
+    「干净库」下自举先把它登记给 `admin`，随后本模块登记同一公钥给 `e2e-admin-…` 会 409
+    （全量验收实测的隔离缺陷）。
+    """
     directory = tmp_path_factory.mktemp("api_keys")
     paths: dict[str, Path] = {}
-    for name in ("admin", "editor", "reader"):
+    for name in ("bootstrap", "admin", "editor", "reader"):
         key = ed25519.Ed25519PrivateKey.generate()
         private = directory / name
         private.write_bytes(
@@ -82,9 +88,9 @@ def keys(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
 
 @pytest.fixture(autouse=True)
 def auth_env(keys: dict[str, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """自举公钥指向 admin 私钥的公开部分；放开限流并隔离渲染产物目录。"""
-    public = tmp_path / "admin.pub"
-    public.write_text(keys["admin"].with_suffix(".pub").read_text())
+    """自举公钥指向**专用 bootstrap 键**；放开限流并隔离渲染产物目录。"""
+    public = tmp_path / "bootstrap.pub"
+    public.write_text(keys["bootstrap"].with_suffix(".pub").read_text())
     monkeypatch.setenv("ADMIN_SSH_PUBKEY_FILE", str(public))
     monkeypatch.setenv("AUTH_RATE_LIMIT_PER_MIN", "1000")
     monkeypatch.setenv("RENDER_OUT_DIR", str(tmp_path / "rendered"))
