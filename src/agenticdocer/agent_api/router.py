@@ -243,18 +243,14 @@ async def post_node(
     )
     return written
 
-
 @router.delete("/nodes/{node_id}", status_code=204)
 async def delete_node(
     node_id: UUID,
     expected_version: int = Query(description="乐观锁版本（`nodes.version`；不匹配 → 409）"),
     *,
-async def delete_node(
-    node_id: UUID,
     context: WriteAuth,
     storage: StorageDep,
     db: DatabaseDep,
-    expected_version: int = Query(description="乐观锁版本（`nodes.version`；不匹配 → 409）"),
 ) -> Response:
         await storage.delete_node(node_id, expected_version, write_context(context))
     log.info("node softly deleted", op="delete_node", node_id=str(node_id), doc_id=node.doc_id)

@@ -41,7 +41,7 @@ message, fix_hint}`），供两条路径消费：
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from typing import Any, Final
 
@@ -51,15 +51,12 @@ from agenticdocer.model import (
     ATOM_SCHEMAS,
     TABLE_ATOMS,
     NodeIn,
-    UnknownAtomTypeError,
     Violation,
+    allowed_atom_types,
     derive_text,
-    get_atom_schema,
     is_atom_allowed,
     normalize_body,
-    allowed_atom_types,
 )
-from agenticdocer.observability import get_logger
 
 __all__ = [
     "RULE_ANCHOR_DOC_ID",
@@ -304,19 +301,3 @@ def _table_violations(node: NodeIn) -> list[Violation]:
                 f"表格原子 format={node.format!r} 与 fragment 形态不符：fragment "
                 f"{'含' if has_html_table else '不含'} `<table>`，应为 format={expected!r}"
                 "（E1-a：HTML 片段原样直通 / md 管道表原样直通，P4）"
-            ),
-            fix_hint=f"把 format 改为 {expected!r}（保持 fragment 原样，勿改写片段）",
-        )
-    ]
-
-
-def unknown_atom_type_message(atom_type: str) -> str:
-    """未知原子类型的统一文案（`UnknownAtomTypeError` 的同源消息，供调用方复用）。"""
-    try:
-        get_atom_schema(atom_type)
-    except UnknownAtomTypeError as exc:
-        return str(exc)
-    return ""
-
-
-_ = Sequence  # 保留：路径/规则的序列类型在类型标注中使用
