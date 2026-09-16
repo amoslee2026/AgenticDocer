@@ -90,11 +90,12 @@ async def orphan_comments_in(
     timestamp = ts or now()
     for row in rows:
         before = row_to_dict(row)
-        updated = {**before, "state": "orphaned"}
+        # 状态变更同样走乐观锁版本（A4）：orphaned 是可观测的状态迁移，须 bump version
+        updated = {**before, "state": "orphaned", "version": before["version"] + 1}
         await session.execute(
             update(comments)
             .where(comments.c.comment_id == before["comment_id"])
-            .values(state="orphaned")
+            .values(state="orphaned", version=updated["version"])
         )
         await append_event(
             session,
