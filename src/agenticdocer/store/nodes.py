@@ -181,7 +181,9 @@ class NodeRepository(Repository):
                     entity="node",
                     entity_id=node_id,
                 )
-            await self._assert_parent_exists(session, incoming.get("parent_node_id"))
+            # 仅当父节点引用变化时才做外键降级后的应用层校验（ADR-009），避免热路径多一次查询
+            if incoming.get("parent_node_id") != existing["parent_node_id"]:
+                await self._assert_parent_exists(session, incoming.get("parent_node_id"))
             candidate = {**existing, **incoming}
             content_deltas = field_deltas(existing, candidate)
             if not content_deltas:
