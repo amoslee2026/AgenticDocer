@@ -117,17 +117,27 @@ def ref_row(**overrides: Any) -> dict[str, Any]:
 
 
 def test_detector_registry_matches_spec() -> None:
+    """§3 M09 声明的 6 项 + Main 批准新增的 `section_range_consistency`（M02 B-2 兜底）。"""
     assert DETECTOR_IDS == (
         "broken_refs",
         "terms",
         "assets_missing",
         "render_consistency",
         "events_consistency",
+        "section_range_consistency",
         "perf_health",
     )
     assert tuple(DETECTORS) == DETECTOR_IDS
     assert detector_ids() == DETECTOR_IDS
     assert all(callable(item) for item in DETECTORS.values())
+    # 声明序**只增不改**：调用方（M11 缺省集合）按子集过滤时相对顺序不变
+    assert DETECTOR_IDS[:5] == (
+        "broken_refs",
+        "terms",
+        "assets_missing",
+        "render_consistency",
+        "events_consistency",
+    )
 
 
 def test_get_detector_unknown_lists_registered() -> None:
