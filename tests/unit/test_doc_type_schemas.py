@@ -229,14 +229,26 @@ COVERAGE_FRAGMENT = (
 TABLE_META: dict[str, object] = {"rows": 2, "cols": 5, "cells": 10, "max_colspan": 1}
 
 NEW_VARIANTS = (
-    assert "additionalProperties" in _violations({**content, "typo": 1})
-    assert "additionalProperties" in _violations({**content, row_key: [{**row, "typo": 1}]})
-    assert "required" in _violations({key: value for key, value in content.items() if key != row_key})
+    ("table.failure_mode", "modes", FAILURE_MODE_ROW, FAILURE_MODE_FRAGMENT),
+    ("table.coverage_matrix", "matrix", COVERAGE_ROW, COVERAGE_FRAGMENT),
+)
 
-    row_missing = dict(row)
-    row_missing.pop(ATOM_SCHEMAS[atom_type]["properties"][row_key]["items"]["required"][0])
-    assert "required" in _violations({**content, row_key: [row_missing]})
-    assert "minItems" in _violations({**content, row_key: []})
+
+def _content(row_key: str, row: dict[str, object], fragment: str) -> dict[str, object]:
+    return {"fragment": fragment, "meta": TABLE_META, row_key: [row]}
+
+
+@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment"), NEW_VARIANTS)
+def test_new_variant_schema_is_well_formed(
+    atom_type: str, row_key: str, row: dict[str, object], fragment: str
+) -> None:
+    schema = ATOM_SCHEMAS[atom_type]
+
+    assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["text", "fragment", "meta", row_key]
+    assert set(schema["properties"]) == {"text", "fragment", "meta", row_key}
     assert atom_type in ATOM_VARIANTS
     assert atom_type in TABLE_ATOMS  # E1-a：fragment 为原样 HTML 片段
     assert schema["properties"]["text"]["minLength"] == 1
