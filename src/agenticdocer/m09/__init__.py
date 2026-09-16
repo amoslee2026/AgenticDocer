@@ -72,6 +72,11 @@ __all__ = [
     "GateContext",
     "detector_ids",
     "get_detector",
+    "resolve_detectors",
     "run_quality_gate",
     "run_quality_gate_sync",
+    # 公共类型（M01 直出，供调用方一次 import 即得 M09 契约）
+    "QualityReport",
+    "QualityScope",
+    "Violation",
 ]
