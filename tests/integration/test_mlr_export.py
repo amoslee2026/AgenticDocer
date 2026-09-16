@@ -134,11 +134,17 @@ def only(relations: list[dict[str, Any]], **match: Any) -> dict[str, Any]:
     return found[0]
 
 
-def block_external_network(monkeypatch: pytest.MonkeyPatch) -> None:
-    """P6/C7：放行 loopback（PG）与非 INET 地址，外部网络一律判违规。"""
+def block_external_network(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    """P6/C7：放行 loopback（PG）与非 INET 地址，外部网络一律判违规。
+
+    返回已被拦截的连接地址清单——调用方据此断言**守卫确实被触发过**（否则「无外部网络」
+    的断言是空的）。
+    """
     original_connect = socket.socket.connect
+    seen: list[Any] = []
 
     def guarded_connect(self: socket.socket, address: Any, *args: Any, **kwargs: Any) -> Any:
+        seen.append(address)
         host = address[0] if isinstance(address, tuple) else None
         if isinstance(host, bytes):
             host = host.decode()
@@ -151,6 +157,7 @@ def block_external_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(socket.socket, "connect", guarded_connect)
     monkeypatch.setattr(socket, "create_connection", blocked)
+    return seen
 
 
 # ── 导出包：文本与 M04 同源 ───────────────────────────────────────────────
