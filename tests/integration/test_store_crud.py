@@ -707,12 +707,12 @@ async def test_get_asset_paths_batch(storage: Storage) -> None:
 
 
 async def test_section_interval_falls_back_on_outline_violation(storage: Storage) -> None:
-    """大纲契约被破坏（子节点排在兄弟之后）→ 快路径自检失败、自动回退 CTE，结果仍正确。
+    """大纲契约被破坏时快路径的两个方向：**多收**被自检挡住并回退 CTE；**漏收**拦不住。
 
-    这是「仅校验首行即根」的**反例**：`b` 的区间会多收 `a1`（它是 `a` 的子节点，不是 `b` 的），
-    而首行仍是 `b` —— 故必须做父链连通性自检（见 `NodeRepository._section_interval`）。
+    这是「仅校验首行即根」的**反例**（`second_child` 的区间会多收 `a1`，而首行仍是它自己），
+    故必须做父链连通性自检（见 `NodeRepository._section_interval`）；
+    同时诚实地钉住**残留风险**：反向的漏收无法在区间内自检，需 M09B 抽样 detector 兜底。
     """
-    from agenticdocer.render.sections import section_subtree
 
     doc_id = unique_doc("OUTLINE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
