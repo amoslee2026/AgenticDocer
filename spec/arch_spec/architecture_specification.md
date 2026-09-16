@@ -303,6 +303,7 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | `GET/POST /api/v1/nodes` 等 | **复用 M06 端点**（同一实现集；source="webui" 由 X-Actor 决定；表单与 agent 共用契约，R8） |
 | `GET /api/v1/schemas/{atom_type}` | **schema 端点**（表单引擎数据源；A8） |
 | `GET /api/v1/events?entity=&entity_id=&since=` | 结构化 diff 数据源 |
+| `GET/POST /api/v1/terms` | 术语表读写（M09B 术语校验数据源；R10/N3） |
 | `GET /api/v1/events/replay?node_id=&upto=` | 版本历史（apply_events 折叠） |
 | `POST /api/v1/comments` / `PATCH /api/v1/comments/{id}` | 批注创建 / `{state, expectedVersion}`（409；A4） |
 | `POST /api/v1/docs/{id}/status` | `{status, expectedVersion}`（409；A17） |
