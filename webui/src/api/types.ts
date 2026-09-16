@@ -86,10 +86,14 @@ export interface UserDTO {
 }
 
 export interface GrantDTO {
+  /** 实现侧补充（§3 M07 GrantDTO 无此字段，后端 Grant 模型输出含 grantId/grantedBy/grantedAt） */
+  grantId: string;
   userId: string;
   scope: GrantScope;
   value: string;
   permission: GrantPermission;
+  grantedBy: string | null;
+  grantedAt: string;
 }
 
 export interface SectionDTO {
