@@ -31,9 +31,10 @@ from pathlib import Path
 from typing import Any, Final, Literal
 from uuid import UUID
 
-import jsonschema
 
+from agenticdocer.m09 import validate_proposal, validate_write
 from agenticdocer.model import (
+    DOC_TYPE_RULES,
     AssetSyncReport,
     CommitResult,
     Model,
@@ -43,10 +44,7 @@ from agenticdocer.model import (
     RawFallback,
     Violation,
     WriteContext,
-    allowed_atom_types,
-    get_atom_schema,
     get_doc_type_rule,
-    is_atom_allowed,
 )
 from agenticdocer.observability import get_logger
 from agenticdocer.store import Storage, ValidationError, get_storage
