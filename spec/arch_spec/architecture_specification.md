@@ -557,15 +557,23 @@ export interface SessionDTO { userId: string; username: string; role: RoleName;
 ### M09 校验
 
 ```python
-# M09A（阶段 1）
-def validate_proposal(atom_type: str, content: dict) -> list[Violation]: ...
-def validate_write(node: NodeIn) -> list[Violation]: ...
-# M09B（阶段 3）
+# M09A（阶段 1）—— schema 判据源：`ATOM_SCHEMAS` ∪ 变体白名单（§3 M01）
+def validate_proposal(atom_type: str, content: dict, doc_type: str = "standard") -> list[Violation]: ...
+def validate_write(node: NodeIn, doc_type: str = "standard") -> list[Violation]: ...
+# 关键 rule_id（判据归属，勿混）：
+#   M01.doc_type.atom     —— 基底原子被 doc_type 排除（恒，哪怕名字含点）
+#   M01.doc_type.variant  —— 基底放行但**变体不在白名单**（方案 C 新增，2026-09-17）
+#   M01.doc_type.required —— 缺少 required_atom_types（可含变体名）
+
+# M09B（阶段 3）—— 8 个 detector（方案 C 后）
 def run_quality_gate(scope: QualityScope) -> list[QualityReport]:
-    """detector_id ∈ {broken_refs, terms, assets_missing, render_consistency,
-       events_consistency}；render_consistency 消费 M04.normalize；
+    """detector_id ∈ {
+         broken_refs, terms, assets_missing, render_consistency, events_consistency,   # 原始 5 项
+         section_range_consistency,    # M02 区间读与递归 CTE 的一致性（B-2 优化残留风险兜底）
+         doc_type_schema_conformance,  # 历史数据的 doc_type 元数据合规（方案 C 新增）
+         perf_health,                  # 容量巡检（M12 health()；非默认集合，需显式指定）
+       }；render_consistency 消费 M04.normalize；
        events_consistency 用 M02.apply_events 重放比对当前态。"""
-```
 
 ### M10 鉴权与用户管理（新增；批注 B1/B2/B3）
 
