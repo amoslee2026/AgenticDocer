@@ -70,6 +70,7 @@ from _common import (  # noqa: E402
     render_table,
     sample_points,
     save,
+    schema_floor,
     scalar,
 )
 
@@ -77,6 +78,10 @@ pytestmark = pytest.mark.perf
 
 NAME = "scale"
 TITLE = "10k 文档规模验收（ADR-009 规模 + §1.4 点查/渲染/存储/分区有效性）"
+
+MIN_NODES_FOR_STORAGE_VERDICT = 50_000
+"""低于该节点数时**不作** §1.4 存储判定：schema 固定开销（64 分区 × 每分区全套索引，
+含 FTS GIN）尚未被摊薄，`B/节点` 不具可比性（实测 1k 节点时虚高至 ~5KB，134k 节点时 ~2.9KB）。"""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -181,6 +186,9 @@ async def run_bench(args: argparse.Namespace) -> Bench:
         ))
         nodes_per_doc = syn_nodes / syn_docs if syn_docs else 0.0
         bytes_per_node = info["total_bytes"] / after["nodes"] if after["nodes"] else 0.0
+        floor = await schema_floor(db, known_rows=dict(rows_by_part))
+        net_bytes = max(0, info["total_bytes"] - floor["floor_bytes"])
+        net_bytes_per_node = net_bytes / after["nodes"] if after["nodes"] else 0.0
         # 行分布必须按**全部分区**（含空分区）评估，否则「分区均衡」被空分区掩盖
         rows_per_part = [rows_by_part.get(name, 0) for name in leaves]
         nonempty = [count for count in rows_per_part if count]
@@ -231,13 +239,21 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                    note="按**叶子关系**汇总 pg_total_relation_size（表+索引+TOAST；分区父表在本机 PG "
                         f"返回 0，故按 relkind='r' 取分区子表）；对账 pg_database_size = "
                         f"{info['database_human']}"),
+            metric("scale.schema_floor_mib", round(floor["floor_bytes"] / 1024**2, 3), unit="MiB",
+                   note=f"schema 固定开销（{len(floor['empty_relations'])} 个空关系的体积）：64 分区 × "
+                        "每分区全套索引，与数据量无关"),
             metric("scale.bytes_per_node", round(bytes_per_node, 1), unit="B",
-                   note="13 张基表（表+索引+TOAST）÷ 节点数；§1.4 以 0.5–4KB/节点 推演存储区间"),
+                   note="13 张基表（表+索引+TOAST）÷ 节点数（含上项固定开销）"),
+            metric("scale.bytes_per_node_net", round(net_bytes_per_node, 1), unit="B",
+                   note="扣除 schema 固定开销后的净密度（外推用此值）"),
             metric("scale.projected_storage_gib_at_target_scale",
-                   round(bytes_per_node * TARGET_NODES / 1024**3, 2), unit="GiB",
-                   target=(20.0, 54.0), comparison="range",
-                   note="**§1.4 存储指标的直接判定**：按本次实测 B/节点 外推 13.4M 节点，"
-                        "对照 §1.4「≈20–54GB」"),
+                   round(net_bytes_per_node * TARGET_NODES / 1024**3, 2), unit="GiB",
+                   target=(20.0, 54.0) if after["nodes"] >= MIN_NODES_FOR_STORAGE_VERDICT else None,
+                   comparison="range",
+                   note="**§1.4 存储指标判定**：按净密度外推 13.4M 节点，对照 §1.4「≈20–54GB」"
+                        + ("" if after["nodes"] >= MIN_NODES_FOR_STORAGE_VERDICT else
+                           f"；本次仅 {after['nodes']} 节点（< {MIN_NODES_FOR_STORAGE_VERDICT}），"
+                           "固定开销未摊薄 ⇒ **不作判定**")),
             metric("scale.ingest_hours_at_target_scale",
                    round(TARGET_NODES / ingest["nodes_per_s"] / 3600, 2) if ingest["nodes_per_s"] else None,
                    unit="h",

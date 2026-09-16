@@ -1082,6 +1082,7 @@ __all__ = [
     "reachable",
     "render_table",
     "sample_points",
+    "schema_floor",
     "save",
     "scalar",
     "synthetic_markdown",
