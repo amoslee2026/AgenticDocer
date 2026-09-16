@@ -127,6 +127,9 @@ QUALITY_DEFAULT_DETECTORS: Final = (
 
 QUALITY_ADMIN_DETECTOR: Final = "perf_health"
 
+
+BULK_MODES: Final = ("online", "initial_load")
+"""``import commit --bulk-mode`` 取值域（M03 批量路径，ADR-009 §3）。"""
 _PATH_SAFE: Final = "/-._~!$&'()*+,;=:@"
 """路径中**原样保留**的字符集（其余按 RFC 3986 百分号编码）。
 
