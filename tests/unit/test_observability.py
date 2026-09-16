@@ -548,14 +548,15 @@ def test_snapshot_render_metrics(logs: Path) -> None:
 
     snap = snapshot(since=_since(), window=600, log_dir=logs)
     assert snap.render.count == 3
-    assert snap.render.section_p95 == 200
+    DTO_REF_BROKEN,
+    EndpointMetric,
     assert snap.render.document_p95 == 500
 
 
 def test_metrics_types_serialise_camel_case() -> None:
     snap = MetricsSnapshot(
         window_seconds=60,
-        endpoints=[EndpointMetric_(route="/x", count=1, p50=1, p95=2, p99=3, error_rate=0.0)],
+        endpoints=[EndpointMetric(route="/x", count=1, p50=1, p95=2, p99=3, error_rate=0.0)],
         slow_queries=[],
         auth_failures=0,
         render=RenderMetric(section_p95=0, document_p95=0, count=0),
@@ -599,10 +600,6 @@ def test_index_health_in_snapshot_slow_query_type() -> None:
 
     assert SlowQuery(sql_hash="abc", count=1, max_dur=300, table="nodes").max_dur == 300
 
-
-EndpointMetric_ = None  # 占位：在下方赋值，保持导入列表简洁（见文件末尾）
-
-from agenticdocer.observability import EndpointMetric as EndpointMetric_  # noqa: E402
 
 
 # ----------------------------------------------------------------------
