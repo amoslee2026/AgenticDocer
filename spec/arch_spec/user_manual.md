@@ -190,9 +190,3 @@ uv run agenticdocer grant list --username alice
 - 备份：`pg_dump agenticdocer`（纳入 sys-backup 惯例）+ git（代码与 spec/ 文档）。
 - 迁移：Alembic 管理 DDL 版本（`uv run alembic upgrade head`）。
 - **审计不可丢**：`events` 表 append-only；运行日志（`logs/`）可轮转丢弃，二者职责分离。
-
-## 7. 数据与恢复
-
-- 权威源 = PostgreSQL（database `agenticdocer`）；一切变更可凭 `events` 重放。
-- 备份：`pg_dump agenticdocer`（纳入 sys-backup 惯例）+ git（代码与 spec/ 文档）。
-- 迁移：Alembic 管理 DDL 版本（`uv run alembic upgrade head`）。
