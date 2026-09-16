@@ -73,10 +73,8 @@ def new_corpus_paths() -> list[pathlib.Path]:
     非 markdown 格式（`.n` nroff / `.rst` / `.hjson` / `.adoc` / `.xml`）**不在此列**——
     它们需前置格式转换（见 `spec/standards/DOWNLOADED.md` 与 `doc_type_mapping.md` 验证边界）。
     """
-    return sorted(
-        p for p in (CORPUS / "lang").glob("*.md") + tuple((CORPUS / "safety").glob("*.md"))
-    )
     return sorted(list((CORPUS / "lang").glob("*.md")) + list((CORPUS / "safety").glob("*.md")))
+
 
 @pytest.fixture(scope="session")
 def corpus_results() -> dict[str, object]:
