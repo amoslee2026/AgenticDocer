@@ -655,17 +655,17 @@ def _dry_plan(context: typer.Context, action: str, **arguments: Any) -> bool:
 # ── Typer 装配 ───────────────────────────────────────────────────────────
 
 
-GLOBAL_FLAG_HELP: Final = {
-    "json_output": "结构化输出（camelCase，与 M06/M07 DTO 同形；可写在子命令之后）",
-    "dry_run": "干跑：只回放将要发出的请求，不触网/不写库（可写在子命令之后）",
-}
+GLOBAL_FLAGS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("json_output", "--json", "结构化输出（camelCase，与 M06/M07 DTO 同形；也可写在子命令之后）"),
+    ("dry_run", "--dry-run", "干跑：只回放将要发出的请求，不触网/不写库（也可写在子命令之后）"),
+)
 
 
 def _flag_params() -> tuple[inspect.Parameter, ...]:
     """每条子命令都接受的全局开关（``--json`` / ``--dry-run``）。
 
-    click 的组选项只能写在子命令**之前**；这里把两个最常用的全局开关复制到每个子命令上
-    （值在 :func:`command` 的包装里并入 :class:`CliContext`），使
+    click 的组选项只能写在子命令**之前**；这两个最常用的开关同时注册到每条子命令上
+    （值在 :func:`command` 的包装里并入 :class:`CliContext`），于是
     ``agenticdocer doc list --json`` 与 ``agenticdocer --json doc list`` 等价。
     """
     return tuple(
@@ -673,9 +673,9 @@ def _flag_params() -> tuple[inspect.Parameter, ...]:
             name,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
             default=False,
-            annotation=Annotated[bool, typer.Option(f"--{name.replace('_', '-')}", help=help_text)],
+            annotation=Annotated[bool, typer.Option(flag, help=help_text)],
         )
-        for name, help_text in GLOBAL_FLAG_HELP.items()
+        for name, flag, help_text in GLOBAL_FLAGS
     )
 
 
@@ -696,8 +696,9 @@ def command(application: typer.Typer, *args: Any, **kwargs: Any) -> Callable[[Ca
                 _fail(exc)
                 raise typer.Exit(code=exc.exit_code) from None
 
-        wrapper.__signature__ = inspect.signature(func).replace(  # type: ignore[attr-defined]
-            parameters=[*inspect.signature(func).parameters.values(), *_flag_params()]
+        signature = inspect.signature(func, eval_str=True)  # eval_str：注解须为对象，Typer 才能读出 Option 声明
+        wrapper.__signature__ = signature.replace(  # type: ignore[attr-defined]
+            parameters=[*signature.parameters.values(), *_flag_params()]
         )
         return application.command(*args, **kwargs)(wrapper)
 
