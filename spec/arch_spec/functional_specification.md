@@ -11,13 +11,15 @@ purpose: spec
 audience: both
 direction: input
 status: approved
-version: "1.2.0"
+version: "1.3.0"
 section_meta: "@meta"
 ---
 
 # 功能规格书
 
 生成：2026-09-16（it.arch Phase 3）。输入基线：`../idea/design_doc.md` v1.1.0（模块 M01–M09 + M-LR）。环境事实与调研见 `research_report.md`。
+
+> **v1.3 修订（批注 B11）**：新增 REQ-M07-F06（文档 diff）、REQ-M08-F05（可编辑表格）、REQ-M10-F01..F05（鉴权与用户管理）、REQ-M11-F01..F07（CLI 工具族与 skill，含 `docer-annotations` 人类标注调取）；REQ-M05-F01/F02 改注为**内部实现**（批注 B5）。**批注原文保留**于各处置点。
 
 > 编号规则：`REQ-M##-F##`（M## = 模块，F## = 模块内功能序）。优先级：P0 = 阶段 1（地基+闭环）；P1 = 阶段 2（人机接口）；P2 = 阶段 3（增值）。
 
