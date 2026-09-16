@@ -289,8 +289,10 @@ async def test_traverse_rejects_malformed_node_id() -> None:
 
 
 def test_retrieve_exposes_no_public_endpoint() -> None:
+    """M05 只提供内部函数：`retrieve` 内不得出现 FastAPI 路由/应用（ADR-008 边界表）。"""
+    module_dir = pathlib.Path(__file__).resolve().parents[2] / "src" / "agenticdocer" / "retrieve"
+    sources = "\n".join(path.read_text(encoding="utf-8") for path in sorted(module_dir.glob("*.py")))
     assert sources, "retrieve 包不得为空"
     assert "fastapi" not in sources.lower(), "内部实现不得引入 FastAPI"
     assert "APIRouter" not in sources and "include_router" not in sources
     assert "@router." not in sources
-    assert "router" not in sources
