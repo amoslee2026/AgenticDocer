@@ -89,7 +89,7 @@ TS_CONTRACT_FIELDS: Final[dict[str, set[str]]] = {
     "SchemaDef": {"typeName", "version", "jsonSchema"},
     "UserView": {"userId", "username", "role", "status", "keyFingerprints", "createdAt"},
     "Grant": {"userId", "scope", "value", "permission"},
-    "SectionInfo": {"nodeId", "anchor", "title", "level", "ordinal", "childCount"},
+    "SectionDTO": {"nodeId", "anchor", "title", "level", "ordinal", "childCount"},
     "Violation": {"ruleId", "path", "message", "fixHint"},
 }
 """§3 M07「前端契约（TS）」逐字段对照（camelCase，A11 序列化口径）。"""
