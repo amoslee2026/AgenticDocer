@@ -371,7 +371,7 @@ async def render_doc(
 
 
 @router.get("/assets/{asset_id}")
-async def get_asset(asset_id: str, context: AuthDep, storage: StorageDep) -> FileResponse:
+async def get_asset(asset_id: str, context: ReadAuth, storage: StorageDep) -> FileResponse:
     """资产字节流（A6：sha256 内容寻址）。
 
     资产表无文档关联列（§4 DDL），故判定为**凭据 + `read` 角色**级；`Cache-Control`
@@ -379,7 +379,7 @@ async def get_asset(asset_id: str, context: AuthDep, storage: StorageDep) -> Fil
     """
     record = await storage.get_asset(asset_id)
     path = await storage.get_asset_path(asset_id)
-async def get_asset(asset_id: str, context: ReadAuth, storage: StorageDep) -> FileResponse:
+    log.info("asset served", op="get_asset", asset_id=asset_id, bytes=record.bytes)
     return FileResponse(
         path,
         media_type=record.mime,
