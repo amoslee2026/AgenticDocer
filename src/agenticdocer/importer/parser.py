@@ -76,6 +76,7 @@ __all__ = [
     "atom_type_counts",
     "rule_counts",
     "report",
+    "atom_content",
     "log_parse_stats",
     "fallback_anchors",
 ]
