@@ -19,7 +19,9 @@
 - 覆盖项无测试（覆盖缺口）→ 行的 `test` 记为 :data:`UNASSIGNED_TEST` 哨兵值
   （`matrix` 行的五个字段在 schema 中均要求非空字符串，缺口必须显式留痕），
   原值 ``None`` 保留在 :attr:`CoverageRow.test` 上，可由 :attr:`VPlan.coverage_gaps` 取回；
-- `status` 缺省 → :data:`UNKNOWN_STATUS`（覆盖状态取 `coverage_item`，其次取 `test`）。
+- `status` 缺省 → :data:`UNKNOWN_STATUS`（覆盖状态取 `coverage_item@status`，其次取
+  `test@status`）；`test@status` 另存于 :attr:`CoverageRow.test_status`——矩阵只有一列
+  `status`，两个状态都保留才能让 :meth:`VPlan.to_xml` 无损往返。
 """
 
 from __future__ import annotations
