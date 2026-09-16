@@ -679,12 +679,14 @@ async def doc_diff(
     to_ts = _resolve_point(doc_events, to, default=None) if to is not None else None
     from_default = doc_events[-2].ts if len(doc_events) >= 2 else None
     from_ts = _resolve_point(doc_events, from_, default=from_default)
-
+    with log.timer("query", table="events", doc_id=doc_id):
+        node_events = await _load_node_events(db, node_ids)
     with log.timer("query", table="nodes", doc_id=doc_id):
         doc_nodes = await storage.get_doc_nodes(doc_id, include_deleted=True)
     node_ids = [node.node_id for node in doc_nodes]
     node_events = await _load_node_events(db, node_ids)
-    before_nodes = _fold_nodes(node_events, from_ts)
+    with log.timer("query", table="refs", doc_id=doc_id):
+        ref_events = await _load_ref_events(db, low, to_ts)
     after_nodes = _fold_nodes(node_events, to_ts)
 
     low = from_ts or (doc_events[0].ts if doc_events else None)

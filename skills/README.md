@@ -6,9 +6,9 @@
 
 | Skill | 用途 | 前置角色 | 底层命令 |
 |---|---|---|---|
-| [`docer-import`](docer-import/SKILL.md) | 导入 markdown → 结构化库（解析 → 提议审核 → 事务入库） | editor | `agenticdocer import parse\|review\|commit` |
-| [`docer-read`](docer-read/SKILL.md) | 按 doc_id/anchor/node_id 读取文档树与节点（含 `version`） | reader | `agenticdocer doc list\|get`、`node get` |
-| [`docer-write`](docer-write/SKILL.md) | 结构化写入/更新/软删（乐观锁，409 重读重试） | editor | `agenticdocer node put\|delete` |
+| [`docer-import`](docer-import/SKILL.md) | 导入 markdown → 结构化库（解析 → 提议审核 → 事务入库） | editor | `agenticdocer import parse\|agenticdocer import review\|agenticdocer import commit` |
+| [`docer-read`](docer-read/SKILL.md) | 按 doc_id/anchor/node_id 读取文档树与节点（含 `version`） | reader | `agenticdocer doc list\|agenticdocer doc get\|agenticdocer node get` |
+| [`docer-write`](docer-write/SKILL.md) | 结构化写入/更新/软删（乐观锁，409 重读重试） | editor | `agenticdocer node put\|agenticdocer node delete` |
 | [`docer-render`](docer-render/SKILL.md) | 渲染整档或章节为 Markdown | reader | `agenticdocer render` |
 | [`docer-diff`](docer-diff/SKILL.md) | 查看文档版本 diff（了解他方改动） | reader | `agenticdocer doc diff` |
 | [`docer-annotations`](docer-annotations/SKILL.md) | **调取人类标注**（含锚定版本上下文） | reader | `agenticdocer comment list` |
