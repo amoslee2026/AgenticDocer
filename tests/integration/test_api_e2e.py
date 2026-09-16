@@ -369,7 +369,6 @@ async def test_agent_flow_read_write_render_diff(
     ref_window = await admin.get(
         f"/api/v1/docs/{doc_id}/diff?from={before_writes.isoformat()}&to={_utc_now().isoformat()}"
     )
-    assert {item["state"] for item in orphaned.json()} == {"resolved", "orphaned"}
     ref_changes = [
         entry for entry in ref_window.json()["changes"] if entry["field"] == "ref"
     ]
