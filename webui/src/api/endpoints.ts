@@ -1,11 +1,12 @@
 // 数据访问层：每个端点一个薄封装（camelCase 契约见 ./types）。
-import { api, apiDelete, apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import type {
   ChallengeDTO,
   CommentDTO,
   DocDiffDTO,
   DocDTO,
   EventDTO,
+  GrantDTO,
   HealthReportDTO,
   MetricsSnapshotDTO,
   NodeDTO,
@@ -43,7 +44,7 @@ export const nodeApi = {
     ),
   create: (payload: Record<string, unknown>) => apiPost<NodeDTO>("/api/v1/nodes", payload),
   delete: (nodeId: string, expectedVersion: number) =>
-    apiDelete<void>(`/api/v1/nodes/${nodeId}?expected_version=${expectedVersion}`),
+    apiDelete(`/api/v1/nodes/${nodeId}?expected_version=${expectedVersion}`),
   sections: (docId: string) =>
     apiGet<SectionDTO[]>(`/api/v1/docs/${encodeURIComponent(docId)}/sections`),
   render: (docId: string, section?: string) =>
