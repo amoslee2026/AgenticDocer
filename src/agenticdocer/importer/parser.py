@@ -1010,7 +1010,8 @@ def parse_text(
             )
             proposals.append(
                 Proposal(
-                    proposal_id=proposal_id,
+                    atom_type=item.atom_type,
+                    format=item.format,  # type: ignore[arg-type]
                     rule_id=item.block.rule_id,
                     confident=item.block.confident,
                     source_lines=item.source_lines,
