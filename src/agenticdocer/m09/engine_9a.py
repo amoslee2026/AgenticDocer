@@ -301,3 +301,7 @@ def _table_violations(node: NodeIn) -> list[Violation]:
                 f"表格原子 format={node.format!r} 与 fragment 形态不符：fragment "
                 f"{'含' if has_html_table else '不含'} `<table>`，应为 format={expected!r}"
                 "（E1-a：HTML 片段原样直通 / md 管道表原样直通，P4）"
+            ),
+            fix_hint=f"把 format 改为 {expected!r}（保持 fragment 原样，勿改写片段）",
+        )
+    ]
