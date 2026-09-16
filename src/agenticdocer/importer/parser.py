@@ -599,20 +599,14 @@ def _absorbed_by_heading(
 
 
 def _join_blocks(items: Sequence[Block]) -> str:
-    """按**源文档实际间隔**拼接块原文（P4 零改写：结果恒为源文本的逐字节片段）。
+    """按源序拼接块原文（单空行分隔）——clause/definition 节点把并入的正文段落合成一段。
 
-    用块间真实空行数（`next.start - prev.end`）而非固定 `\\n\\n`——语料存在连续空行，
-    固定连接会把 `\\n\\n\\n` 压成 `\\n\\n`，fragment 便不再是源文本的子串。
+    **P4 零改写口径**：每个块的原文逐字节保留（不重排、不改写）；块被抽成独立原子
+    （表格/图/代码/列表/引用）时其内容不并入，故合成结果不保证是源文本的**连续子串**，
+    但恒为「源块的原文按源序的拼接」。渲染期按 `ordinal` 拼回时以单空行分隔，
+    与 M04 的 normalize 口径（标题/表格/图/列表/内联标记，不含空行数）一致。
     """
-    parts: list[str] = []
-    previous: Block | None = None
-    for item in items:
-        if previous is not None:
-            parts.append("\n" * max(1, item.start - previous.end))
-        parts.append(item.text)
-        previous = item
-    return "".join(parts)
-
+    return "\n\n".join(item.text for item in items)
 
 def _term_of(section: Section) -> str:
     """词条名：标题去编号后的余下文本（无编号标题即标题本身）。"""
