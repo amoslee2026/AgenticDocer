@@ -331,19 +331,33 @@ def _toc_continues(blocks: Sequence[Block], position: int) -> bool:
     return hits / len(lines) >= rules.TOC_CONTINUATION_RATIO
 
 
+_DEFINITION_ENTRY_MAX_CHARS: Final = 2000
+"""词条正文长度上限：超过即视为普通小节（防止把术语区内的长小节并成定义）。"""
+
+
 def _is_definition_entry(blocks: Sequence[Block], position: int) -> bool:
-    """词条标题判据：其后到下一个标题之间**恰有一个**段落块（术语区上下文内）。"""
+    """词条标题判据（术语区上下文内）：其后到下一个标题之间**全是段落**且正文不长。
+
+    语料实测：PCIe 词条 = 标题 + 单段落；AMBA AXI 词条（`## Aligned`）常为「标题 + 2 段」，
+    故允许**多段**，但要求无非段落块（表格/图/代码/列表会退出判据）且总长 ≤ 2000 字符。
+    区域标记标题本身（`Glossary`/`Terms and Acronyms`…）与终止标题不判为词条。
+    """
     following: list[Block] = []
     for block in blocks[position + 1 :]:
         if block.kind == rules.HEADING:
             break
         following.append(block)
-    if len(following) != 1 or following[0].kind != rules.PARAGRAPH:
+    if not following or any(item.kind != rules.PARAGRAPH for item in following):
+        return False
+    if sum(len(item.text) for item in following) > _DEFINITION_ENTRY_MAX_CHARS:
         return False
     heading = rules.match_heading(blocks[position].lines[0])
     assert heading is not None
-    title = rules.clean_text(heading.group("title"))
-    if not title or len(title) > 80 or rules.match_cross_ref(title):
+    title = heading.group("title")
+    if rules.match_glossary_marker(title) or rules.match_glossary_exit(title):
+        return False
+    cleaned = rules.clean_text(title)
+    if not cleaned or len(cleaned) > 80 or rules.match_cross_ref(cleaned):
         return False
     return len(following[0].text) >= 20
 
