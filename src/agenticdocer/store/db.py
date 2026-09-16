@@ -10,9 +10,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Final
 
 from sqlalchemy.ext.asyncio import (
@@ -46,6 +46,7 @@ def _load_env_file(path: Path) -> None:
 
 
 _load_env_file(ENV_FILE)
+
 __all__ = [
     "DEFAULT_DATABASE_URL",
     "DEFAULT_MIGRATION_DATABASE_URL",
