@@ -14,6 +14,7 @@ section_meta: "@meta"
 > **执行方式**：推荐使用 subagent-driven-development 或 executing-plans
 > **调研说明**：调研降级为 WebSearch 快速调研（docs-as-code 拓扑、StrictDoc/Doorstop 目录约定），未运行完整 it.deepresearch 流程。
 > **修订 v1.1（2026-09-16 用户指令：所有 spec 文件与 idea 保存在 ./spec）**：新增 `spec/idea/` 类目；`Notes/idea/` 与 `idea/` 归位 `spec/idea/`（A8 修订，Task 3 Step 3 承担）；`docs/plans/` 存放执行计划（plan 类，非 spec/idea），保留原位。
+> **执行状态：2026-09-16 已完成**（Task 1–5 全绿：K1 7/7、K2 缺失 0、K3 DRY_RUN 列 7、K4 表 1+表 2 全通过、K5 双仓 clean、K6 零 rm）。AgenticDocer 提交 bbdf4e0→5d2236c→0273c04；GigaRAG 提交 4d60205→f53d700→（删除记录）。
 
 | I need to... | § |
 |---|---|
