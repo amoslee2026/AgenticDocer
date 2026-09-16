@@ -37,10 +37,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Final
 
