@@ -8,8 +8,9 @@
 * **批量数据导入**（``import parse|review|commit``）走 **in-process M03 服务**
   （:func:`agenticdocer.importer.run_commit`，``WriteContext(source="importer")``）：
   导入涉及上千节点的单事务写入，逐节点走 HTTP 在 10k 文档规模下不可行；调用前先经
-  ``GET /api/v1/auth/me`` 做 editor 角色检查。``auth bootstrap`` 同理是本地库操作
-  （它建立鉴权本身，是唯一不需要签名的命令）。
+  ``GET /api/v1/auth/me`` 做 editor 角色检查。``auth bootstrap``（建立鉴权本身）与
+  ``quality-gate``（M09B 质量门，只读巡检）同属本地库操作，后者的角色门槛由 CLI 按
+  detector 判定：数据一致性巡检需 reader，``perf_health``（DB 内部指标）需 admin。
 
 **签名（REQ-M11-F04）**：私钥查找顺序 ``AGENTICDOCER_SSH_KEY`` → ``~/.ssh/id_ed25519``
 → ``~/.ssh/id_rsa``；载荷与验签方共用 :mod:`agenticdocer.auth.signing` 的唯一定义点
