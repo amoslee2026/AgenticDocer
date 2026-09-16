@@ -86,6 +86,8 @@ section_meta: "@meta"
 | REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
 | REQ-M12-F01 | AgenticLogger 全面接入（全模块统一出口） | M12 | P0 | 1 |
 | REQ-M12-F02 | 请求级追踪（rid 贯穿鉴权→API→存储→渲染） | M12 | P0 | 1 |
+| REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P1 | 2 |
+| REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | **P0** | **1**（随 M10 交付——M10 阶段需自举与签名） |
 | REQ-M12-F03 | 在线性能指标（API/慢查询/鉴权/渲染） | M12 | P1 | 2 |
 | REQ-M12-F04 | 性能基准套件（tests/perf/，可复现验收） | M12 | P1 | 2 |
 | REQ-M12-F05 | 容量健康巡检（分区/索引/膨胀/连接池/归档） | M12 | P1 | 2 |
