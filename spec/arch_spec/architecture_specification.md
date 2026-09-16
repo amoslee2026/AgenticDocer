@@ -25,7 +25,7 @@ section_meta: "@meta"
 
 > [!TODO] agent写入需要鉴权，通过启动agent的人类用户的ssh公钥进行鉴定身份
 >
-> **处置（B2/B3）**：已落地，见 §9.1 鉴权模型、ADR-007、§4.1 `users`/`roles` 表、M10 契约。批注语义扩展为「全体端点（含读）均需鉴权」（用户确认），WebUI 以 SSH 挑战-响应换取会话 Cookie。
+> **处置（B2/B3）**：已落地，见 §9.1 鉴权模型、ADR-007、§4 鉴权五表（`users`/`ssh_keys`/`grants`/`sessions`/`nonces`）、M10 契约。批注语义扩展为「全体端点（含读）均需鉴权」（用户确认），WebUI 以 SSH 挑战-响应换取会话 Cookie。
 
 
 
@@ -753,7 +753,7 @@ systemd --user: agenticdocer-api.service
 | B6 | arch L84 | 部分文档（如功能列表）应渲染为可编辑表格 | 采纳：`EditableTableMode` + `PATCH /nodes/{id}/table`（editor 角色 + frontmatter 开关） | §3 M04/M07 |
 | B7 | arch L86 | WebUI 是否支持飞书多维文档 | **明确排除**（SaaS 闭源、模型不可无损映射、违反 P1）；真实需求由 B6 覆盖 | §1.4 |
 | B8 | arch L90 | lightRAG 语义检索不在本项目范围 | 确认：本系统只提供导出接口；§1.4 该指标改注为对端指标 | §1.4/§3 M-LR |
-| B9 | arch L93 | 规模改为支持 10000 Agent/bot、上万份文档 | 采纳并量化：身份 10,000（非并发）+ 文档 10,000 ≈13.4M 节点；触发分区 | §1.4、§4.2、ADR-009 |
+| B9 | arch L93 | 规模改为支持 10000 Agent/bot、上万份文档 | 采纳并量化：身份 10,000（非并发）+ 文档 10,000 ≈13.4M 节点；触发分区 | §1.4、§4.4、ADR-009 |
 | B10 | arch L104 | 渲染经 webui 分章节，单文档 <1s | 采纳：新增 `render_section()`、章节端点、WebUI 按需加载；指标改**单章节 <1s** | §1.4/§3 M04/M07 |
 | B11 | func L26/29 | 文档版本管理 + diff；skill/CLI 提供导入/删除/修改/读取 + 专用 skill 调取人类标注 | 采纳：新增 REQ-M10-*、REQ-M11-*（CLI/skill）、REQ-M07-F06（doc diff）；版本管理已由 events 重放支持，补 API 与 skill | functional §功能列表与详细说明 |
 
