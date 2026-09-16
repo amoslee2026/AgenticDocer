@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 from agenticdocer.observability.error_codes import DTO_AUTH_REJECTED
-from agenticdocer.observability.logger import PROGRAM, log_dir, slow_query_ms
+from agenticdocer.observability.logger import PROGRAM, log_dir as log_directory, slow_query_ms
 
 #: 单文件最多读取的日志行数（内存上界；超限时截断，快照计数偏低）。
 _MAX_ENTRIES_PER_FILE = int(os.environ.get("METRICS_MAX_ENTRIES", "200000"))
@@ -110,7 +110,7 @@ def snapshot(
     if since.tzinfo is None:
         since = since.replace(tzinfo=dt.timezone.utc)
     until = since + dt.timedelta(seconds=window)
-    directory = Path(log_dir) if log_dir is not None else log_dir()
+    directory = Path(log_dir) if log_dir is not None else log_directory()
     entries = _collect(since, until, directory)
     return MetricsSnapshot(
         window_seconds=window,
