@@ -704,11 +704,23 @@ def test_new_corpus_doc_type_is_not_standard(new_corpus_results) -> None:
 
 
 def test_new_corpus_p4_fragments_are_verbatim(new_corpus_results) -> None:
-    """P4 零改写：每个原子的 `fragment` 逐字节是源文本子串（含兜底块）。"""
+    """P4 零改写：**单块原子**的 `fragment` 逐字节是源文本子串。
+
+    **排除 `clause`**：clause 的 fragment 是「标题行 + 并入的正文段落」的**组合**
+    （M03 设计：块被抽为独立原子时其内容不并入），故整体不保证是源连续子串；
+    P4 的真实约束是「**每块原文逐字节保留**」——对 clause 由 M03 的行级覆盖断言保证
+    （`test_corpus_line_coverage_is_complete`），此处只验单块原子。
+    """
+    single_block = {"table", "figure", "code", "note", "example", "definition", "cross_ref"}
     for name, result in new_corpus_results.items():
         path = next(p for p in new_corpus_paths() if p.name == name)
         source = path.read_text(encoding="utf-8")
+        checked = 0
         for proposal in result.proposals:
+            if proposal.atom.atom_type not in single_block:
+                continue
             fragment = proposal.atom.content.get("fragment")
             if fragment:
-                assert fragment in source, f"{name}: fragment 非源文本子串（{fragment[:40]!r}）"
+                assert fragment in source, f"{name}: {proposal.atom.atom_type} fragment 非源子串"
+                checked += 1
+        assert checked > 0, f"{name}: 应至少检出一个单块原子的 fragment"
