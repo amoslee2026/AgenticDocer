@@ -105,7 +105,8 @@ def snapshot(
 ) -> MetricsSnapshot:
     """聚合 `[since, since+window)` 窗口内的指标快照。
 
-    `since` 为 naive 时按 UTC 处理（与 SDK 写入的 `ts` 口径一致）。
+    `since` 为 naive 时按 UTC 处理（与 SDK 写入的 `ts` 口径一致）；
+    `log_dir` 省略时取进程默认日志目录（`logger.log_dir()`，即 `LOG_DIR`/仓库 `./logs`）。
     """
     if since.tzinfo is None:
         since = since.replace(tzinfo=dt.timezone.utc)
