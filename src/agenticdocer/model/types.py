@@ -12,8 +12,9 @@
 - **可选性照抄 §3.0**：写作 ``X | None`` 而未给默认值者仍是**必填**字段（调用方显式传
   ``None``）；仅 §3.0 写明的默认值存在（``NodeIn.format="md"``、``DocTypeTarget.kind``、
   ``DocTarget.kind``）。§3.0 未定义的类型（``Ref``/``SchemaDef``/``Asset``/``Term``/
-  ``Session``）按 §4 DDL 列定义推导，可选性沿用同一口径（DB nullable 列 → 必填的
-  ``X | None``；DB 有默认值的列不设 Python 默认值，值以库为准）。
+  ``Session``）按 §4 DDL 列定义推导，§3 M10 的 ``User``/``SshKey``/``Grant`` 亦按 §4 DDL
+  补全列（Main 裁决 2026-09-16：M10/M02 需回读三表全列），可选性沿用同一口径（DB nullable
+  列 → 必填的 ``X | None``；DB 有默认值的列不设 Python 默认值，值以库为准）。
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ UserStatus = Literal["active", "disabled"]
 GrantScope = Literal["doc_type", "doc"]  # S5：repo scope 已删除（无数据模型支撑）
 GrantPermission = Literal["read", "write", "review"]  # S5：无 'admin'（不可经由 grant 提权）
 TermKind = Literal["glossary", "normative-keyword"]
+SshKeyType = Literal["ssh-ed25519", "rsa-sha2-512", "rsa-sha2-256"]  # §4 DDL ssh_keys.key_type
 
 EventOp = Literal[
     "create",
@@ -393,7 +395,8 @@ __all__ = [
     "EventOp",
     "WriteSource",
     "RoleName",
-    "UserStatus",
+    "TermKind",
+    "SshKeyType",
     "GrantScope",
     "GrantPermission",
     "TermKind",
