@@ -602,11 +602,16 @@ async def test_logout_invalidates_cookie(
 async def test_disabling_user_kills_keys_and_live_sessions(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
+    user, _ = await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
+    _, token = await _login_with_ssh_key(client, database, key_material["editor_ed25519"])
+    cookies = {sessions.SESSION_COOKIE_NAME: token}
     key = signing.load_private_key(key_material["editor_ed25519"])
-    # Cookie 优先于签名头（浏览器路径）；此处清空 cookie jar 以专测 **agent 签名路径**
+    # Cookie 优先于签名头（浏览器路径）；清空 cookie jar 以专测 **agent 签名路径**
     client.cookies.clear()
     assert (
-        await client.get("/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs"))
+        await client.get(
+            "/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs")
+        )
     ).status_code == 200
 
     # 由另一 admin 禁用（S9：不能禁用最后一个 active admin，故先建第二个 admin）
