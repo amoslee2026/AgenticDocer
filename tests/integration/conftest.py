@@ -44,7 +44,14 @@ def _owner_url(app_url: str) -> str:
     """
     application = make_url(app_url)
     owner = make_url(os.environ.get("MIGRATION_DATABASE_URL") or OWNER_URL_DEFAULT)
-    return str(application.set(username=owner.username, password=owner.password))
+    # 注意：`str(URL)` 会掩码口令（hide_password=True），连接串必须显式 render。
+    return application.set(username=owner.username, password=owner.password).render_as_string(
+        hide_password=False
+    )
+
+
+def _masked(url: str) -> str:
+    return make_url(url).render_as_string(hide_password=True)
 
 
 async def _probe(url: str) -> str | None:
