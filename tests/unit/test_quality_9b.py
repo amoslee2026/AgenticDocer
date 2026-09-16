@@ -817,3 +817,111 @@ def test_no_llm_or_network_imports_in_m09() -> None:
     for module in (engine, gate):
         source = Path(module.__file__).read_text(encoding="utf-8")  # type: ignore[arg-type]
         assert not any(f"import {name}" in source for name in banned)
+
+
+# ── section_range_consistency（M02 B-2 区间契约兜底）─────────────────────
+
+
+def test_section_sample_is_deterministic_and_representative() -> None:
+    """抽样：确定性 + 覆盖根/边界/叶子/最小 level；`level` 空者不参与（区间不可判定）。"""
+    nodes = [
+        make_node(node_id=new_uuid7(), ordinal=index, level=1 if index % 3 == 0 else 2)
+        for index in range(1, 40)
+    ]
+    for node in nodes[1:]:
+        nodes[0].__dict__  # noqa: B018 - 仅确保对象可用（保持列表构造显式）
+    # 建立父子：节点 1 为根，其余挂在它下面（覆盖 root/leaf/middle）
+    nodes = [
+        make_node(node_id=new_uuid7(), ordinal=index, level=level, parent_node_id=parent)
+        for index, (level, parent) in enumerate(
+            [(1, None), *[(2, nodes[0].node_id)] * 20, *[(1, None)] * 18], start=1
+        )
+    ]
+    first = section_range_consistency.sample_nodes(nodes, 10)
+    second = section_range_consistency.sample_nodes(nodes, 10)
+
+    assert [node.node_id for node in first] == [node.node_id for node in second]
+    assert len(first) == 10 and len({node.node_id for node in first}) == 10
+    picked = {node.node_id for node in first}
+    assert nodes[0].node_id in picked  # 根
+    assert nodes[-1].node_id in picked  # 末边界
+
+    capped = section_range_consistency.sample_nodes(nodes, 10_000)
+    assert len(capped) == len(nodes)
+    assert section_range_consistency.sample_nodes(nodes, 0) == []
+
+    levelless = [make_node(node_id=new_uuid7(), level=None)]
+    assert section_range_consistency.sample_nodes(levelless, 5) == []
+
+
+def test_section_sample_size_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(section_range_consistency.SAMPLE_SIZE_ENV, "3")
+    assert section_range_consistency.sample_size() == 3
+    monkeypatch.setenv(section_range_consistency.SAMPLE_SIZE_ENV, "not-a-number")
+    assert section_range_consistency.sample_size() == section_range_consistency.DEFAULT_SAMPLE_SIZE
+    monkeypatch.setenv(section_range_consistency.SAMPLE_SIZE_ENV, "0")
+    assert section_range_consistency.sample_size() == 1
+
+
+def _diff(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "interval_ids": [],
+        "subtree_ids": [],
+        "first_diff_index": None,
+        "missing_in_interval": [],
+        "extra_in_interval": [],
+        "interval_self_check": True,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_judge_section_diff_clean_and_missing_direction() -> None:
+    """一致 → 无违规；**漏收**方向（自检通过、CTE 比区间多）→ 精确定位到缺失节点。"""
+    root = make_node(level=1)
+    missing = make_node(level=2)
+    assert section_range_consistency.judge_section_diff(DOC_ID, root, _diff()) is None
+
+    violation = section_range_consistency.judge_section_diff(
+        DOC_ID,
+        root,
+        _diff(
+            interval_ids=[root.node_id],
+            subtree_ids=[root.node_id, missing.node_id],
+            first_diff_index=1,
+            missing_in_interval=[missing.node_id],
+        ),
+    )
+    assert violation is not None
+    assert violation.rule_id == section_range_consistency.RULE_SECTION_RANGE_MISMATCH
+    assert violation.path == f"nodes/{root.node_id}"
+    assert "首个差异 @1" in violation.message
+    assert "区间缺" in violation.message and str(missing.node_id) in violation.message
+    assert violation.fix_hint
+
+
+def test_judge_section_diff_extra_direction_uses_self_check() -> None:
+    """**多收/断链**方向（自检未通过、区间为空哨兵）→ 不得按「漏收」解读。"""
+    root = make_node(level=1)
+    sibling = make_node(level=1)
+    violation = section_range_consistency.judge_section_diff(
+        DOC_ID,
+        root,
+        _diff(
+            interval_ids=[],
+            subtree_ids=[sibling.node_id],
+            first_diff_index=0,
+            extra_in_interval=[],
+            interval_self_check=False,
+        ),
+    )
+    assert violation is not None
+    assert "不可用" in violation.message and "多收/断链" in violation.message
+    assert f"nodes/{root.node_id}" == violation.path
+
+
+def test_section_range_rules_are_declared_uniquely() -> None:
+    assert len(set(section_range_consistency.RULES_SECTION_RANGE)) == 1
+    assert section_range_consistency.RULES_SECTION_RANGE == (
+        section_range_consistency.RULE_SECTION_RANGE_MISMATCH,
+    )
