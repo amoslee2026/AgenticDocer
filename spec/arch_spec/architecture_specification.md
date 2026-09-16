@@ -952,7 +952,9 @@ systemd --user: agenticdocer-api.service
 | # | 瓶颈 | 实测证据 | 影响 | 建议 |
 |---|---|---|---|---|
 | ~~**B-1**~~ **已修复** | **导入吞吐**（原：逐节点事务 57.6 节点/s → 13.4M 需 35–40h） | **修复后实测**：JEDEC 722 节点 0.39s = **1,828 节点/s**；PCIe 3,428 节点 2.01s = **1,706 节点/s**。**提升 31.7×** → 13.4M 节点 **≈2.0–2.2 小时**（原 35–40h） | 10k 文档导入**已工程可行** | **已修**：M03 `commit_document_bulk`（`asyncpg.copy_records_to_table`，每批 5k 行一事务）+ CLI `import commit --bulk [--bulk-mode online\|initial_load]`。**语义 A/B 已验证**：节点行逐字段一致 + 事件 `(entity,op)` 计数与锚集合全等 + 幂等（二次 `nodes_created=0`）+ P2（批内同事务）。**注**：模式②（先 COPY 再并行建索引，ADR-009 §2）**未自动实现**（涉 DDL 与并发，属装载后运维编排，docstring 已注明） |
-| ~~**B-2**~~ **已修复** | **`render_section` 是 O(全文) 而非 O(章节)** | 修复前 `get_doc_nodes` 占章节渲染 **30–87%**（PCIe 77ms/258ms；CXL 99ms/114ms） | 章节耗时随**文档**而非章节规模劣化 | **已修**：M02 新增 `get_section_nodes`（O(子树) 区间扫）+ `get_subtree`（递归 CTE，语义权威）+ `get_asset_paths`（消 N+1，语料 1,099 处引用）；M04 切换后复杂度 O(全档)→O(子树)。**遗留风险**：区间法依赖「ordinal=文档序且子树连续」不变量，**漏收**无法自检 → 已派 M09 新增 `section_range_consistency` 抽样 detector 兜底 |
+| ~~**B-2**~~ **已修复** | **`render_section` 是 O(全文) 而非 O(章节)** | 修复前 `get_doc_nodes` 占章节渲染 **30–87%**（PCIe 77ms/258ms；CXL 99ms/114ms） | 章节耗时随**文档**而非章节规模劣化 | **已修**：M02 新增 `get_section_nodes`（O(子树) 区间扫）+ `get_subtree`（递归 CTE，语义权威）+ `get_asset_paths`（消 N+1，语料 1,099 处引用）；M04 切换后复杂度 O(全档)→O(子树)。**遗留风险**：区间法依赖「ordinal=文档序且子树连续」不变量，**漏收**无法自检 → 已派 M09 新增 `section_range_consistency` 抽样 detector 兜底。
+
+> **detector 设计的教训（M02 发现，值得记录）**：detector **不能**比较「公开接口 vs 权威路径」——因公开接口 `get_section_nodes` 对可检出违规会**自愈回退**到 CTE，比较结果**恒等**，反而**掩盖**了「多收」方向的脏数据。正确做法是 M02 提供的 **`section_range_diff`**（绕开自愈，返回区间法**原始**结果与 CTE 的差异：`first_diff_index`/`missing_in_interval`/`extra_in_interval`/`interval_self_check`），三态语义 `True`/`False`/`None`（`None` = 不可判定，跳过而非报错）。**推广**：任何带自愈/回退的实现，其正确性检测必须走「绕开回退的原始路径」，否则检测与自愈互相抵消。 |
 
 **B-2 修复实测（M04，真实语料）**：
 
