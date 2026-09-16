@@ -11,18 +11,20 @@ section_meta: "@meta"
 
 # 总结报告（it.arch）
 
-生成：2026-09-16。阶段：it.arch（架构规范）**完成**——Phase 1–6 全流程，对抗评审（A1–A25）闭环；**v1.3 依用户批注（B1–B11）修订并重开基线**。
+生成：2026-09-16。阶段：it.arch（架构规范）**完成**——Phase 1–6 全流程，对抗评审（A1–A25）闭环；**v1.3 依用户批注（B1–B11）修订；v1.4 追加 Agentic Logger 集成与性能监控（用户要求）及 P6 运行期 LLM 无关硬约束**。
 
 ## 1. 产物清单（spec/arch_spec/）
 
 | 文件 | 内容 | 状态 |
 |---|---|---|
-| `functional_specification.md` v1.3 | **48 条 REQ**（M01–M11 + M-LR；新增 M10 鉴权 5 条、M11 CLI/skill 7 条、M07-F06、M08-F05），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
+| `functional_specification.md` v1.4 | **54 条 REQ**（M01–M12 + M-LR；新增 M10 鉴权 5、M11 CLI/skill 7、M12 可观测性 6、M07-F06、M08-F05），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
 | `user_manual.md` | 双角色使用路径（agent 操作者 / 人类评审者），命令与路径实测校正 | ✅ |
-| `architecture_specification.md` v1.3 | 模块接口契约（含 **38 类型定义**：28 Python class + 10 TS 类型）、DDL **13 表**（新增 users/ssh_keys/grants/sessions/nonces）、**10 模块**（新增 M10）、§9 CLI 与 Skill、§8 批注处置表 | ✅ |
+| `architecture_specification.md` v1.4 | 模块接口契约（含 **46 类型定义**）、DDL **13 表**、**12 模块**（+M10 鉴权、+M12 可观测性）、§9 CLI 与 Skill、§8 批注处置表、**P6 运行期 LLM 无关** | ✅ |
 | `data_flow_diagrams.md` | DF-1..5 数据流（系统级/写入/评审/检索/**鉴权**）+ 数据驻留表 | ✅ |
 | `workflow_diagrams.md` | WF-1..5 工作流（含 **agent 鉴权与写入链**）+ 文档状态机 | ✅ |
-| `ADR/ADR-001..009` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 / **SSH 鉴权** / **M05 降级** / **规模化存储** | ✅ |
+| `ADR/ADR-001..010` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 / SSH 鉴权 / M05 降级 / 规模化存储 / **可观测性与性能监控** | ✅ |
+PUT 28.=28:
+| `traceability/requirements_matrix.arch.csv` | **54 REQ** ↔ 架构章节追溯 | ✅ |
 | `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `clarifications.md` | 架构级输入确认与假设（AB1–AB5；**B6/B10 已作废替换**） | ✅ |
 | `traceability/requirements_matrix.arch.csv` | **48 REQ** ↔ 架构章节追溯 | ✅ |
