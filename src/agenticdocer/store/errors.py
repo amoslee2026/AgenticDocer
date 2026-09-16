@@ -63,19 +63,42 @@ class ForbiddenError(StoreError):
     status_code = 403
 
 
+_CONSTRAINT_RE = re.compile(r'constraint "([^"]+)"')
+_UNIQUE_SQLSTATE = "23505"
+_VALIDATION_SQLSTATES = frozenset({"23503", "23502", "23514"})
+
+
+def _constraint_name(orig: BaseException) -> str:
+    """尽力取出违反的约束名。
+
+    SQLAlchemy 的 asyncpg 适配层把原始异常包一层（`orig` 是适配错误，`__cause__`
+    才是 asyncpg 异常），且**分区表**上的唯一约束在报错里是分区级名字
+    （如 `nodes_p48_doc_id_anchor_key`），故先走属性链、再回退到报文解析。
+    """
+    candidates: list[Any] = [orig, getattr(orig, "__cause__", None), getattr(orig, "__context__", None)]
+    for candidate in candidates:
+        name = getattr(candidate, "constraint_name", None)
+        if name:
+            return str(name)
+    match = _CONSTRAINT_RE.search(str(orig))
+    return match.group(1) if match else ""
+
+
 def translate_integrity_error(exc: BaseException, *, entity: str, entity_id: Any = None) -> StoreError:
     """DB 完整性错误 → 存储层异常（唯一键→409、外键/非空/CHECK→422）。
 
-    不 import SQLAlchemy：按 duck typing 读 asyncpg 的 `constraint_name`/`sqlstate`
-    （`IntegrityError.orig`），保持本模块零依赖。
+    不 import SQLAlchemy：按 duck typing 读 `IntegrityError.orig` 的
+    `sqlstate`/`constraint_name`，保持本模块零依赖。
     """
     orig = getattr(exc, "orig", exc)
-    constraint = getattr(orig, "constraint_name", None) or ""
+    constraint = _constraint_name(orig)
     sqlstate = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None) or ""
-    detail = f"{entity} write violated database constraint {constraint!r}" if constraint else (
-        f"{entity} write violated database constraint: {orig}"
+    detail = (
+        f"{entity} write violated database constraint {constraint!r}"
+        if constraint
+        else f"{entity} write violated database constraint: {orig}"
     )
-    if sqlstate == "23505" or "unique" in orig.__class__.__name__.lower():
+    if sqlstate == _UNIQUE_SQLSTATE or "unique" in type(orig).__name__.lower():
         if "anchor" in constraint:
             return ConflictError(
                 f"{detail}（(doc_id, anchor) 唯一：同文档锚冲突）",
@@ -84,10 +107,4 @@ def translate_integrity_error(exc: BaseException, *, entity: str, entity_id: Any
                 entity_id=entity_id,
             )
         return ConflictError(detail, entity=entity, entity_id=entity_id)
-    if sqlstate in {"23503", "23502", "23514"} or orig.__class__.__name__ in {
-        "ForeignKeyViolationError",
-        "NotNullViolationError",
-        "CheckViolationError",
-    }:
-        return ValidationError(detail, entity=entity, entity_id=entity_id)
     return ValidationError(detail, entity=entity, entity_id=entity_id)
