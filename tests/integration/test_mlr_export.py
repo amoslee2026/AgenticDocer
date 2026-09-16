@@ -20,12 +20,12 @@ from __future__ import annotations
 import json
 import socket
 import sys
-import sys
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import pytest
+
+from sqlalchemy import text
 
 from agenticdocer.mlr import change_stream, cursor_token, export_package
 from agenticdocer.mlr.export import (
