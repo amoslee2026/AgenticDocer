@@ -556,3 +556,45 @@ def test_logs_wrapper_reaches_agentic_logger(service: _Service) -> None:
     """``logs`` 是 agentic-logger 的薄封装：真调用（服务进程已写日志到 LOG_DIR）。"""
     done = service.cli("logs", "stats", "--since", "1h")
     assert done.returncode == 0, done.stderr
+
+
+
+# ----------------------------------------------------------------------
+# M09B 质量门交付面（quality-gate）
+# ----------------------------------------------------------------------
+
+
+def test_quality_gate_reports_data_detectors(service: _Service, imported: dict[str, object]) -> None:
+    """只读巡检：reader 可跑；按 detector 分组，违规带 fixHint。"""
+    payload = service.ok("quality-gate", "--doc-id", str(imported["doc_id"]), "--json", actor="reader")
+    assert isinstance(payload, dict)
+    assert payload["detectors"] == list(cli.QUALITY_DEFAULT_DETECTORS)
+    assert payload["docIds"] == [imported["doc_id"]]
+    by_detector = {report["detectorId"]: report["violations"] for report in payload["reports"]}
+    assert list(by_detector) == list(cli.QUALITY_DEFAULT_DETECTORS)
+    assert payload["summary"]["detectors"] == len(cli.QUALITY_DEFAULT_DETECTORS)
+    assert payload["clean"] == (payload["summary"]["violations"] == 0)
+    # 合成文档无引用边、无图片 → 这两个 detector 必须零违规（确定性断言）
+    assert by_detector["broken_refs"] == []
+    assert by_detector["assets_missing"] == []
+    for violations in by_detector.values():
+        for violation in violations:
+            assert set(violation) >= {"ruleId", "path", "message", "fixHint"}
+
+
+def test_quality_gate_human_output_is_non_empty_when_clean(service: _Service) -> None:
+    done = service.cli("quality-gate", "--detectors", "broken_refs", actor="reader")
+    assert done.returncode == 0, done.stderr
+    assert "无违规" in done.stdout
+    assert "合计" in done.stdout
+
+
+def test_quality_gate_perf_health_is_admin_scoped(service: _Service) -> None:
+    """perf_health 读 DB 内部指标 → 与 ``GET /admin/health`` 同级（admin）。"""
+    denied = service.fails("quality-gate", "--detectors", "perf_health", "--json", actor="reader")
+    assert "admin" in denied.stderr
+    assert "agenticdocer user role --username" in denied.stderr
+
+    payload = service.ok("quality-gate", "--detectors", "perf_health", "--json", actor="admin")
+    assert isinstance(payload, dict)
+    assert [report["detectorId"] for report in payload["reports"]] == ["perf_health"]
