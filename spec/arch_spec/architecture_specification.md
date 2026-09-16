@@ -586,6 +586,7 @@ CREATE TABLE terms (
   term               text PRIMARY KEY,
   definition_node_id uuid REFERENCES nodes(node_id) ON DELETE SET NULL,
   kind               text NOT NULL CHECK (kind IN ('glossary','normative-keyword'))
+);
 
 -- ============ 鉴权与用户（M10；批注 A1/A2/B2/B3）============
 CREATE TABLE users (
