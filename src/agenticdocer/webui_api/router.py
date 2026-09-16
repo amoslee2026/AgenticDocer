@@ -24,6 +24,7 @@
 """
 
 from __future__ import annotations
+import re
 
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -157,8 +158,10 @@ _NODE_DIFF_FIELDS: Final = (
 )
 """逐字段比较的节点字段（`doc_id` 不入列：分区键不可变）。"""
 
-_ISO_SUFFIX: Final = "Z"
+_SPACE_OFFSET: Final = re.compile(r"(T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)\s(\d{2}:\d{2})$")
+"""`T<时间> <±HH:MM>`：query 解码把时区偏移的 `+` 变成空格 → 还原（见 `_parse_moment`）。"""
 
+_ISO_SUFFIX: Final = "Z"
 
 # ── 请求/响应 DTO（§3 M07 TS 契约的 Python 侧；camelCase 由 `Model` 保证）──
 
