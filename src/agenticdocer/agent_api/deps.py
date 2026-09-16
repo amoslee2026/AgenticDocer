@@ -102,6 +102,7 @@ class ValidationRejected(ValidationError):
             message or f"{len(violations)} 项校验失败（见 violations）",
             entity=entity,
             entity_id=entity_id,
+        )
         self.violations = violations
 
 
