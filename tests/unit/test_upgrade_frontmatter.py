@@ -12,8 +12,8 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 import sys
-
 import pytest
+import yaml
 
 from agenticdocer.importer import parse_frontmatter
 from agenticdocer.model import DOC_TYPES, DOC_TYPE_RULES, missing_required_meta
