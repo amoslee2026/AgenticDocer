@@ -327,6 +327,7 @@ def test_schema_def_asset_and_term():
     with pytest.raises(ValidationError):
         Term(term="AMBA", definition_node_id=None, kind="glossary-term")
 
+
 # ── M10 身份类型（§3 M10 + S5 + §4 DDL）────────────────────────────────
 
 
@@ -518,6 +519,8 @@ SPEC_FIELDS: dict[type, set[str]] = {
     QualityReport: {"detector_id", "violations"},
     ExportResult: {"out_path", "docs", "nodes"},
     Violation: {"rule_id", "path", "message", "fix_hint"},
+    # 类型决策（Main 裁决）：user 标识统一 UUID7（User/SshKey/Grant/Session.user_id、Grant.granted_by），
+    # 对齐 DDL uuid 列；WriteContext.actor 仍为 str（审计字符串，由 M10 显式 str(user_id) 转换）。
     DocIn: {"doc_id", "doc_type", "title", "meta", "source_ref"},
     Doc: {"doc_id", "doc_type", "title", "meta", "source_ref", "status", "version", "created_at", "updated_at"},
     AssetSyncReport: {"fetched", "missing", "total_refs"},
