@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from agenticdocer.model import (
     Asset,
@@ -16,12 +16,14 @@ from agenticdocer.model import (
     CommitResult,
     Doc,
     DocIn,
+    DocTypeRule,
     DocTarget,
     DocTypeTarget,
     Event,
     ExportResult,
     Grant,
     GrantTarget,
+    Model,
     Node,
     NodeIn,
     NodeSnapshot,
