@@ -154,6 +154,17 @@ def test_synthesized_figure_uses_asset_ref_and_caption() -> None:
     assert node_block_text(node) == f"![结构图](assets/{SHA_A})\n\n图 1 结构"
 
 
+def test_synthesized_figure_keeps_original_ref_when_text_carries_asset_id() -> None:
+    """M03 约定 ``text`` = alt 或原引用路径：携带 ``<sha256>`` 时沿用原引用（未落库即原样直通）。"""
+    node = make_node(
+        atom_type="figure",
+        content={"text": f"images/{SHA_A}.jpg", "asset_ref": SHA_A, "alt": ""},
+    )
+    assert node_block_text(node) == f"![](images/{SHA_A}.jpg)"
+    rewritten = node_block_text(node, {f"images/{SHA_A}.jpg": f"assets/{SHA_A}.jpg"})
+    assert rewritten == f"![](assets/{SHA_A}.jpg)"
+
+
 def test_synthesized_cross_ref_targets_anchor_doc_and_external_uri() -> None:
     node = make_node(
         atom_type="cross_ref",
