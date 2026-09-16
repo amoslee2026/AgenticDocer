@@ -80,6 +80,8 @@ ingested_at: 2026-09-16
 
 ## 与 LightRAG 的关系
 
+> **⛔ 摄入暂缓（用户指令 2026-09-16）**：在 AgenticDocer 系统开发完成前**不执行任何 lightRAG 摄入**；`standards/` 下的 markdown 先作为新系统的**测试语料**。下方命令为系统就绪后的参考路径，当前禁止执行。
+
 - 摄入：`SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards KEEP_IN_PLACE=1 ~/wrk/GigaRAG/scripts/ingest.sh`（递归扫描；已带 `ingested_at` 的文件自动跳过防重复入库；`DRY_RUN=1` 仅列出待导入）
 - **权威文件导入后不移动**：`KEEP_IN_PLACE=1` 时成功件原地追加 `ingested_at`；失败件保留原处
 - 职责划分见 v0.1 §6：本目录=确定性权威源；LightRAG=渲染文本的语义索引，滞后无害
