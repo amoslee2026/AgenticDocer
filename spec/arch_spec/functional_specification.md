@@ -253,5 +253,88 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 复杂可配置工作流引擎、多项目多层级组织、报表仪表盘、PLM/ALM 双向集成、全自动 PDF/markdown 直转、完整 URN 注册表（B8 简化）、HTML 片段结构化拆解（E1-a 否决）、商业 CCMS 采购（v0.1 §9）、**飞书多维文档集成（B7 明确排除）**。
 
-@newreqs
-复杂可配置工作流引擎、多项目多层级组织、报表仪表盘、PLM/ALM 双向集成、全自动 PDF/markdown 直转、完整 URN 注册表（B8 简化）、HTML 片段结构化拆解（E1-a 否决）、商业 CCMS 采购（v0.1 §9）。
+## 不支持的功能（声明）
+
+### REQ-M07-F06: 文档版本 diff API（B11）
+
+`GET /api/v1/docs/{id}/diff?from=&to=`：按 `events` 重放两个时间点（或版本号）的文档状态，返回**结构化 diff**——按 node_id 对齐，逐字段给出 `{before, after}`，并标注节点级操作（新增/修改/软删/引用变化）。
+
+**验收标准**：(a) 对任意两次写入间的变更，diff 输出覆盖全部被改节点且无多余节点；(b) 每条变更含 `nodeId`/`anchor`/`field`/`before`/`after`；(c) 与 `apply_events` 重放结果一致（同一折叠口径，P5）；(d) 无变更时返回空 diff（非 404）。
+
+### REQ-M08-F05: 可编辑表格视图（B6）
+
+当文档 frontmatter `editable_tables: true`（或 doc_type 在可编辑白名单）且用户角色 ≥ editor 时，`table` 原子渲染为可编辑控件（单元格可编辑、行列增删）；提交经 `PATCH /api/v1/nodes/{node_id}/table` 回写（服务端转 content，携带 `expectedVersion` 乐观锁）。
+
+**验收标准**：(a) 非 editor 角色或未开启开关时，表格为只读；(b) 编辑提交后节点 `content` 更新且产生 `node` 事件（字段级 diff）；(c) 并发编辑冲突返回 409；(d) HTML `<table>` 片段（1,099 处图片引用所在的形态）**不**转为可编辑控件（保持零改写直通，P4）。
+
+### REQ-M10-F01: SSH 公钥签名鉴权（全端点）
+
+所有 HTTP 端点（含读）要求 SSH 签名：请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`/`X-Actor`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nTimestamp\nNonce`。服务端按「时间窗 → nonce 未复用 → 公钥查表 → 验签」顺序校验。
+
+**验收标准**：(a) 有效签名通过，`actor` 解析为 `user_id`；(b) 篡改 body/path/时间戳任一 → 401；(c) 重放同一 nonce → 401；(d) 时间戳偏移 >300s → 401；(e) 未注册公钥 → 403；(f) `X-Actor` 与验签身份不一致 → 403；(g) 无凭据 → 401（**fail-closed**）。
+
+### REQ-M10-F02: WebUI 会话登录（挑战-响应）
+
+`POST /auth/challenge` 取一次性 nonce（TTL 120s）→ 客户端用 SSH 私钥签名 → `POST /auth/login` 验签通过后签发会话 Cookie（httpOnly/SameSite=Lax，TTL 8h 滑动续期）；`POST /auth/logout` 销毁。
+
+**验收标准**：(a) 有效签名登录成功并 Set-Cookie；(b) nonce 复用/过期 → 401；(c) 会话过期后请求 → 401；(d) logout 后原 Cookie 失效；(e) 会话 token 在 DB 仅存 SHA256 哈希（明文不入库）。
+
+### REQ-M10-F03: 用户与 SSH 公钥管理（admin）
+
+`GET/POST /api/v1/users`、`PATCH/DELETE /api/v1/users/{id}`、`POST /api/v1/users/{id}/keys`（登记/吊销公钥）。
+
+**验收标准**：(a) 仅 admin 可访问（其他角色 403）；(b) 禁用用户后其所有密钥立即失效（后续请求 401）；(c) 吊销单个密钥不影响同用户其他密钥；(d) 用户变更落 `auth` 事件（审计）；(e) 用户名唯一冲突返回 409。
+
+### REQ-M10-F04: RBAC 四角色 + 文档集级授权
+
+四角色基线权限（见架构 §3 M10 权限矩阵）+ `grants` 表按 `doc_type`/`doc`/`repo` 授予额外权限；`authorize(user, perm, target)` 判定：角色基线 ∪ 有效 grant，**grant 不可超越角色上限**。
+
+**验收标准**：(a) reader 写操作 → 403；(b) reviewer 可批注与审批但不能改正文；(c) editor 不可管理用户；(d) 文档集级 grant 生效范围精确（他 doc 不受影响）；(e) 越权 grant 尝试（如给 reader 授 write）被拒。
+
+### REQ-M10-F05: 管理员自举与鉴权审计
+
+`ADMIN_SSH_PUBKEY_FILE` 指向的公钥在首次 migrate/启动时创建 admin 用户（幂等）；无任何用户时系统 fail-closed（全部请求 401 并提示自举步骤）。鉴权失败（401/403）与用户/授权/密钥变更落 `events`（`entity='auth'`）。
+
+**验收标准**：(a) 空库启动 → 自举成功后 admin 可用；(b) 重复自举幂等（不重复创建）；(c) 无 `users` 行时所有端点 401 且错误信息指向自举；(d) 每次鉴权失败产生 `auth` 事件（含时间戳/端点/失败原因，不含密钥材料）。
+
+### REQ-M11-F01: CLI 工具族（导入/删除/修改/读取）
+
+统一入口 `agenticdocer`，提供 `import`/`import review`/`doc list|get|delete`/`node get|put|delete`/`comment list|add|resolve`/`render`/`stats`（完整清单见架构 §9.2）。
+
+**验收标准**：(a) 每条命令可独立完成其语义操作并输出结构化结果（`--json`）；(b) 权限不足时以非零退出码 + 明确错误信息拒绝；(c) 读命令失败不影响库状态；(d) 所有命令（除 `auth bootstrap`）自动附带签名。
+
+### REQ-M11-F02: CLI 文档版本 diff
+
+`agenticdocer doc diff <doc_id> [--from <ts|version>] [--to <ts|version>]`：输出与 REQ-M07-F06 同口径的结构化 diff（人可读表格 + `--json` 机器可读）。
+
+**验收标准**：(a) 输出与 API 版本结果一致（同一实现）；(b) `--from/--to` 缺省时以「当前 vs 上一次变更」为默认区间；(c) 无变更时输出空且退出码 0。
+
+### REQ-M11-F03: CLI 用户与授权管理
+
+`agenticdocer user add|list|disable|role`、`user key add|revoke`、`grant add|list|rm`（admin 专属）。
+
+**验收标准**：(a) 非 admin 执行 → 退出码非零 + 明确拒绝信息；(b) 效果与 WebUI 等价（同一 M10 服务层）；(c) 操作落 `auth` 事件。
+
+### REQ-M11-F04: CLI 自动签名与身份传递
+
+CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名头；`agenticdocer auth whoami` 显示当前身份/角色/公钥指纹。
+
+**验收标准**：(a) 无私钥时给出明确错误与获取指引（非堆栈）；(b) 私钥与登记公钥不匹配时 403 并提示；(c) `auth bootstrap` 是唯一无需签名的命令。
+
+### REQ-M11-F05: Skill：docer-import / read / write / render
+
+`skills/` 下四个 skill 定义，封装对应 CLI 命令的调用语义（何时用、如何解读输出、失败重试策略、所需角色）。
+
+**验收标准**：(a) 每个 skill 可被 coding agent 识别与调用（含前置条件声明）；(b) skill 内不含密码学细节（由 CLI 承担）；(c) 调用链在权限不足时给出可操作的补救指引（如「需 admin 授予 editor 角色」）。
+
+### REQ-M11-F06: Skill：docer-annotations 调取人类标注（B11 专项）
+
+专用 skill，供 agent 读取人类用户在 WebUI 中留下的批注：支持按 `doc_id`/`node_id`/`state`（open/resolved/orphaned）筛选，返回批注正文、作者、锚定版本（`target_event_id`）及该版本上下文。
+
+**验收标准**：(a) 能列出指定文档的全部开放批注（含锚定节点与版本）；(b) 能按 `target_event_id` 取回批注所指的历史节点内容（供 agent 理解「人类在说什么」）；(c) 含 orphaned 批注（节点已软删）的专门查询路径；(d) 只读，不修改批注状态（状态变更属 reviewer 职责，走 `comment resolve`）。
+
+### REQ-M11-F07: Skill：docer-diff 变更感知
+
+封装 `agenticdocer doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
+
+**验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
