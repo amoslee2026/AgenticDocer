@@ -70,6 +70,7 @@ __all__ = [
     "document_frontmatter",
     "frontmatter_text",
     "iter_image_srcs",
+    "node_block_text",
     "render_document",
     "render_out_dir",
     "render_section",
