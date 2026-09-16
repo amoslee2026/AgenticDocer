@@ -211,20 +211,28 @@ def parse_frontmatter(
     return Frontmatter(
         fields=fields,
         body=body,
-        body_start=body_start,
-        doc_slug=doc_slug,
-        source_path=source_path,
-    )
-
-
-def doc_in_from_meta(doc_meta: dict[str, Any]) -> DocIn:
-    """`ParseResult.doc_meta` → :class:`DocIn`（提交期重建，proposals.json 往返用）。"""
-    frontmatter = doc_meta.get("frontmatter")
-    if not isinstance(frontmatter, dict):
-        raise ValidationError("doc_meta 缺少 frontmatter 全量字段（无法重建 DocIn）", entity="doc")
-    return DocIn(
-        doc_id=str(doc_meta["doc_id"]),
-        doc_type=str(doc_meta["doc_type"]),
+    fields, body, body_start = split_frontmatter(text)
+    missing = [name for name in C5_META_FIELDS if name not in fields]
+    if missing:
+        raise ValidationError(
+            f"frontmatter 缺 C5 必填字段 {missing}（§6 十七字段；doc_slug={doc_slug}）",
+            entity="doc",
+            entity_id=str(fields.get("spec_id") or doc_slug),
+        )
+    doc_type = str(fields["spec_type"])
+    if doc_type not in DOC_TYPES:
+        raise ValidationError(
+            f"spec_type={doc_type!r} 不在取值域 {list(DOC_TYPES)}（A22）",
+            entity="doc",
+            entity_id=str(fields["spec_id"]),
+        )
+    extra_missing = missing_required_meta(doc_type, fields)
+    if extra_missing:
+        raise ValidationError(
+            f"doc_type={doc_type!r} 的组合规则另需字段 {extra_missing}（REQ-M01-F03）",
+            entity="doc",
+            entity_id=str(fields["spec_id"]),
+        )
         title=str(doc_meta["title"]),
         meta={**frontmatter, "doc_slug": str(doc_meta.get("doc_slug", ""))},
         source_ref=None if doc_meta.get("source_ref") is None else str(doc_meta["source_ref"]),
