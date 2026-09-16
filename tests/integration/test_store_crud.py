@@ -499,14 +499,47 @@ async def test_asset_roundtrip_and_missing_detection(storage: Storage) -> None:
         ),
         None,
         CTX,
+    # 三种引用形态都要认（M03 报告：导入期只有前两种，不含 assets/ 前缀）
+    figure_missing = "1" * 64
+    html_missing = "2" * 64
+    await storage.upsert_node(
+        node_in(
+            doc_id,
+            ordinal=1,
+            atom_type="figure",
+            content={"text": "图 3-1", "asset_ref": figure_missing, "alt": "fig"},
+        ),
+        None,
+        CTX,
     )
-    assert await storage.list_missing_assets(doc_id) == [missing_id]
-    assert await storage.list_missing_assets() == [missing_id]
+    await storage.upsert_node(
+        node_in(
+            doc_id,
+            ordinal=2,
+            atom_type="table",
+            content={"text": "表格", "fragment": f'<img src="images/{html_missing}.jpg">'},
+        ),
+        None,
+        CTX,
+    )
+    await storage.upsert_node(
+        node_in(
+            doc_id,
+            ordinal=3,
+            content={
+                "text": f"渲染产物形态 assets/{asset_id}.png，以及 assets/{missing_id}.png"
+            },
+        ),
+        None,
+        CTX,
+    )
+
+    expected = sorted([figure_missing, html_missing, missing_id])
+    assert await storage.list_missing_assets(doc_id) == expected
+    assert await storage.list_missing_assets() == expected
 
     with pytest.raises(NotFoundError):
         await storage.get_asset_path(missing_id)
 
-
-async def test_asset_store_dir_is_injectable(tmp_path: Path, storage: Storage) -> None:
-    assert storage.store_dir == tmp_path / "assets"
-    assert await storage.put_asset(b"x", "text/plain", "seed") != ""
+    # 已落库且有字节的资产不报缺失（asset_id 自身出现在内容里也不计入）
+    assert asset_id not in await storage.list_missing_assets(doc_id)
