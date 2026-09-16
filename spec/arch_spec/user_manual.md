@@ -5,7 +5,7 @@ purpose: guide
 audience: both
 direction: output
 status: approved
-version: "1.1.0"
+version: "1.2.0"
 section_meta: "@meta"
 ---
 
@@ -27,7 +27,7 @@ uv run agenticdocer-import review IHI0024_AMBA_APB_spec                         
 uv run agenticdocer-import commit IHI0024_AMBA_APB_spec --actor importer        # 校验+事务入库
 
 # 渲染（产物落 build/rendered/，不动 spec/）
-uv run agenticdocer-render IHI0024_AMBA_APB_spec
+uv run agenticdocer-render SPEC-STD-AMBA-APB    # 入参为 doc_id（= frontmatter spec_id；doc_slug 仅导入工作区标识）
 ```
 
 ## 2. 导入与审核（半自动流程）
@@ -40,7 +40,7 @@ uv run agenticdocer-render IHI0024_AMBA_APB_spec
 
 ## 3. 结构化读写（Agent 通过 M06 API）
 
-- 读：按 `node_id` / `doc_id` / `anchor`（如 `SPEC-STD-AMBA-APB#3.2.1`）取节点（含 content 与元数据）。
+- 读：按 `node_id` / `doc_id` / `anchor`（如 `SPEC-STD-AMBA-APB#3.2.1·transfer`；重复标题带 `~正文摘要` 后缀）取节点（含 content 与元数据）。
 - 写：提交 JSON Schema 约束的节点变更 + 当前 `version`（乐观锁）。校验失败 → 返回违规清单与修复建议；冲突（409）→ 重读后重试。
 - 每次成功写入自动：写事件（字段级 diff）→ 更新实体 → 触发该文档重渲染。
 

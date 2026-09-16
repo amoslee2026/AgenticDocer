@@ -5,7 +5,7 @@ purpose: spec
 audience: both
 direction: input
 status: approved
-version: "1.1.0"
+version: "1.2.0"
 section_meta: "@meta"
 ---
 
@@ -82,7 +82,7 @@ section_meta: "@meta"
 
 ### REQ-M02-F02: 引用边管理（含 ref 事件）
 
-`refs` 的增删（`add`/`remove`），每次变更写 `ref` 事件（payload：`{op, src, dst, kind}`）。
+`refs` 的增删（`add`/`remove`），每次变更写 `ref` 事件（payload：`{src, dst_doc, dst_node, kind}`，与 §3.5 规范表一致）。
 
 **验收标准**：任意 refs 变更后，`events` 中存在对应 ref 行；M-LR 增量可从事件流重建 ref 变更序列。
 
@@ -118,7 +118,7 @@ section_meta: "@meta"
 
 ### REQ-M03-F02: CLI 审核器
 
-`python -m agenticdocer.import review <doc>`：逐条展示提议（内容+rule_id+待确认标志），支持 通过/拒绝/修正/批量通过待确认/查看未映射清单。
+`agenticdocer-import review <doc_slug>`（等价 `python -m agenticdocer.importer review`）：逐条展示提议（内容+rule_id+待确认标志），支持 通过/拒绝/修正/批量通过待确认/查看未映射清单。
 
 **验收标准**：可在无 WebUI 环境完整走通审核；批量通过仅作用于非待确认项或显式指定；审核动作落审计输出。
 

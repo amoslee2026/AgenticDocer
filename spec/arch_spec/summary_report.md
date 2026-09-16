@@ -19,7 +19,7 @@ section_meta: "@meta"
 |---|---|---|
 | `functional_specification.md` | 34 条 REQ（M01–M09 + M-LR），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
 | `user_manual.md` | 双角色使用路径（agent 操作者 / 人类评审者），命令与路径实测校正 | ✅ |
-| `architecture_specification.md` v1.2 | 模块接口契约（含 20 类型定义）、DDL 9 表、API/CLI、部署、横切规范 | ✅ |
+| `architecture_specification.md` v1.2 | 模块接口契约（含 27 类型定义）、DDL 8 表、API/CLI、部署、横切规范 | ✅ |
 | `data_flow_diagrams.md` | DF-1..4 数据流（系统级/写入/评审/检索）+ 数据驻留表 | ✅ |
 | `workflow_diagrams.md` | WF-1..4 工作流 + 文档状态机 | ✅ |
 | `ADR/ADR-001..006` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 | ✅ |

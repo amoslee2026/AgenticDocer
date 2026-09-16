@@ -5,7 +5,7 @@ purpose: architecture
 audience: llm
 direction: input
 status: approved
-version: "1.1.0"
+version: "1.2.0"
 section_meta: "@meta"
 ---
 
@@ -60,7 +60,8 @@ sequenceDiagram
     S->>S: UPDATE nodes（version+1）
     S->>S: 事务提交
     S->>R: 触发文档重渲染
-    R-->>A: RenderResult（产物路径）
+    R-->>S: RenderResult
+    S-->>A: 结果 + 产物路径（经 M06 返回，L9）
 ```
 
 ## DF-3 评审路径（人类）
