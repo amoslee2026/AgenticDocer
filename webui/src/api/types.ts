@@ -176,14 +176,6 @@ export interface TableEditPayload {
   registerName?: string | null;
   atomType?: string | null;
 }
-
-/** GET /admin/metrics（MetricsSnapshot，camelCase） */
-export interface MetricsSnapshotDTO {
-  windowSeconds: number;
-  generatedAt: string;
-  logDir: string;
-  endpoints: Array<{
-    route: string;
     method: string;
     calls: number;
     p50Millis: number | null;
