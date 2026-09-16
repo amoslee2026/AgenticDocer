@@ -339,7 +339,7 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             "（M02「事件+实体同事务」）的必然代价；ADR-009 §3 规定批量导入走 `COPY` + "
             "每 5k 行一批，本基准刻意不启用该旁路（in-process 与 M11 `import commit` 同一路径）"
         )
-        if baseline and baseline["bytes_per_node"]:
+        if baseline and baseline["is_corpus_baseline"]:
             real_projected = baseline["bytes_per_node"] * TARGET_NODES
             bench.counters["storage_cross_check"] = {
                 "real_bytes_per_node": round(baseline["bytes_per_node"], 1),
@@ -348,21 +348,27 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             bench.add(
                 metric("scale.real_density_bytes_per_node", round(baseline["bytes_per_node"], 1),
                        unit="B",
-                       note=f"真实语料密度基线（{baseline['docs']} 份 / {baseline['nodes']} 节点，"
-                            "清库前测得）"),
+                       note=f"**真实语料**密度基线（{baseline['docs']} 份 / {baseline['nodes']} 节点，清库前测得）"),
                 metric("scale.projected_storage_gib_at_target_real_density",
                        round(real_projected / 1024**3, 2), unit="GiB",
-                       note=f"按**真实语料密度**外推 13.4M 节点（§1.4 预期 20–54GB）"),
+                       note="按**真实语料密度**外推 13.4M 节点（对照 §1.4 预期 20–54GB）"),
             )
             bench.note(
-                f"**存储口径交叉校验**：合成语料 {bytes_per_node:.0f}B/节点（内容偏小），"
+                f"**存储口径交叉校验**：本次合成语料 {bytes_per_node:.0f}B/节点（内容偏小），"
                 f"真实语料 {baseline['bytes_per_node']:.0f}B/节点；按真实密度外推 13.4M 节点 ≈"
-                f"{real_projected / 1024**3:.1f}GiB，落在 §1.4「20–54GB」下沿附近——"
-                "说明 §1.4 的区间按真实内容密度给出，合成语料不得用于存储达标判定"
+                f"{real_projected / 1024**3:.1f}GiB（对照 §1.4「20–54GB」）——"
+                "**合成语料不得用于存储达标判定**，该外推才是可比的"
+            )
+        elif baseline:
+            bench.note(
+                f"清库前基线内容是**合成语料**（语料 {baseline['corpus_docs']} 份 / "
+                f"合成 {baseline['synthetic_docs']} 份，{baseline['bytes_per_node']:.0f}B/节点）"
+                "⇒ 不代表真实规范密度，**不作** §1.4 存储判定（要取得真实基线，请先在库内跑 "
+                "`bench_import.py` 再执行本基准）"
             )
         else:
             bench.note(
-                "未取得真实语料密度基线（清库前库内无节点）⇒ 存储外推仅反映合成语料密度，"
+                "未取得任何密度基线（清库前库内无节点）⇒ 存储外推仅反映本次合成语料密度，"
                 "**不得**据此判定 §1.4 的 20–54GB"
             )
         bench.note(
