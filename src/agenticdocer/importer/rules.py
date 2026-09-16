@@ -334,10 +334,13 @@ _CROSS_REF_RE = re.compile(
     r"specification|document)\b",
 )
 _EXAMPLE_RE = re.compile(r"^(?:Example|EXAMPLE|Examples)\b\s*(?:\d+(?:\.\d+)*)?\s*[:.—–-]?\s*\S", re.UNICODE)
-_DEFINITION_TERM_RE = re.compile(r"^(?P<term>[A-Z][\w./()+-]*(?:[ \t]+[A-Z][\w./()+-]*){0,3})[ \t]+(?P<body>[A-Z]\S.*)$")
+_TERM_HEAD_RE = re.compile(r"^[A-Z][\w./()+-]*$")
+_TERM_TAIL_RE = re.compile(r"^[A-Za-z][\w./()+-]*$")
+_DEFINITION_BODY_RE = re.compile(r"^[A-Z]\S")
 
 _CROSS_REF_MAX_CHARS: Final = 300
 _DEFINITION_MAX_TERM_CHARS: Final = 60
+_DEFINITION_MAX_TERM_TOKENS: Final = 4
 _DEFINITION_MIN_BODY_CHARS: Final = 20
 
 DEFINITION_STOPWORDS: Final[frozenset[str]] = frozenset(
