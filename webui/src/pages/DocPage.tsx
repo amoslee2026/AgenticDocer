@@ -216,7 +216,14 @@ export function DocPage() {
               >
                 整档
               </button>
-              <button className="ghost" onClick={() => void loadSection(currentSection)}>
+              <button className="ghost" onClick={() => {
+                setRenderCache((current) => {
+                  const next = new Map(current);
+                  next.delete(currentSection ?? "<full>");
+                  return next;
+                });
+                setTimeout(() => void loadSection(currentSection), 0);
+              }}>
                 重新渲染
               </button>
             </div>
@@ -255,7 +262,7 @@ export function DocPage() {
                   doc={doc}
                   schemas={schemas}
                   nodes={nodes}
-                  session={{ ...session!, role: sessionRole, permissions: session?.permissions ?? [], expiresAt: session?.expiresAt ?? null }}
+                  session={session}
                   node={selectedNode}
                   onNodeChanged={async (saved) => {
                     setSelectedNode(saved);
