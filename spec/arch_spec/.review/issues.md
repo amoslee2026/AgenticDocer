@@ -330,6 +330,50 @@ section_meta: "@meta"
 | L8 | user_manual.md L43 | 锚示例 `SPEC-STD-AMBA-APB#3.2.1` 未含新格式的 `·slug(title)` 段 |
 | L9 | data_flow_diagrams.md L48-49 | DF-2 中渲染结果仍由 M04 直达 Agent（未经过 M06 返回）；事务归属已按 M02 修订 |
 
+## 复核结论（第 2 轮，R1–R10 / L1–L9 闭环核对）
+
+复核方式：重读 v1.2 定稿的全部产物（architecture_specification.md 505 行）并逐项比对声明；除下列 4 项外，R1–R10 与 L1–L9 均已核实闭环。
+
+### 已闭环（R1–R10，10/10）
+
+| 项 | 核实点 |
+|---|---|
+| R1 | refs 改为代理主键 `ref_id uuid PRIMARY KEY`（arch L383），`dst_node_id` 可空（L385）+ `refs_unique UNIQUE NULLS NOT DISTINCT (src_node_id,dst_doc_id,dst_node_id,kind)`（L387-388），冗余主键已删，注释明确「文档级引用 dst_node_id IS NULL 合法」；ON DELETE SET NULL 可生效 |
+| R2 | M04 增 `normalize_markdown(source: str \| Path)`（L254）与调用式注释（L255）——但调用式本身仍有残留问题，见 N2 |
+| R3 | P4（L27）已声明唯一例外：产物层图片 src 重写（含片段内 `<img>`），normalize.images 以重写前哈希路径集合为口径 |
+| R4 | §3.0 补齐 `Violation`（L148）/`DocIn`/`Doc`/`DocStatus`（L149-151）/`CommentState`（L152）/`AssetSyncReport`（L153）/`QualityScope`（L154） |
+| R5 | M01 增 `derive_text(atom_type, content)`（L167-169：HTML 去标签、表格按行列序拼接）+「content.text 必填（FTS 依赖）」约束 |
+| R6 | functional REQ-M03-F02（L121）改为 `agenticdocer-import review <doc_slug>`（等价 `python -m agenticdocer.importer review`）；user_manual L30 改为 `agenticdocer-render SPEC-STD-AMBA-APB`（doc_id）并注明 doc_slug 仅导入工作区 |
+| R7 | M02 增 `list_docs(status: DocStatus \| None)`（L192） |
+| R8 | M07 节点行改为「**复用 M06 端点**（同一实现集）」（L306）；TS 契约补 `SchemaDTO`（L322） |
+| R9 | 三处引用已改指 §6（M04 docstring L247、docs DDL 注释 L361、§6 ID 行 L486）；映射表标题改为「C5 十七字段，含 spec 专属 4 项」（L491） |
+| R10 | M01 增 `upsert_term(...)`（L170-171），三路径（M03 导入 definition 原子 / M07 API / 种子 `data/terms_seed.yaml`）——其中「M07 API」路径未在 M07 端点表落行，见 N3 |
+
+### 已闭环（L1–L9，9/9）
+
+L1 五份文件版本已升 1.2.0（functional L8 / user_manual L8 / research_report L8 / ADR-006 L8 / data_flow L8）；L2 summary_report L22 已改「DDL 8 表」；L3 映射标题与必填清单去重（C5 十七字段，含 spec 专属 4 项）；L4 §4.1 补 `CREATE ROLE agenticdocer`（属主）+ `ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer`（L~449）；L5 M05 `traverse`/`search_text` 均注明默认过滤 `status='deleted'`（L~270-272）；L6 functional L85 的 ref payload 已改 `{src, dst_doc, dst_node, kind}`（与 §3.5 一致）；L7 `apply_events(entity, events) -> NodeSnapshot | dict`（L207）；L8 user_manual L43 锚示例已含 `·slug` 与 `~正文摘要` 说明；L9 DF-2 改为 `R-->>S: RenderResult` → `S-->>A: 结果 + 产物路径`（经 M06 返回，data_flow L63-64）。（workflow_diagrams.md 与 clarifications.md 本轮未修订，保留 1.1.0，可接受。）
+
+### 本轮阻塞残留（2 项，N1–N2）
+
+#### N1（MEDIUM，新引入）悬空引用「§5.2」（权限与角色实际在 §4.1）
+
+- **位置**：`architecture_specification.md` L25（P2 行的验证方式：`事务注入测试；角色 REVOKE 审计（§5.2）`）
+- **问题**：本规范只有 §5「部署与运行」（单一代码块，无子节），角色与权限在 §4.1（`### 4.1 角色与权限（A15）`），不存在 §5.2。P2 的库层强制手段（REVOKE 审计）无法按图索骥——与已修复的 R9（§3.4）属同一类悬空引用，是本轮修订引入。
+- **修复建议**：把 `（§5.2）` 改为 `（§4.1 角色与权限）`；全包再扫一遍 `§\d+\.\d+` 形式引用，确保每个子节引用都真实存在。
+
+#### N2（MEDIUM，原 A9/R2 未完全闭环）往返判据两份文档不一致，且调用式丢掉了渲染环节
+
+- **位置**：`functional_specification.md` L147（`验收标准：normalize(render(store(parse(src)))) == normalize(src)`，判定口径指向 §3 M04 `normalize()`）与 `architecture_specification.md` L253-255（`normalize(doc_id)`=库侧、`normalize_markdown(source)`=源侧、`往返断言调用式（REQ-M04-F01）：normalize(doc_id) == normalize_markdown(src)`）
+- **问题**：(a) 同一验收标准在 REQ 与架构两处写成**两个不同的表达式**：functional 的 `normalize(render(store(parse(src))))` 对新签名而言不成立（`normalize` 已明确为「库侧（节点树）」、只收 doc_id，`render(...)` 返回 `RenderResult` 而非 doc_id/text，无法入参）；(b) 架构给出的新调用式 `normalize(doc_id) == normalize_markdown(src)` 只比较「已入库的库侧规范化表示」与「源 markdown 规范化表示」，**不再经过渲染产物**——而 P4 的核心不变量（HTML 片段零改写直通、片段内 `<img>` 重写规则、frontmatter 回写）只有在渲染产物上才可被破坏，`normalize` 读库侧节点树时这些缺陷不会被该断言检出，REQ-M04-F01（P0）的关键验收因此出现检测盲区。
+- **修复建议**：(a) 把 functional L147 改为与 §3 M04 完全一致的调用式；(b) 补足渲染环节，例如「`normalize_markdown(<产物文件>) == normalize_markdown(src)`」（产物侧 normalize，images 集合按 asset_id/重写前哈希路径集合比较）或「`normalize(doc_id) == normalize_markdown(<产物文件>)` 二式并列」，并在 §3 M04 与 REQ-M04-F01 写明两式的各自适用范围。
+
+### 本轮非阻塞残留（2 项，N3–N4）
+
+| ID | 位置 | 说明 |
+|---|---|---|
+| N3 | architecture_specification.md L170-171 vs M07 端点表 L303-311 | `upsert_term` 注释把「M07 API」列为 terms 写入路径之一，但 M07 端点表无 terms 端点；种子文件 `data/terms_seed.yaml` 也未出现在 §2 目录映射/§5 环境清单中（不影响 M09B 阶段实现，建议补行或改注「随 M09B 定义」） |
+| N4 | functional_specification.md L139 | REQ-M03-F05 正文/验收仍只描述 `images/<sha256>.jpg` 引用一种写法，未同步架构 M03 已覆盖的两种语法（md `![](...)` + HTML `<img src>`）；该 REQ 是 P1 且其验收（抽样哈希一致 / 缺失清单）直接影响 80 处 HTML 内嵌图片，建议补一句 |
+
 ## 结论
 
-存在 10 个阻塞残留（R1–R10），非阻塞残留 9 项（L1–L9）。
+存在 2 个阻塞残留（N1–N2），非阻塞残留 2 项（N3–N4）。除 N1/N2 外，首轮 A1–A25 与复核 R1–R10 / L1–L9 均已闭环。

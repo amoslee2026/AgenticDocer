@@ -136,7 +136,7 @@ section_meta: "@meta"
 
 ### REQ-M03-F05: 图片资产导入
 
-按 `images/<sha256>.jpg` 引用从 GigaRAG 目录取件、校验哈希、写 `assets`；缺失不阻断。
+按两类引用取件（md 形式 `images/<sha256>.jpg` + HTML `<img src>`，后者 80 处均在 `<table>` 片段内）、校验哈希、写 `assets`；缺失不阻断。
 
 **验收标准**：抽样图片哈希一致；缺失图片报告 `assets.missing` 清单。
 
@@ -144,7 +144,7 @@ section_meta: "@meta"
 
 节点树 → Markdown 文档：`format:html` 片段原样回写（零改写）；frontmatter 按 C5 字段回写；图片以相对路径指向导出资产。
 
-**验收标准**：`normalize(render(store(parse(src)))) == normalize(src)`（判定口径：本节 §3 M04 `normalize()` 与 `../idea/design_doc.md` §10）；HTML 表格行列数与单元格文本保真；图片集合（含 HTML `<img>`）一致。
+**验收标准**（两式并列，判定口径见 §3 M04）：(a) 解析保真 `normalize(doc_id) == normalize_markdown(src)`；(b) 渲染保真 `normalize_markdown(<产物文件>) == normalize_markdown(src)`（覆盖 HTML 直通/内联标记/frontmatter 回写破坏；images 按重写前哈希路径集合比较）。HTML 表格行列数与单元格文本保真。
 
 ### REQ-M04-F02: normalize() 规范化表示
 

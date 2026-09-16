@@ -22,7 +22,7 @@ section_meta: "@meta"
 | # | 原则 | 验证方式 |
 |---|---|---|
 | P1 | 结构化库为唯一权威源；人类可读格式均为渲染产物 | 无代码路径从渲染产物反向写库 |
-| P2 | 一切写入 = 事件 + 实体同事务；events 仅追加 | 事务注入测试；角色 REVOKE 审计（§5.2） |
+| P2 | 一切写入 = 事件 + 实体同事务；events 仅追加 | 事务注入测试；角色 REVOKE 审计（§4.1 角色与权限） |
 | P3 | 依赖单向：模块仅依赖已交付模块；**交付序见 `../idea/design_doc.md` §12（B14）** | import 方向 lint 规则（§1.3 矩阵） |
 | P4 | HTML 片段与内联标记原样直通（零改写）；**唯一例外**：产物层图片 `src` 重写（含片段内 `<img>`，A7）——normalize.images 以重写前哈希路径集合为口径 | 往返测试（normalize 等价，§3 M04） |
 | P5 | 口径唯一：normalize()、rule_id、anchor 各为单一判定口径 | 各自单测固定 |
@@ -252,7 +252,9 @@ def render_document(doc_id: str, out_dir: Path) -> RenderResult:
     assets/<sha256>.<ext> 相对路径，并从资产存储导出至 out_dir/assets/。"""
 def normalize(doc_id: str) -> NormalForm: ...                  # 库侧（节点树）
 def normalize_markdown(source: str | Path) -> NormalForm: ...  # 源侧（markdown 文本）
-# 往返断言调用式（REQ-M04-F01）：normalize(doc_id) == normalize_markdown(src)
+# 往返断言（REQ-M04-F01，两式并列）：(a) 解析保真 normalize(doc_id) == normalize_markdown(src)；
+# (b) 渲染保真 normalize_markdown(<产物文件>) == normalize_markdown(src)（HTML 直通/内联标记/frontmatter 回写
+#     的破坏只发生在渲染层，必须由 (b) 覆盖；images 以重写前哈希路径集合比较）
 # 渲染入口：`agenticdocer-render <doc_id>` 或 `python -m agenticdocer.render`（入参为 doc_id=spec_id）
 
 class NormalForm(BaseModel):
@@ -473,6 +475,7 @@ systemd --user: agenticdocer-api.service
                ASSET_STORE_DIR=/home/lxx/wrk/AgenticDocer/data/assets
                IMPORT_WORK_DIR=/home/lxx/wrk/AgenticDocer/data/import_work
                RENDER_OUT_DIR=/home/lxx/wrk/AgenticDocer/build/rendered
+               TERMS_SEED=/home/lxx/wrk/AgenticDocer/data/terms_seed.yaml（规范性关键词种子，随 migrate 载入）
   静态托管: FastAPI mount / -> webui/dist（AB2）
 开发期: Vite devserver (5173) -> proxy /api -> 127.0.0.1:8787
 测试库: agenticdocer_test（AB3，可重建；同角色授权）
