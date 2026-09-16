@@ -409,13 +409,6 @@ def decision_summary(state: ReviewState) -> dict[str, int]:
 # ── 校验（M09A 等价：schema 级）──────────────────────────────────────────
 
 
-def atom_content(atom_type: str, *, fragment: str | None = None, text: str | None = None, **extra: Any) -> dict[str, Any]:
-    """构造原子 `content` 并确保 `content.text` 非空（A10）——兜底原子提交时使用。"""
-    from .parser import _content  # 单点口径：与解析期同一实现
-
-    return _content(atom_type, fragment=fragment, text=text, raw=fragment or "", **extra)
-
-
 def selected_proposals(result: ParseResult, accepted: Iterable[str] | None = None) -> list[Proposal]:
     """审核结论筛选：`accepted=None` → 全部提议；否则只取给定 `proposal_id` 集合。"""
     if accepted is None:
@@ -693,10 +686,7 @@ async def run_commit(
 
 def _source_root_of(result: ParseResult) -> Path:
     """资产取件根：源 md 所在目录（`IMPORT_SOURCE_ROOT` 可覆盖，见 assets_sync）。"""
-    from .assets_sync import source_root_for
-
     return source_root_for(result.doc_meta.get("source_path"))
-
 
 # ── stats ────────────────────────────────────────────────────────────────
 
