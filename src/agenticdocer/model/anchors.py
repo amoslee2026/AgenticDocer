@@ -98,10 +98,22 @@ def section_path_str(section_path: Sequence[str] | str | None) -> str:
     return ".".join(part for part in cleaned if part)
 
 
+def _title_without_section_number(title: str, path: str) -> str:
+    """标题自带章节号且与路径一致时剥掉（``"3.1 术语"`` + 路径 ``3.1`` → ``"术语"``）。
+
+    使「解析器传整行标题」与「传纯标题 + 章节号路径」两种调用形态收敛到同一锚，
+    避免解析实现的调整引起锚漂移（ADR-006 稳定性）。
+    """
+    if not path:
+        return title
+    match = _NUMBERED_HEADING.match(unicodedata.normalize("NFKC", title or "").strip())
+    return match.group(2) if match and match.group(1) == path else title
+
+
 def anchor_base(doc_id: str, section_path: Sequence[str] | str | None, title: str) -> str:
     """不带消歧后缀的锚基底（规则 ① 的形态）。"""
-    key = slugify(title)
     path = section_path_str(section_path)
+    key = slugify(_title_without_section_number(title, path))
     return f"{doc_id}#{path}{_SEPARATOR}{key}" if path else f"{doc_id}#{key}"
 
 
@@ -225,7 +237,7 @@ def assign_anchors(doc_id: str, sections: Sequence[SectionRef]) -> list[str]:
 
 def _escalate(base: str, digest: str, taken: set[str], ordinal: int) -> str:
     """残余冲突升级：加长摘要前缀，最终退化为输入序号（确定性、幂等）。"""
-    for length in _SEQ_LEN_LADDER:
+    for length in (DIGEST_LEN, 12, 16, 32, 64):
         candidate = f"{base}{_SUFFIX}{digest[:length]}{_SUFFIX}{ordinal}"
         if candidate not in taken:
             return candidate
