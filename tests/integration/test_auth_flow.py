@@ -699,6 +699,79 @@ def test_cookie_secure_follows_deployment(monkeypatch) -> None:
     assert middleware.cookie_secure() is True
 
 
+def _request_with(forwarded: str | None, peer: str = "10.0.0.9") -> Request:
+    """构造 Starlette ``Request``（仅测 ``client_ip``，无网络）。"""
+    headers = [] if forwarded is None else [(b"x-forwarded-for", forwarded.encode())]
+    return Request({"type": "http", "method": "GET", "path": "/api/v1/auth/challenge",
+                    "headers": headers, "client": (peer, 1234)})
+
+
+def test_client_ip_uses_last_hop_not_forged_prefix(monkeypatch) -> None:
+    """**AUD-1 回归**：信任代理时取**由可信代理追加的**那一段，伪造首段无效。"""
+    monkeypatch.setenv("AUTH_TRUSTED_PROXY", "1")
+    monkeypatch.delenv("AUTH_PROXY_COUNT", raising=False)
+    # 客户端自述 198.51.100.9，反代追加真实对端 203.0.113.7 → 取右起第 1 段
+    assert middleware.client_ip(_request_with("198.51.100.9, 203.0.113.7")) == "203.0.113.7"
+    assert middleware.client_ip(_request_with("198.51.100.10, 203.0.113.7")) == "203.0.113.7"
+    # 双反代：AUTH_PROXY_COUNT=2 → 右起第 2 段
+    monkeypatch.setenv("AUTH_PROXY_COUNT", "2")
+    assert middleware.client_ip(_request_with("203.0.113.7, 10.0.0.1")) == "203.0.113.7"
+    # 链长不足配置层数 → 视为头不可信，回落直连对端（收紧而非放松）
+    assert middleware.client_ip(_request_with("198.51.100.9")) == "10.0.0.9"
+    assert middleware.client_ip(_request_with(None)) == "10.0.0.9"
+
+    # 未开启信任时完全忽略 XFF
+    monkeypatch.delenv("AUTH_TRUSTED_PROXY", raising=False)
+    assert middleware.client_ip(_request_with("198.51.100.9, 203.0.113.7")) == "10.0.0.9"
+
+
+async def test_forged_xff_cannot_bypass_rate_limit(
+    client: AsyncClient, monkeypatch, database: Database, key_material: dict[str, Path]
+) -> None:
+    """**AUD-1 端到端回归**：逐次更换伪造首段，限流仍按可信段生效（429）。"""
+    await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
+    monkeypatch.setenv("AUTH_TRUSTED_PROXY", "1")
+    monkeypatch.setenv("AUTH_RATE_LIMIT_PER_MIN", "2")
+    sessions.reset_rate_limits()
+
+    statuses = []
+    for octet in range(1, 5):
+        # 每次换一个伪造首段，可信反代追加的真段固定为 203.0.113.7
+        response = await client.post(
+            "/api/v1/auth/challenge",
+            headers={"X-Forwarded-For": f"198.51.100.{octet}, 203.0.113.7"},
+        )
+        statuses.append(response.status_code)
+    assert statuses == [200, 200, 429, 429]
+
+
+def test_auth_coverage_guard_flags_unguarded_routes(app: FastAPI) -> None:
+    """**AUD-6**：``is_exempt`` 是可执行断言——漏挂依赖的非豁免路由被查出，合规应用通过。"""
+    # 测试用 app 的全部非豁免路由都挂了 require_auth/require_permission
+    assert middleware.find_unguarded_routes(app) == []
+    middleware.assert_auth_coverage(app)
+
+    unguarded = FastAPI()
+
+    @unguarded.get("/api/v1/secret")
+    async def secret() -> dict[str, bool]:  # 漏挂鉴权（模拟未来新增路由）
+        return {"ok": True}
+
+    assert middleware.find_unguarded_routes(unguarded) == ["GET /api/v1/secret"]
+    with pytest.raises(RuntimeError) as excinfo:
+        middleware.assert_auth_coverage(unguarded)
+    assert "/api/v1/secret" in str(excinfo.value)
+
+    # 豁免端点不算漏洞路由；FastAPI 自带文档路由默认忽略
+    exempt_only = FastAPI()
+
+    @exempt_only.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    assert middleware.find_unguarded_routes(exempt_only) == []
+
+
 # ------------------------------------------------- 用户 / 密钥 / 授权（F03/F04）
 
 
