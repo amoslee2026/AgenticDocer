@@ -138,7 +138,7 @@ def _register_grid(content: Mapping[str, Any]) -> TableGrid:
     register_name = content.get("register")
     return TableGrid(
         rows=rows,
-        header=True,
+        header=False,  # 字段行即数据行，合成表格无表头行
         header_names=list(REGISTER_FIELD_COLUMNS),
         register_name=str(register_name) if register_name else None,
     )
