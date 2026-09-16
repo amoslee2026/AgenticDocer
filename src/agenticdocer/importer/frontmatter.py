@@ -186,32 +186,6 @@ def parse_frontmatter(
     :raises ValidationError: 缺必填字段、`spec_type` 不在 `DOC_TYPES`、`status` 非法。
     """
     fields, body, body_start = split_frontmatter(text)
-    missing = missing_required_meta(str(fields.get("spec_type", "")), fields)
-    if missing:
-        raise ValidationError(
-            f"frontmatter 缺 C5 必填字段 {missing}（§6 十七字段；doc_slug={doc_slug}）",
-            entity="doc",
-            entity_id=str(fields.get("spec_id") or doc_slug),
-        )
-    doc_type = str(fields["spec_type"])
-    if doc_type not in DOC_TYPES:
-        raise ValidationError(
-            f"spec_type={doc_type!r} 不在取值域 {list(DOC_TYPES)}（A22）",
-            entity="doc",
-            entity_id=str(fields.get("spec_id") or doc_slug),
-        )
-    status_key = str(fields.get("status", "")).strip().lower()
-    if status_key not in STATUS_MAP:
-        raise ValidationError(
-            f"frontmatter status={fields.get('status')!r} 无法映射到 docs.status"
-            f"（合法值：{sorted(STATUS_MAP)}）",
-            entity="doc",
-            entity_id=str(fields.get("spec_id") or doc_slug),
-        )
-    return Frontmatter(
-        fields=fields,
-        body=body,
-    fields, body, body_start = split_frontmatter(text)
     missing = [name for name in C5_META_FIELDS if name not in fields]
     if missing:
         raise ValidationError(
@@ -233,6 +207,31 @@ def parse_frontmatter(
             entity="doc",
             entity_id=str(fields["spec_id"]),
         )
+    status_key = str(fields.get("status", "")).strip().lower()
+    if status_key not in STATUS_MAP:
+        raise ValidationError(
+            f"frontmatter status={fields.get('status')!r} 无法映射到 docs.status"
+            f"（合法值：{sorted(STATUS_MAP)}）",
+            entity="doc",
+            entity_id=str(fields["spec_id"]),
+        )
+    return Frontmatter(
+        fields=fields,
+        body=body,
+        body_start=body_start,
+        doc_slug=doc_slug,
+        source_path=source_path,
+    )
+
+
+def doc_in_from_meta(doc_meta: dict[str, Any]) -> DocIn:
+    """`ParseResult.doc_meta` → :class:`DocIn`（提交期重建，proposals.json 往返用）。"""
+    frontmatter = doc_meta.get("frontmatter")
+    if not isinstance(frontmatter, dict):
+        raise ValidationError("doc_meta 缺少 frontmatter 全量字段（无法重建 DocIn）", entity="doc")
+    return DocIn(
+        doc_id=str(doc_meta["doc_id"]),
+        doc_type=str(doc_meta["doc_type"]),
         title=str(doc_meta["title"]),
         meta={**frontmatter, "doc_slug": str(doc_meta.get("doc_slug", ""))},
         source_ref=None if doc_meta.get("source_ref") is None else str(doc_meta["source_ref"]),
