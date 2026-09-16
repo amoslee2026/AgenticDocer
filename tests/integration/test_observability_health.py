@@ -98,21 +98,47 @@ def test_health_matches_independent_oracle_on_real_db(
 def test_health_probe_reads_real_table_and_index_stats(
     database_urls: tuple[str, str], migrated_schema: str
 ) -> None:
-    """表/索引巡检项须反映真实目录（行数、条目存在性、类型可运算）。"""
+    """表/索引巡检项须反映真实目录（尺寸与独立查询逐值一致）。
+
+    注意：**分区父表**（`events`）与分区父索引自身无存储，`pg_total_relation_size`/
+    `pg_relation_size` 为 0，行数亦为 0——这是目录的真实语义，不是采样缺陷；
+    行数/尺寸分布在各分区条目上。
+    """
     _, app_url = database_urls
     report = health_sync(dsn=app_url, timeout=5.0)
 
     assert report.tables, "已迁移库应至少含 docs/nodes/events 等用户表"
     assert {table.name for table in report.tables} >= {"nodes", "events"}
     for table in report.tables:
-        assert table.rows >= 0 and table.size_bytes > 0
-        assert isinstance(table.dead_tup, int)
+        assert table.rows >= 0 and table.size_bytes >= 0 and table.dead_tup >= 0
         assert table.last_autovacuum is None or isinstance(table.last_autovacuum, dt.datetime)
 
     assert report.indexes, "已迁移库应有索引"
-    assert all(isinstance(index.scans, int) for index in report.indexes)
-    assert all(index.size_bytes > 0 for index in report.indexes)
+    assert all(isinstance(index.scans, int) and index.size_bytes >= 0 for index in report.indexes)
+    assert any(index.size_bytes > 0 for index in report.indexes), "至少存在有实体的索引"
+    assert any(table.size_bytes > 0 for table in report.tables), "至少存在有实体的表"
+
+    # 独立 oracle：抽查最大表与最大索引的尺寸，必须与真实目录逐值一致
+    biggest_table = max(report.tables, key=lambda table: table.size_bytes)
+    biggest_index = max(report.indexes, key=lambda index: index.size_bytes)
+    measured = asyncio.run(_measure(app_url, biggest_table.name, biggest_index.name))
+    assert (biggest_table.size_bytes, biggest_index.size_bytes) == measured
 
     # 未注入 engine/pool 时连接池采样为 0，不得据此告警
     assert report.pool.size == 0
     assert not any("连接池" in advice for advice in report.advice)
+
+
+async def _measure(app_url: str, table: str, index: str) -> tuple[int, int]:
+    """独立测量同名表/索引的磁盘尺寸（不复用被测 SQL）。"""
+    connection = await asyncpg.connect(normalize_dsn(app_url), timeout=5)
+    try:
+        table_size = await connection.fetchval(
+            "SELECT pg_total_relation_size(to_regclass($1))", table
+        )
+        index_size = await connection.fetchval(
+            "SELECT pg_relation_size(to_regclass($1))", index
+        )
+    finally:
+        await connection.close()
+    return int(table_size or 0), int(index_size or 0)
