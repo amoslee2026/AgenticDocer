@@ -798,7 +798,7 @@ CREATE TABLE nonces (                          -- 签名重放防护（B2/S3/S7�
 );
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s) ≥ 时间窗
 -- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
--- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
+
 ```
 
 ### 4.2 分区策略（ADR-009，批注 B9）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、FK 降级）
