@@ -246,12 +246,15 @@ async def post_node(
 @router.delete("/nodes/{node_id}", status_code=204)
 async def delete_node(
     node_id: UUID,
-    expected_version: int = Query(description="乐观锁版本（`nodes.version`；不匹配 → 409）"),
-    *,
     context: WriteAuth,
     storage: StorageDep,
     db: DatabaseDep,
+    expected_version: int = Query(description="乐观锁版本（`nodes.version`；不匹配 → 409）"),
 ) -> Response:
+    """软删节点（A2）：写 delete 事件、同事务把该节点 open 批注置 `orphaned`。"""
+    node = await storage.get_node(node_id)
+    await authorize_doc(context, "write", node.doc_id, storage=storage, db=db)
+    with log.timer("query", table="nodes", doc_id=node.doc_id):
         await storage.delete_node(node_id, expected_version, write_context(context))
     log.info("node softly deleted", op="delete_node", node_id=str(node_id), doc_id=node.doc_id)
     return Response(status_code=204)
