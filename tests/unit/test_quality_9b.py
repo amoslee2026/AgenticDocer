@@ -346,9 +346,12 @@ def test_judge_refs_source_side() -> None:
             broken_refs.RULE_REF_DST_DELETED,
         ),
         (
+            {
+                "dst_node_id": new_uuid7(),
                 "dst_found": new_uuid7(),
                 "dst_status": "active",
                 "dst_node_doc_id": "SPEC-OTHER",
+            },
             broken_refs.RULE_REF_DST_DOC_MISMATCH,
         ),
         ({"dst_doc_found": None, "dst_doc_id": "SPEC-MISSING"}, broken_refs.RULE_REF_DST_DOC_MISSING),
