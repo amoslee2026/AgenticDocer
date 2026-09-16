@@ -816,8 +816,8 @@ def _plan(
                 pending.append(_clause_pending(section, block, prose))
             continue
         if block.rule_id == "R11.paragraph.clause-body":
-            if block.start == preamble_at:  # 序言：并入单个 preamble 条款节点
-                pending.append(_clause_pending(None, block, preamble))
+            if block.start == preamble_at:  # 序言：首个括号外段落起，整段并入单个 preamble 节点
+                pending.append(_clause_pending(None, block, preamble[1:]))
             continue
         key = (section_index, rule.atom_type)
         counters[key] = counters.get(key, 0) + 1
