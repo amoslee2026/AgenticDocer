@@ -34,6 +34,7 @@ from .engine_9a import (
     RULE_CONTENT_TEXT_EMPTY,
     RULE_CROSS_REF_EXTERNAL_NODE,
     RULE_DOC_TYPE_ATOM,
+    RULE_DOC_TYPE_VARIANT,
     RULE_PARENT_SELF,
     RULE_TABLE_FORMAT,
     validate_proposal,
@@ -66,6 +67,7 @@ __all__ = [
     "RULE_DOC_TYPE_ATOM",
     "RULE_PARENT_SELF",
     "RULE_TABLE_FORMAT",
+    "RULE_DOC_TYPE_VARIANT",
     "validate_proposal",
     "validate_write",
     # M09B（REQ-M09-F02）
