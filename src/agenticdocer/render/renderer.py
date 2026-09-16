@@ -375,8 +375,8 @@ async def render_document(
     store = storage or get_storage()
     target = render_out_dir(out_dir)
     scoped = log.child(doc_id=doc_id)
+    doc = await store.get_doc(doc_id)  # 404 在计时之外：404 不是一次渲染，不该进渲染指标
     with scoped.timer("render_document"):
-        doc = await store.get_doc(doc_id)
         nodes = await store.get_doc_nodes(doc_id)
         blocks = [node_block_text(node) for node in nodes]
         mapping, exported, unresolved = await _resolve_and_export(
@@ -413,6 +413,8 @@ async def render_section(
     store = storage or get_storage()
     target = render_out_dir(out_dir)
     scoped = log.child(doc_id=doc_id, section=str(section_node_id))
+    # 404 在计时之外（逻辑同上）；此处用点查做存在性校验，节点全量读取仍计入渲染耗时
+    await store.get_node(section_node_id, doc_id=doc_id)
     with scoped.timer("render_section"):
         nodes = await store.get_doc_nodes(doc_id)
         subtree = section_subtree(nodes, section_node_id)

@@ -315,13 +315,12 @@ _TOC_NUMBERED_RE = re.compile(
     r"Chapter\s+\d+|Appendix\s+[A-Z]|Annex\s+[A-Z]|Part\s+[A-Z])\b.*?[\s.]\d{1,4}[ \t]*$"
 )
 _GLOSSARY_MARKER_RE = re.compile(
-    r"^(?:glossary|terms and acronyms|terms and definitions|terms|definitions|"
+    r"^(?:(?:part|appendix|annex|chapter)[ \t]+[A-Z0-9]+(?:[ \t]+[A-Z0-9]+)?[ \t]+)?"
+    r"(?:glossary|terms and acronyms|terms and definitions|terms|definitions|"
     r"abbreviations|acronyms|definitions and abbreviations|list of abbreviations|"
     r"terminology)\b",
     re.IGNORECASE,
 )
-_GLOSSARY_EXIT_RE = re.compile(
-    r"^(?:contents|table of contents|list of tables|list of figures|figures|tables|preface|index|"
     r"revision history|change history|introduction|notice|disclaimer|legal|about|using this|"
     r"intended audience|feedback|objective|overview|standard improvement form|acknowledge?ments|"
     r"copyright|proprietary)\b",
