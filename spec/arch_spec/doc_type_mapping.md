@@ -73,7 +73,16 @@ idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（仍为 5 值：细分只
 | `lang` | `clause`/`definition`/`code`/`example`/`note`/`cross_ref`/`table` | `clause` | `command_name`、`syntax`、`tool_context` | — |
 | `tool-manual` | 同 `lang` + `figure` | `clause` | 同 `lang` 三元组（**`tool_context` 语义更强**——idea.md L164「在 4.1 基础上**额外强调** `tool_context`」，故非「仅此一项」，实现裁决 2026-09-17） | — |
 | `product` | 八类全 | `clause` | `doc_subtype`、`traces_to`（需求追溯链）、`owner` | **3 变体**：`table.register_field`（§2 寄存器手册）、`figure.state_machine`（§4.5 MAS pipeline / 时钟复位 reset sequence / Boot flow）、`table.coverage_matrix`（UCIS/vPlan）——实现裁决 2026-09-17，原表只列 UCIS/vPlan 属漏写 |
-| `safety` | 八类全 + `failure_mode_table` 变体 | `clause` + `failure_mode_table` | `standard_ref`、`audit_trail` | **`table.failure_mode`（新增）** |
+| `safety` | 八类全 | `clause`（**注意：不含 `table.failure_mode`**，见下） | `standard_ref`、`audit_trail` | **`table.failure_mode`（新增，白名单而非必备）** |
+
+> **变体必备性裁决（2026-09-17，真实语料驱动）**：`safety` 的 `table.failure_mode` 为
+> **allowed（白名单）而非 required**。理由：实测三份真实安全语料（`neqsim-FMEA.md` 是 FMEA
+> *方法说明*、`protective-stop-FMEDA.md` 是 FMEDA *参数表*、`cdriscv-FMEDA.md` 无管道表）
+> **均不含失效模式工作表**——若设为必备，M09A 门禁会**拒收真实文档**。
+> 「有则用变体，无则不强制」；需强制的场景由 `meta.doc_subtype`（如 `fmea-worksheet`）承担。
+>
+> **通用原则**：**变体不应作为 `required_atom_types`**——真实文档的形态差异大，
+> 必备约束只应用于「所有该类型文档必然具备」的原子（如 `clause`）。
 
 ## 4. UCIS/vPlan 对齐（修缺陷 3）
 

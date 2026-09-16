@@ -367,22 +367,36 @@ def test_non_standard_document_import_is_not_blocked() -> None:
     assert [proposal.atom.atom_type for proposal in result.proposals] == ["clause"]
 
 
-# 合成样例（非真实语料）：正文仅用于触发提议路径，表为普通 table 而非 safety 的必备变体。
+# 合成样例（非真实语料）：正文仅用于触发提议路径。
+# 2026-09-17 契约变更：`table.failure_mode` 由「safety 必备」改为「safety 白名单」——
+# 依据三份真实安全语料（neqsim/protective-stop/cdriscv）均**不含**失效模式工作表；
+# 若设为必备，M09A 门禁会拒收真实文档（见 doc_type_mapping.md「变体必备性裁决」）。
 _FAILURE_MODE_BODY = (
     "# 1 安全分析\n\n失效模式与影响分析正文。\n\n"
     "<table><tr><th>failure_mode</th></tr><tr><td>stuck-at</td></tr></table>\n"
 )
 
 
-def test_required_atom_variants_are_enforced_in_proposal_path() -> None:
-    """`safety` 的必备**变体** `table.failure_mode` 在提议路径被强制（M01.doc_type.required）。
+def test_failure_mode_variant_is_allowed_but_not_required_for_safety() -> None:
+    """`table.failure_mode` 是 `safety` 的**白名单变体**，**不是必备项**（契约变更 2026-09-17）。
 
-    回归 SchemaValidate 报告的跨模块缺口：判据曾只查 `clause`，变体类必备项无人强制。
+    回归背景：
+    - 原契约（方案 C 初版）把变体列为 `required_atom_types`；
+    - 真实语料证明安全文档未必含失效模式表 → 门禁会拒收真实文档；
+    - 新契约：必备只约束「所有该类型文档必然具备」的原子（`clause`）；变体「有则用，无不强制」。
     """
+    from agenticdocer.model.doc_types import get_doc_type_rule
+
+    rule = get_doc_type_rule("safety")
+    assert rule.required_atom_types == ("clause",), "必备原子只应含 clause"
+    assert "table.failure_mode" in rule.allowed_atom_variants, "变体仍在白名单内（可被使用）"
+
+    # 提议路径：不含变体的 safety 文档不产生 M01.doc_type.required 违规
     safety = parse_text(_doc("safety", extra=SAFETY_EXTRA) + _FAILURE_MODE_BODY, doc_slug="safety")
-    violations = [item for item in check_proposals(safety) if item.rule_id == "M01.doc_type.required"]
-    assert len(violations) == 1, "只缺 table.failure_mode（clause 已由标题命中）"
-    assert "table.failure_mode" in violations[0].message
+    assert "M01.doc_type.required" not in {item.rule_id for item in check_proposals(safety)}, (
+        "safety 文档缺 table.failure_mode 不应被拒（真实语料驱动）"
+    )
+    # 变体仍受白名单保护：standard 不允许使用它
     standard = parse_text(_doc("standard") + _FAILURE_MODE_BODY, doc_slug="std2")
     assert "M01.doc_type.required" not in {item.rule_id for item in check_proposals(standard)}
 
