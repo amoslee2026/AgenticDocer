@@ -50,7 +50,7 @@ from .users import (
 )
 
 __all__ = [
-    "EXEMPT_PATHS",
+    "DOC_PATHS",
     "EXEMPT_PATHS",
     "EXEMPT_PREFIXES",
     "KEY_ID_HEADER",
@@ -60,7 +60,6 @@ __all__ = [
     "SIGNATURE_HEADER",
     "TIMESTAMP_HEADER",
     "AuthContext",
-    "DOC_PATHS",
     "SshSigHeaders",
     "assert_auth_coverage",
     "check_timestamp",
