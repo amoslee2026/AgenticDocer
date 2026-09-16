@@ -31,8 +31,8 @@ def row_to_dict(row: Any) -> dict[str, Any]:
 def build_model(cls: Any, data: Mapping[str, Any]) -> Any:
     """按列名字典构造 pydantic 模型。
 
-    先按字段名校验（要求模型 `populate_by_name=True`，见 `_compat` 约定）；模型
-    若因别名/额外字段拒绝，退回 `model_construct`——行数据来自本库自身，正确性由
+    先按字段名校验（M01 模型 `populate_by_name=True`，故 snake_case 列名可直接构造）；
+    模型若因别名/额外字段拒绝，退回 `model_construct`——行数据来自本库自身，正确性由
     DB 约束保证，此处不应因序列化口径差异导致读路径失败。
     """
     fields = {k: v for k, v in data.items() if k in cls.model_fields}
