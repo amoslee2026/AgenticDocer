@@ -212,16 +212,25 @@ class NodeRepository(Repository):
             return await self.get_subtree(section_id, doc_id=doc_id)
         return [build_model(Node, row_to_dict(row)) for row in rows]
 
-    async def check_section_range(self, doc_id: str, section_node_id: UUID | str) -> bool | None:
-        """诊断接口（M09B `section_range_consistency` detector 用）。
+    async def section_range_diff(
+        self, doc_id: str, section_node_id: UUID | str
+    ) -> dict[str, Any] | None:
+        """章节「区间法 vs 递归 CTE」的**逐项差异**（M09B `section_range_consistency` 判据 + 定位）。
 
-        比较**区间法原始结果**（不经回退）与递归 CTE 的 `(node_id)` 序列，暴露大纲契约破坏。
-        **为什么不能直接比较公开读接口**：`get_section_nodes` 对可检出的违规会自愈回退到
-        CTE，于是「公开接口 vs CTE」恒等——detector 会**漏报**多收方向的脏数据。故本接口
-        刻意绕开自愈，暴露区间法的真值。
+        与 `get_section_nodes` 同源但**绕开自愈回退**，故两个方向的契约破坏都会暴露：
+        多收/断链（区间自检失败）与漏收（自检通过但序列短于 CTE）。
+        **detector 必须用本接口而非公开读接口**：`get_section_nodes` 对可检出的违规会自愈回退
+        到 CTE，于是「公开接口 vs CTE」恒等，多收方向的脏数据会被**漏报**。
 
-        返回：`True` = 两者一致；`False` = 不一致（或节点不存在）；`None` = 该节点无法用
-        区间法判定（`level` 为空 → 右边界不可定义），detector 应跳过。
+        返回 `None` = **不可判定**（节点不在该文档，或 `level` 为空 → 右边界不可定义），
+        detector 应跳过；否则返回：
+
+        - `interval_ids` / `subtree_ids`：两法的 `node_id` 序列；
+        - `first_diff_index`：首个差异下标（长度不同且前缀相同 → 取较短者长度）；无差异为 `None`；
+        - `missing_in_interval`：CTE 有而区间无（**漏收**）；
+        - `extra_in_interval`：区间有而 CTE 无（**多收**）；
+        - `interval_self_check`：区间自检是否通过。**为 `False` 时 `interval_ids` 是空哨兵**
+          （区间不可用，勿按「漏收」解读），此时以本字段定性为「多收/断链」。
         """
         section_id = as_uuid(section_node_id)
         async with self.db.session() as session:
@@ -232,14 +241,37 @@ class NodeRepository(Repository):
                     )
                 )
             ).first()
-            if root is None:
-                return False
-            if root.level is None:
+            if root is None or root.level is None:
                 return None
             raw = await self._section_interval(session, doc_id, section_id, root.ordinal, root.level)
-        cte = await self.get_subtree(section_id, doc_id=doc_id)
         interval_ids = [row.node_id for row in raw] if raw else []
-        return interval_ids == [node.node_id for node in cte]
+        subtree_ids = [node.node_id for node in await self.get_subtree(section_id, doc_id=doc_id)]
+        first_diff: int | None = next(
+            (i for i, (left, right) in enumerate(zip(interval_ids, subtree_ids)) if left != right),
+            None,
+        )
+        if first_diff is None and len(interval_ids) != len(subtree_ids):
+            first_diff = min(len(interval_ids), len(subtree_ids))
+        subtree_set, interval_set = set(subtree_ids), set(interval_ids)
+        return {
+            "interval_ids": interval_ids,
+            "subtree_ids": subtree_ids,
+            "first_diff_index": first_diff,
+            "missing_in_interval": [n for n in subtree_ids if n not in interval_set],
+            "extra_in_interval": [n for n in interval_ids if n not in subtree_set],
+            "interval_self_check": raw is not None,
+        }
+
+    async def check_section_range(self, doc_id: str, section_node_id: UUID | str) -> bool | None:
+        """`section_range_diff` 的布尔投影：`True` 一致、`False` 不一致、`None` 不可判定。
+
+        `None` 同时覆盖「节点不存在」与「`level` 为空」——**刻意不与 `False`（契约破坏）混用**，
+        detector 据此跳过而非误报。
+        """
+        diff = await self.section_range_diff(doc_id, section_node_id)
+        if diff is None:
+            return None
+        return diff["interval_ids"] == diff["subtree_ids"]
 
     @staticmethod
     async def _section_interval(
