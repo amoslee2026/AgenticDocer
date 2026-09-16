@@ -56,6 +56,7 @@ from agenticdocer.observability.metrics import (
 )
 from agenticdocer.observability.middleware import (
     REQUEST_ID_HEADER,
+    UNROUTED,
     ObservabilityMiddleware,
     install,
 )
@@ -69,7 +70,8 @@ from agenticdocer.observability.rid import (
 
 __all__ = [
     "DTO_ANCHOR_CONFLICT",
-    "DTO_AUTH_REJECTED",
+    "REQUEST_ID_HEADER",
+    "UNROUTED",
     "DTO_PARTITION_MISSING",
     "DTO_PERF_EXCEEDED",
     "DTO_REF_BROKEN",
