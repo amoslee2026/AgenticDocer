@@ -426,10 +426,16 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
 
     if previous:
         delta_rows = compare_rows(bench, previous)
+        header = (f"上次 {previous.get('started_at', '?')}"
+                  f"{'，label=' + previous['label'] if previous.get('label') else ''}"
+                  f"，dsn={previous.get('dsn', '?')}")
         if delta_rows:
-            print(f"\n↔ 与上次运行对比（上次 {previous.get('started_at', '?')}"
-                  f"{'，label=' + previous['label'] if previous.get('label') else ''}）：")
+            print(f"\n↔ 与上次运行对比（{header}）：")
             print(render_table(["指标", "上次", "本次", "变化"], delta_rows))
+        else:
+            print(f"\n↔ 上次运行（{header}）无同名可对比指标")
+        if previous.get("dsn") and previous["dsn"] != bench.dsn:
+            print("   ⚠ 两次运行的库不同（见上方 dsn）——趋势对比仅供参考，不构成回归判据")
         else:
             print(f"\n↔ 上次运行（{previous.get('started_at', '?')}）无同名可对比指标")
 
