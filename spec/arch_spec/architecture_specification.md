@@ -759,3 +759,86 @@ systemd --user: agenticdocer-api.service
 | B11 | func L26/29 | 文档版本管理 + diff；skill/CLI 提供导入/删除/修改/读取 + 专用 skill 调取人类标注 | 采纳：新增 REQ-M10-*、REQ-M11-*（CLI/skill）、REQ-M07-F06（doc diff）；版本管理已由 events 重放支持，补 API 与 skill | functional §功能列表与详细说明 |
 
 **批注原文保留**：所有 `> [!TODO]` / `%%...%%` 块均保留原位并在其下追加处置标注（评审要求：不得删除或「清理」）。
+
+## 9. CLI 与 Skill（批注 B3/B11）
+
+### 9.1 鉴权模型总览（B1/B2/B3）
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 身份根：SSH 公钥（Ed25519）→ users 表（user_id, role, status）  │
+└──────────────────────────────────────────────────────────────┘
+        │                                  │
+ ┌──────┴───────┐                  ┌───────┴────────┐
+ │ agent 路径    │                  │ 人类路径        │
+ │ 每请求签名     │                  │ WebUI 会话      │
+ │ （无状态）     │                  │ （挑战-响应登录）│
+ └──────────────┘                  └────────────────┘
+        │                                  │
+ X-SSH-Signature                      Cookie: agenticdocer_session
+ X-SSH-Key-Id/X-Timestamp/X-Nonce      → M10 resolve_session()
+        │                                  │
+        └───────────────┬──────────────────┘
+                        ▼
+            M10 verify_signature() / resolve_session()
+                        ▼
+                User + Role + Grants
+                        ▼
+        authorize(user, perm, target)  ← RBAC 四角色 + 文档集级 grant
+                        ▼
+                M06 / M07 业务处理
+```
+
+**权限主体分离（B1/B3）**：
+- **人类操作者** → WebUI（M08）+ WebUI API（M07）：文档 CRUD、批注、状态审批、用户管理（admin 专属）；
+- **coding agent** → CLI（§9.2）+ skill（§9.3）+ HTTP（M06）：结构化读写、导入、lint 闭环；
+- 两者**共用同一鉴权与授权层**（M10），差异仅在凭据形态（签名 vs 会话）。
+
+**注**：B1 原文「用户只能说 webui」按此理解执行——人类**界面**限定 WebUI（不提供人类用的 CLI 交互式编辑器）；CLI/skill 面向 agent，非面向人类日常操作。CLI 的 admin 子命令（用户管理）为部署/运维例外。
+
+### 9.2 CLI 工具族（B3/B11）
+
+统一入口 `agenticdocer`（`cli.py` 装配）：
+
+| 命令 | 语义 | 最低角色 |
+|---|---|---|
+| `agenticdocer auth bootstrap` | 用 `ADMIN_SSH_PUBKEY_FILE` 创建首个 admin（幂等） | 本地 DB |
+| `agenticdocer auth whoami` | 打印当前身份/角色/公钥指纹 | 无 |
+| `agenticdocer user add/list/disable/role` | 用户管理 | **admin** |
+| `agenticdocer user key add/revoke` | SSH 公钥登记/吊销 | **admin** |
+| `agenticdocer grant add/list/rm` | 文档集级授权 | **admin** |
+| `agenticdocer import <path>` | 导入（解析 → 提议 → 事务写入） | editor |
+| `agenticdocer import review <slug>` | 交互式审核提议（M03 CLI 审核器） | editor |
+| `agenticdocer doc list/get/delete` | 文档读取 / 软删 | reader / editor |
+| `agenticdocer node get/put/delete` | 节点读写（乐观锁） | reader / editor |
+| `agenticdocer comment list/add/resolve` | 批注读写（**调取人类标注**，B11） | reader / reviewer |
+| `agenticdocer doc diff <doc_id> [--from --to]` | 文档版本 diff（events 重放） | reader |
+| `agenticdocer render <doc_id> [--section]` | 渲染（整档 / 章节） | reader |
+| `agenticdocer stats` | 导入统计 / 覆盖率 | reader |
+
+**自动签名**：CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读私钥，按 §3 M06 协议生成签名头。`auth bootstrap` 为唯一不签名的命令（它建立鉴权本身）。
+
+### 9.3 Skill 清单（B3/B11）
+
+coding agent 用 skill 定义，落 `skills/`：
+
+| Skill | 用途 | 底层命令 |
+|---|---|---|
+| `docer-import` | 导入 markdown → 结构化库（含提议审核） | `agenticdocer import` |
+| `docer-read` | 按 doc_id/anchor/node_id 读取节点与文档树 | `agenticdocer node/doc get` |
+| `docer-write` | 结构化写入/更新/软删（含乐观锁重试） | `agenticdocer node put/delete` |
+| `docer-render` | 渲染整档或章节为 Markdown | `agenticdocer render` |
+| `docer-diff` | 查看文档版本 diff（了解他方改动） | `agenticdocer doc diff` |
+| **`docer-annotations`** | **调取人类用户的标注/批注**（B11 明确要求） | `agenticdocer comment list` |
+
+**skill 与 CLI 的关系**：skill 是 CLI 的**语义封装**（声明「何时用哪个命令、如何解读输出、失败如何重试、需要何种角色」），不重复实现逻辑。
+
+**典型 agent 工作流**（skill 编排）：
+```
+docer-import（首次导入）
+  → docer-annotations（读取人类标注，定位待修正点）
+  → docer-write（按标注修订节点）
+  → docer-render + docer-diff（自检产物与变更）
+```
+
+**鉴权传递**：skill 调用 CLI 时自动附带签名；agent 无需感知密码学细节，只需保证运行环境有可用 SSH 私钥且公钥已在 `users` 表登记。
