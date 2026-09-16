@@ -239,7 +239,10 @@ async def test_two_way_roundtrip_on_largest_document(
 
     assert await normalize(doc_id, storage=storage) == source_form
     result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
+    product = Path(result.out_path).read_text(encoding="utf-8")
     assert normalize_markdown(Path(result.out_path)) == source_form
+    # 逐节点字节覆盖：4,822 个节点的渲染文本全部逐字节出现在产物中（零改写、零转义）
+    _assert_node_blocks_verbatim(await storage.get_doc_nodes(doc_id), product)
 
 
 # ── P4 逐字节证据 ────────────────────────────────────────────────────────
