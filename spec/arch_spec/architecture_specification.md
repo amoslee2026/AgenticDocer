@@ -996,7 +996,7 @@ systemd --user: agenticdocer-api.service
 | 时间 | UTC（timestamptz）；展示本地化 |
 | 配置 | 环境变量（§5 清单）；默认值指向仓库 `data/`、`build/`（gitignore） |
 
-**frontmatter → docs 映射（A22，C5 十七字段，含 spec 专属 4 项）**：`title→title`；`spec_id→doc_id`；`spec_type→doc_type`；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。必填校验：C5 十七字段（title/type/purpose/audience/direction/status/version/section_meta/spec_id/spec_type/spec_org/spec_revision/source/converted_by/converted_at/reviewed_by/reviewed_at）。
+**frontmatter → docs 映射（A22，C5 十七字段，含 spec 专属 4 项）**：`title→title`；`spec_id→doc_id`；**`spec_type→doc_type`（经 `doc_type_mapping.md` §2 映射层归一：支持 5 个 doc_type 值 / 映射表 slug / 英文别名，大小写与空白宽松；`product` 大类细分落 `meta.doc_subtype`，见 §1.5）**；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。必填校验：C5 十七字段（title/type/purpose/audience/direction/status/version/section_meta/spec_id/spec_type/spec_org/spec_revision/source/converted_by/converted_at/reviewed_by/reviewed_at）。 **类型差异化的 meta 必填**（`doc_type_mapping.md` §3）另计：`lang`/`tool-manual` 需 `command_name`/`syntax`/`tool_context`；`product` 需 `doc_subtype`/`traces_to`/`owner`（`doc_subtype=verification-plan` 时另需 `verification_plan_format`）；`safety` 需 `standard_ref`/`audit_trail`。
 
 ## 6.2 已知瓶颈（PerfBench 实测发现，待 it.mas 裁决）
 
