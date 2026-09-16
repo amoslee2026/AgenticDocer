@@ -23,8 +23,3 @@ dist/
 data/
 logs/
 
-# 构建与 uv
-.venv/
-build/
-dist/
-*.egg-info/
