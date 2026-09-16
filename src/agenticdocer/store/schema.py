@@ -72,9 +72,6 @@ EVENTS_DEFAULT_PARTITION: Final = "events_default"
 
 
 def _pk_uuid(name: str) -> Column[Any]:
-
-
-def _pk_uuid(name: str) -> Column[Any]:
     return Column(name, PGUUID(as_uuid=True), primary_key=True)
 
 
