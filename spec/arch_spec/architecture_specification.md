@@ -444,8 +444,10 @@ export interface NodeDTO {
   anchor: string; parentNodeId: string | null; level: number | null;
   content: unknown; version: number; status: "active"|"deleted";
 }
-export interface EventDTO { eventId: string; entity: "doc"|"node"|"ref"|"comment"|"schema";
+export interface EventDTO { eventId: string; entity: "doc"|"node"|"ref"|"comment"|"schema"|"auth";
   entityId: string; op: string; payload: Record<string, unknown>; actor: string; ts: string; }
+export interface DocDTO { docId: string; docType: string; title: string; status: "draft"|"reviewed"|"approved";
+  version: number; updatedAt: string; }
 export interface CommentDTO { commentId: string; nodeId: string; targetEventId: string | null;
   body: string; state: "open"|"resolved"|"orphaned"; author: string; version: number; ts: string; }
 export interface SchemaDTO { typeName: string; version: number; jsonSchema: Record<string, unknown>; }
