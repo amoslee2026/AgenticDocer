@@ -19,7 +19,7 @@
 """
 
 from __future__ import annotations
-
+from typing import Any, Final
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 from uuid import UUID
@@ -37,8 +37,9 @@ __all__ = [
     "DETECTOR_ID",
     "MAX_ORPHAN_REPORTS",
     "RULES_EVENTS_CONSISTENCY",
-    "detect",
     "judge_docs",
+    "judge_nodes",
+    "judge_orphans",
     "judge_nodes",
 ]
 
@@ -280,4 +281,3 @@ async def detect(ctx: GateContext) -> list[Violation]:
     return violations
 
 
-_ = UUID  # 保留类型符号（`Node.node_id` 与事件 entity_id 的 str 化统一在此模块）
