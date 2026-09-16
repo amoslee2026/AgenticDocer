@@ -952,7 +952,7 @@ systemd --user: agenticdocer-api.service
 | # | 瓶颈 | 实测证据 | 影响 | 建议 |
 |---|---|---|---|---|
 | ~~**B-1**~~ **已修复** | **导入吞吐**（原：逐节点事务 57.6 节点/s → 13.4M 需 35–40h） | **修复后实测**：JEDEC 722 节点 0.39s = **1,828 节点/s**；PCIe 3,428 节点 2.01s = **1,706 节点/s**。**提升 31.7×** → 13.4M 节点 **≈2.0–2.2 小时**（原 35–40h） | 10k 文档导入**已工程可行** | **已修**：M03 `commit_document_bulk`（`asyncpg.copy_records_to_table`，每批 5k 行一事务）+ CLI `import commit --bulk [--bulk-mode online\|initial_load]`。**语义 A/B 已验证**：节点行逐字段一致 + 事件 `(entity,op)` 计数与锚集合全等 + 幂等（二次 `nodes_created=0`）+ P2（批内同事务）。**注**：模式②（先 COPY 再并行建索引，ADR-009 §2）**未自动实现**（涉 DDL 与并发，属装载后运维编排，docstring 已注明） |
-| **B-2** | **`render_section` 是 O(全文) 而非 O(章节)**：内部执行 `get_doc_nodes(整档)` + 每次重新解析/导出图片资产 | `get_doc_nodes` 占章节渲染 **30–87%**（PCIe 77ms/258ms；CXL 99ms/114ms） | 指标仍达标（<1s），但章节耗时会随**文档**增大而劣化（非随章节） | M04 增「按子树/父链」的 M02 读接口（`idx_nodes_parent` 已存在），或渲染前缓存节点树 |
+| ~~**B-2**~~ **已修复** | **`render_section` 是 O(全文) 而非 O(章节)** | 修复前 `get_doc_nodes` 占章节渲染 **30–87%**（PCIe 77ms/258ms；CXL 99ms/114ms） | 章节耗时随**文档**而非章节规模劣化 | **已修**：M02 新增 `get_section_nodes`（O(子树) 区间扫）+ `get_subtree`（递归 CTE，语义权威）+ `get_asset_paths`（消 N+1，语料 1,099 处引用）；M04 切换后复杂度 O(全档)→O(子树)。**遗留风险**：区间法依赖「ordinal=文档序且子树连续」不变量，**漏收**无法自检 → 已派 M09 新增 `section_range_consistency` 抽样 detector 兜底 |
 | **B-3** | **鉴权余量依赖宿主负载** | 安静窗口 P95 3.87–4.31ms；与并发集成套件同 PG 实例时 8.04/4.97ms；纯 Ed25519 仅 0.119ms → 成本在 2 次 PG 查表 + nonce 事务提交 + 日志落盘 | 并发场景余量降低 | 若需更多余量：nonce 落库改批量/异步（需权衡 S7 防重放语义） |
 
 ## 6.1 已知限制（实现阶段发现，待 it.mas 裁决）

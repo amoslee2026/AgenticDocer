@@ -212,6 +212,35 @@ class NodeRepository(Repository):
             return await self.get_subtree(section_id, doc_id=doc_id)
         return [build_model(Node, row_to_dict(row)) for row in rows]
 
+    async def check_section_range(self, doc_id: str, section_node_id: UUID | str) -> bool | None:
+        """诊断接口（M09B `section_range_consistency` detector 用）。
+
+        比较**区间法原始结果**（不经回退）与递归 CTE 的 `(node_id)` 序列，暴露大纲契约破坏。
+        **为什么不能直接比较公开读接口**：`get_section_nodes` 对可检出的违规会自愈回退到
+        CTE，于是「公开接口 vs CTE」恒等——detector 会**漏报**多收方向的脏数据。故本接口
+        刻意绕开自愈，暴露区间法的真值。
+
+        返回：`True` = 两者一致；`False` = 不一致（或节点不存在）；`None` = 该节点无法用
+        区间法判定（`level` 为空 → 右边界不可定义），detector 应跳过。
+        """
+        section_id = as_uuid(section_node_id)
+        async with self.db.session() as session:
+            root = (
+                await session.execute(
+                    select(nodes.c.ordinal, nodes.c.level).where(
+                        nodes.c.node_id == section_id, nodes.c.doc_id == doc_id
+                    )
+                )
+            ).first()
+            if root is None:
+                return False
+            if root.level is None:
+                return None
+            raw = await self._section_interval(session, doc_id, section_id, root.ordinal, root.level)
+        cte = await self.get_subtree(section_id, doc_id=doc_id)
+        interval_ids = [row.node_id for row in raw] if raw else []
+        return interval_ids == [node.node_id for node in cte]
+
     @staticmethod
     async def _section_interval(
         session: AsyncSession, doc_id: str, section_id: UUID, ordinal: int, level: int
