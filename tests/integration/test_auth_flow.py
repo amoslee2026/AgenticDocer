@@ -433,13 +433,25 @@ async def test_unregistered_key_is_forbidden_and_audited(
 async def test_role_insufficient_is_403(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
-    """签名有效但角色不足 → 403（REQ-M10-F01f）。"""
-    await _make_user(database, "bob", "reader", key_material["outsider_ed25519"])
+    """签名有效但角色不足 → 403（REQ-M10-F01f）；审计可确定性归因（AUD-4）。"""
+    user, _ = await _make_user(database, "bob", "reader", key_material["outsider_ed25519"])
     key = signing.load_private_key(key_material["outsider_ed25519"])
     headers = signing.sign_request_headers(key, "POST", "/api/v1/docs", b"{}")
     response = await client.post("/api/v1/docs", content=b"{}", headers=headers)
     assert response.status_code == 403
     assert response.json()["detail"]["reason"] == "forbidden"
+
+    # 授权拒绝发生在**身份已验证之后**：actor 仍为 anonymous（S10 字面），
+    # 但 payload 带确定性归因 verified_user_id（与 claimed_* 自述值区分）
+    events = await _rows(
+        database,
+        "SELECT actor, payload FROM events WHERE entity = 'auth' AND op = 'fail' "
+        "AND payload->>'reason' = 'forbidden' ORDER BY ts DESC LIMIT 1",
+    )
+    actor, payload = events[0]
+    assert actor == "anonymous"
+    assert payload["verified_user_id"] == str(user.user_id)
+    assert "claimed_user_id" not in payload
 
 
 async def test_missing_credentials_is_401_and_exemptions_work(
