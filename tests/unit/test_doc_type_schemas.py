@@ -293,8 +293,9 @@ def test_new_variant_content_validates_and_rejects_bad_content(
     assert "additionalProperties" in _violations({**content, "typo": 1})
     assert "additionalProperties" in _violations({**content, row_key: [{**row, "typo": 1}]})
     assert "required" in _violations({key: value for key, value in content.items() if key != row_key})
-    assert "required" in _violations({**content, row_key: [{key: value for key, value in row.items() if key != "rpn"}] }
-                                      if row_key == "modes" else {**content, row_key: [{key: value for key, value in row.items() if key != "status"}]})
+    row_missing = dict(row)
+    row_missing.pop(ATOM_SCHEMAS[atom_type]["properties"][row_key]["items"]["required"][0])
+    assert "required" in _violations({**content, row_key: [row_missing]})
     assert "minItems" in _violations({**content, row_key: []})
 
 
