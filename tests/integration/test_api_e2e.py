@@ -286,7 +286,8 @@ async def test_agent_flow_read_write_render_diff(
         _node_body(doc_id, "1.3 Bad", ordinal=3, atom_type="nonsense", content={"text": "x"}),
     )
     assert unknown.status_code == 422
-    assert unknown.json()["violations"][0]["ruleId"] == "M09A.atom.unknown"
+    unknown_ids = {item["ruleId"] for item in unknown.json()["violations"]}
+    assert {"M09A.atom.unknown", "M01.doc_type.atom"} <= unknown_ids  # 判据归属（顺序无关）
 
     # 判据归属（P5）：锚形态由 M09A `M09A.anchor.doc_id` 负责——本模块不再自带第二套判定
     bad_anchor = _node_body(doc_id, "1 Bad", ordinal=3, content={"text": "x"})
