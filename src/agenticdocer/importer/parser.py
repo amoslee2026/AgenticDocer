@@ -1047,7 +1047,6 @@ def parse_text(
             )
         )
 
-    cross_ref = _resolve_cross_refs(pending)
     by_kind: dict[str, int] = {}
     for block in blocks:
         by_kind[block.kind] = by_kind.get(block.kind, 0) + 1
