@@ -229,18 +229,30 @@ COVERAGE_FRAGMENT = (
 TABLE_META: dict[str, object] = {"rows": 2, "cols": 5, "cells": 10, "max_colspan": 1}
 
 NEW_VARIANTS = (
-    ("table.failure_mode", "modes", FAILURE_MODE_ROW, FAILURE_MODE_FRAGMENT),
-    ("table.coverage_matrix", "matrix", COVERAGE_ROW, COVERAGE_FRAGMENT),
+    (
+        "table.failure_mode",
+        "modes",
+        FAILURE_MODE_ROW,
+        FAILURE_MODE_FRAGMENT,
+        {"failure_mode", "effect", "severity", "detection_method", "rpn", "mitigation"},
+    ),
+    (
+        "table.coverage_matrix",
+        "matrix",
+        COVERAGE_ROW,
+        COVERAGE_FRAGMENT,
+        {"feature", "sub_feature", "coverage_item", "test", "status"},
+    ),
 )
 
 
 def _content(row_key: str, row: dict[str, object], fragment: str) -> dict[str, object]:
-    return {"fragment": fragment, "meta": TABLE_META, row_key: [row]}
+    return {"text": html_to_text(fragment), "fragment": fragment, "meta": TABLE_META, row_key: [row]}
 
 
-@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment"), NEW_VARIANTS)
+@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment", "row_fields"), NEW_VARIANTS)
 def test_new_variant_schema_is_well_formed(
-    atom_type: str, row_key: str, row: dict[str, object], fragment: str
+    atom_type: str, row_key: str, row: dict[str, object], fragment: str, row_fields: set[str]
 ) -> None:
     schema = ATOM_SCHEMAS[atom_type]
 
@@ -256,7 +268,7 @@ def test_new_variant_schema_is_well_formed(
     rows = schema["properties"][row_key]
     assert rows["type"] == "array" and rows["minItems"] == 1
     assert rows["items"]["additionalProperties"] is False
-    assert set(rows["items"]["properties"]) == set(row)
+    assert set(rows["items"]["properties"]) == row_fields
     assert rows["items"]["type"] == "object"
     jsonschema.Draft202012Validator.check_schema(schema)
 
@@ -278,9 +290,9 @@ def test_coverage_matrix_rows_carry_the_ucis_vplan_chain() -> None:
     assert items["required"] == ["feature", "sub_feature", "coverage_item", "test", "status"]
 
 
-@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment"), NEW_VARIANTS)
+@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment", "row_fields"), NEW_VARIANTS)
 def test_new_variant_content_validates_and_rejects_bad_content(
-    atom_type: str, row_key: str, row: dict[str, object], fragment: str
+    atom_type: str, row_key: str, row: dict[str, object], fragment: str, row_fields: set[str]
 ) -> None:
     validator = jsonschema.Draft202012Validator(ATOM_SCHEMAS[atom_type])
     content = _content(row_key, row, fragment)
@@ -299,9 +311,9 @@ def test_new_variant_content_validates_and_rejects_bad_content(
     assert "minItems" in _violations({**content, row_key: []})
 
 
-@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment"), NEW_VARIANTS)
+@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment", "row_fields"), NEW_VARIANTS)
 def test_derive_text_of_new_variants_comes_from_the_fragment(
-    atom_type: str, row_key: str, row: dict[str, object], fragment: str
+    atom_type: str, row_key: str, row: dict[str, object], fragment: str, row_fields: set[str]
 ) -> None:
     """E1-a：表格类变体的 `content.text` 由原样 `fragment` 去标签派生（唯一生成口径）。"""
     derived = derive_text(atom_type, _content(row_key, row, fragment))
