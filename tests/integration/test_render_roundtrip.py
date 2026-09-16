@@ -17,15 +17,15 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
 import pytest
 import yaml
 
-from agenticdocer.model import DocIn, NodeIn, WriteContext, new_uuid7
+from agenticdocer.model import DocIn, NodeIn, derive_text, new_uuid7
 from agenticdocer.render import (
-    NormalForm,
     body_text,
     grid_to_content,
     list_sections,
@@ -35,15 +35,16 @@ from agenticdocer.render import (
     render_section,
     resolve_table_mode,
     section_subtree,
+    table_cells,
+    table_meta,
     write_table_edit,
 )
 from agenticdocer.render.editable import TableEdit, TableGrid, parse_table_fragment
-from agenticdocer.store import NotFoundError, Storage
+from agenticdocer.store import ConflictError, NotFoundError, Storage
 
 from .corpus_ingest import (
     CORPUS_ROOT,
     CTX,
-    blocks_to_nodes,
     ingest_markdown,
     split_blocks,
     split_frontmatter,
@@ -136,39 +137,37 @@ async def test_html_img_rewrite_is_the_only_fragment_change(
 
     # 解析得动的分支：把片段的 <img> src 换成 CAS 中真实存在的 asset_id，重渲染
     sample = with_img[0]
-    payload = b"\xff\xd8\xff\xe0M04-render-fixture\xff\xd9"
-    asset_id = await storage.put_asset(payload, "image/jpeg", origin="test://m04")
-    patched = sample.replace("images/", "assets/", 1)
-    patched = _swap_first_asset_hash(patched, asset_id)
+    payload = b"\x89PNG\r\n\x1a\nM04-render-fixture"
+    asset_id = await storage.put_asset(payload, "image/png", origin="test://m04")
+    patched = _retarget_first_img(sample, asset_id)
     doc2 = "SPEC-CXL-IMG-REWRITE"
     await _store_single_table_doc(storage, doc2, patched)
 
     result2 = await render_document(doc2, tmp_path / "rendered2", storage=storage)
     text2 = Path(result2.out_path).read_text(encoding="utf-8")
     assert result2.assets_exported == 1
-    exported = tmp_path / "rendered2" / "assets" / f"{asset_id}.jpeg"
+    exported = tmp_path / "rendered2" / "assets" / f"{asset_id}.png"
     assert exported.is_file() and exported.read_bytes() == payload
-    assert f'src="assets/{asset_id}.jpeg"' in text2
+    assert f'src="assets/{asset_id}.png"' in text2
     # 除 src 之外的字节完全一致（P4：片段本体零改写）
-    assert _mask_img_src(patched) in text2 or _mask_img_src(_rewrite_src(patched, asset_id)) in text2
-
-    # 且判据 (b) 仍成立：重写被 images 哈希口径吸收
+    assert _mask_img_src(patched) in _mask_img_src(text2)
+    # 判据 (b) 的 images 口径吸收扩展名差异：重写前后为同一 asset_id 集合
     assert normalize_markdown(text2).images == normalize_markdown(patched).images
 
 
-def _swap_first_asset_hash(fragment: str, asset_id: str) -> str:
-    """把片段中第一个 ``<img>`` 引用的哈希换成 ``asset_id``（保留其余结构，测试用）。"""
-    import re
-
-    def _replace(match: re.Match[str]) -> str:
-        return f"{match.group(1)}{asset_id}{match.group(3)}"
-
-    pattern = re.compile(r"(assets/)[0-9a-f]{64}(\.[A-Za-z0-9]+)")
-    return pattern.sub(_replace, fragment, count=1)
+def _retarget_first_img(fragment: str, asset_id: str) -> str:
+    """把片段中第一个 ``<img>`` 引用指向 ``asset_id``（其余结构/字节不动；测试夹具用）。"""
+    pattern = re.compile(r"(images/)[0-9a-f]{64}(\.[A-Za-z0-9]+)")
+    return pattern.sub(lambda match: f"{match.group(1)}{asset_id}{match.group(2)}", fragment, count=1)
 
 
-def _rewrite_src(fragment: str, asset_id: str) -> str:
-    return fragment
+def _mask_img_src(fragment: str) -> str:
+    """把 ``<img src="…">`` 的值替换为占位符（用于「只有 src 变了」的逐字节比较）。"""
+    return re.sub(
+        r'(<img\b[^>]*?\bsrc\s*=\s*")[^"]*(")',
+        r"\1@@\2",
+        fragment,
+    )
 
 
 def _mask_img_src(fragment: str) -> str:
