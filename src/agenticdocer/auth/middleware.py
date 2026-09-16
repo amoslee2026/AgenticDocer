@@ -193,6 +193,7 @@ def assert_auth_coverage(app: Any, *, ignore: tuple[str, ...] = DOC_PATHS) -> No
             "或（确属公开资源）加入 EXEMPT_PATHS。"
         )
 
+
 @dataclass(frozen=True, slots=True)
 class SshSigHeaders:
     """``X-SSH-*`` 头（§3 M06；**无 ``X-Actor``**，S14）。"""
