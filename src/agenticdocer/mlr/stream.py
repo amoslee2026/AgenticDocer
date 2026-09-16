@@ -91,7 +91,7 @@ def cursor_token(event: Event) -> str:
     消费方把最后一条已处理事件的 token 存下来，下次作 `since` 传入即可从其后继续
     （半开区间，不重不漏）。
     """
-    return f"{event.ts.isoformat()}{CURSOR_SEPARATOR}{event.event_id}"
+    return _token(event.ts, event.event_id)
 
 
 async def change_stream(
@@ -150,7 +150,9 @@ async def change_stream(
 
 def _log_drained(since: str | None, entity: str | None, emitted: int, cursor: _Cursor) -> None:
     """有界拉取结束时的口径记录（`cursor` 即可供下次续拉的 token）。"""
-    token = None if cursor.ts is None or cursor.event_id is None else _token(cursor.ts, cursor.event_id)
+    token = (
+        None if cursor.ts is None or cursor.event_id is None else _token(cursor.ts, cursor.event_id)
+    )
     log.info("change_stream drained", since=since, entity=entity, events=emitted, cursor=token)
 
 
