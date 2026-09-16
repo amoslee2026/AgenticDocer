@@ -55,5 +55,10 @@ markers = [
     "integration: 需要 PG 的集成测试",
 ]
 
+# 集成测试的库状态约束（见 tests/integration/conftest.py 模块文档）
+# 全量验收命令（保持默认，不 drop schema）：
+#   unset all_proxy ALL_PROXY && uv run pytest tests/unit tests/integration -q
+# 需要确定性干净起点时（不可与他人并行）才设 AGENTICDOCER_TEST_DROP_SCHEMA=1
+
 [tool.uv]
 default-groups = ["dev"]
