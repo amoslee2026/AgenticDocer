@@ -735,9 +735,7 @@ CREATE TABLE grants (                          -- 文档集级授权（B3；S5�
   user_id    uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   scope      text NOT NULL CHECK (scope IN ('doc_type','doc')),
   value      text NOT NULL,                    -- doc_type 值 或 doc_id
-  permission text NOT NULL CHECK (permission IN ('read','write','review')),
-CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s)，**必须 ≥ 时间窗**避免重放窗口
-  permission text NOT NULL CHECK (permission IN ('read','write','review','admin')),
+  permission text NOT NULL CHECK (permission IN ('read','write','review')),  -- S5：无 'admin'（不可经由 grant 提权）
   granted_by uuid REFERENCES users(user_id),
   granted_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, scope, value, permission)
@@ -746,20 +744,20 @@ CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×
 CREATE TABLE sessions (
   session_id   uuid PRIMARY KEY,
   user_id      uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  token_hash   text NOT NULL UNIQUE,           -- SHA256(token)；明文仅存在于 Cookie
+  token_hash   text NOT NULL UNIQUE,           -- SHA256(secrets.token_urlsafe(32))；S13：256 位 CSPRNG，明文仅存 Cookie
   created_at   timestamptz NOT NULL DEFAULT now(),
   expires_at   timestamptz NOT NULL,           -- 默认 now()+8h，活动时滑动续期
   last_seen_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_sessions_expiry ON sessions (expires_at);
+CREATE INDEX idx_sessions_expiry ON sessions (expires_at);   -- S15：清理任务 DELETE WHERE expires_at < now()
 
-CREATE TABLE nonces (                          -- 签名重放防护（B2）
+CREATE TABLE nonces (                          -- 签名重放防护（B2/S3/S7）
   nonce     text PRIMARY KEY,
   user_id   uuid REFERENCES users(user_id) ON DELETE CASCADE,
   seen_at   timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- TTL 300s 定期清理
-```
+CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s) ≥ 时间窗
+-- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
 
 ### 4.4 分区策略（ADR-009，批注 A8）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、外键降级）
 
