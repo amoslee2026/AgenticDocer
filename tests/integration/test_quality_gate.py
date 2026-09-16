@@ -13,6 +13,7 @@
 | `assets_missing` | figure 引用无 `assets` 行与字节的 sha256 | A6 取件缺失（M03 漏件） |
 | `render_consistency` | 软删表格节点（判据 a）/ 篡改渲染产物（判据 b） | 导入丢结构 / 产物层破坏 |
 | `perf_health` | 无法在应用角色下制造（分区属 DDL）→ 用实时 `health()` 交叉校验判据一致性 | ADR-010 容量巡检 |
+| `doc_type_schema_conformance` | 直接写 `docs` 行（绕过 M03 frontmatter 校验）使 `meta` 缺该 `doc_type` 必填字段 | 规则细化后既有文档未回溯（Q6/B7 裁剪的沉淀） |
 
 样本一律用唯一 `doc_id`（`SPEC-QG<n>`），按 doc_ids 作用域断言，故可与其他 agent 的数据共存；
 但**本文件依赖 `conftest.migrated_schema`**（会 drop/recreate schema），仍须独占运行。
@@ -34,13 +35,15 @@ from agenticdocer.m09 import DETECTOR_IDS, run_quality_gate, run_quality_gate_sy
 from agenticdocer.m09.quality_9b import (
     assets_missing,
     broken_refs,
-    events_consistency,
+    broken_refs,
+    doc_type_conformance,
     perf_health,
     render_consistency,
     section_range_consistency,
     terms,
 )
 from agenticdocer.model import (
+    C5_META_FIELDS,
     DocIn,
     Node,
     NodeIn,
@@ -677,3 +680,77 @@ async def test_section_range_cycle_does_not_hang(storage: Storage) -> None:
     )
     assert [report.detector_id for report in reports] == ["section_range_consistency"]
     assert all(item.path and item.fix_hint for item in reports[0].violations)
+
+
+# ── doc_type_schema_conformance：组合规则的历史数据兜底 ────────────────────
+
+
+async def _make_bare_doc(storage: Storage, *, doc_type: str, meta: dict[str, Any]) -> str:
+    """只写 `docs` 行（**绕过 M03 frontmatter 校验**）：模拟「规则细化前入库 / 手工写入」的历史数据。"""
+    index = next(_SEQ)
+    doc_id = f"SPEC-QG-{_RUN}-{index}"
+    await storage.upsert_doc(
+        DocIn(
+            doc_id=doc_id,
+            doc_type=doc_type,
+            title="M09 doc_type conformance sample",
+            meta=meta,
+            source_ref=None,
+        ),
+        None,
+        CTX,
+    )
+    return doc_id
+
+
+async def test_doc_type_conformance_detects_historical_missing_meta(storage: Storage) -> None:
+    """规则细化后的历史行：`safety` 必填 `standard_ref`/`audit_trail` 缺失 → 逐字段命中。
+
+    **合成样例，非真实语料**：`safety`（FMEA/FTA）无语料（`doc_type_mapping.md` §5）。本用例
+    证明的是「差异化规则 + 判据在真库上连通」，**不是**端到端导入验证。
+    """
+    doc_id = await _make_bare_doc(storage, doc_type="safety", meta={})
+
+    violations = (await gate(storage, doc_id, ["doc_type_schema_conformance"]))[
+        "doc_type_schema_conformance"
+    ]
+    assert rules(violations) == {doc_type_conformance.RULE_META_MISSING}
+    assert [item.path for item in violations] == [
+        f"{doc_id}:meta.standard_ref",
+        f"{doc_id}:meta.audit_trail",
+    ]
+    assert all(item.fix_hint for item in violations)
+
+
+async def test_doc_type_conformance_passes_conformant_doc(storage: Storage) -> None:
+    """符合现时规则的行零违规（`standard` 的 C5 十七字段齐备）——不误报。"""
+    doc_id = await _make_bare_doc(
+        storage, doc_type="standard", meta={field: "x" for field in C5_META_FIELDS}
+    )
+    result = await gate(storage, doc_id, ["doc_type_schema_conformance"])
+    assert result == {"doc_type_schema_conformance": []}
+
+
+async def test_doc_type_conformance_is_scoped_by_doc_ids(storage: Storage) -> None:
+    """作用域收窄：只报本 `doc_ids` 内的文档（全库巡检时分摊到各文档，互不牵连）。"""
+    bad = await _make_bare_doc(storage, doc_type="safety", meta={})
+    good = await _make_bare_doc(
+        storage, doc_type="safety", meta={"standard_ref": "IEC 61508", "audit_trail": "rev-1"}
+    )
+    reports = await run_quality_gate(
+        QualityScope(doc_ids=[good], detectors=["doc_type_schema_conformance"]), storage=storage
+    )
+    assert [report.violations for report in reports] == [[]]
+    scoped_bad = await gate(storage, bad, ["doc_type_schema_conformance"])
+    assert scoped_bad["doc_type_schema_conformance"]
+
+
+async def test_unknown_doc_type_is_blocked_by_ddl_not_by_detector(storage: Storage) -> None:
+    """取值域由 **DDL** 兜底：模型层未登记的 `doc_type` 写不进 `docs`（CHECK → 422）。
+
+    故 detector 的 `M09B.doc_type.unknown` 分支在真库**不可达**（它是 DDL/模型漂移的护栏，
+    只由单测的合成行覆盖）——本用例把该边界钉死：DDL 与 `DOC_TYPES` 同域时，未知值在
+    写入侧即被拒。
+    """
+    with pytest.raises(ValidationError):
+        await _make_bare_doc(storage, doc_type="register-map", meta={})

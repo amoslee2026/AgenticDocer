@@ -96,7 +96,6 @@ __all__ = [
     "RULE_SET_VERSION",
     "Block",
     "Rule",
-    # frontmatter
     # doc_type_map（方案 C：idea.md 类型 → doc_type / meta.doc_subtype）
     "IDEA_DOC_TYPES",
     "PRODUCT_SUBTYPES",
@@ -104,6 +103,7 @@ __all__ = [
     "UnknownDocTypeError",
     "resolve_doc_type",
     "subtypes_for",
+    # frontmatter
     "Frontmatter",
     "doc_in_from_meta",
     "parse_frontmatter",

@@ -294,8 +294,27 @@ class QualityScope(BaseModel):  doc_ids: list[str] | None; detectors: list[str] 
 
 ```python
 ATOM_TYPES = ("clause","definition","table","figure","code","example","note","cross_ref")
-ATOM_VARIANTS = ("table.register_field","figure.state_machine")
-DOC_TYPES = ("standard","lang","tool-manual","product","safety")     # A22 取值域（Q6 随首个非 standard 扩组合规则）
+ATOM_VARIANTS = ("table.register_field","figure.state_machine",
+                 "table.failure_mode",            # safety 专属（FMEA/FTA，idea §4.5）
+                 "table.coverage_matrix")         # product 专属（UCIS/vPlan，idea §4.3）
+DOC_TYPES = ("standard","lang","tool-manual","product","safety")     # A22 取值域，**保持 5 值**（§1.5 约束 1）
+
+class DocTypeRule:                      # M01 组合规则（P5：M03 提议 / M09A 校验的唯一输入）
+    doc_type: str                       # DOC_TYPES 之一
+    allowed_atom_types: tuple[str, ...]         # 基底原子（八类子集）
+    required_atom_types: tuple[str, ...] = ()   # 必备原子；**可含变体名**（safety 的 table.failure_mode）
+    required_meta_fields: tuple[str, ...] = ()  # meta 必填字段（差异化核心）
+    allowed_atom_variants: tuple[str, ...] = () # 变体白名单；空 = 不放行任何变体（不随基底自动放行）
+
+# 五类差异化规则（权威表见 doc_type_mapping.md §3，实现见 model/doc_types.py）：
+#   standard    : 八类全 | clause | C5 十七字段                          | register_field, state_machine
+#   lang        : 八类去 figure | clause | command_name/syntax/tool_context | —
+#   tool-manual : lang + figure | clause | 同 lang（tool_context 必填）   | —
+#   product     : 八类全 | clause | doc_subtype/traces_to/owner          | + coverage_matrix
+#   safety      : 八类全 | clause + table.failure_mode | standard_ref/audit_trail | failure_mode
+def is_variant_allowed(doc_type: str, atom_type: str) -> bool: ...  # 变体白名单判定（M09A `M01.doc_type.variant`）
+def is_atom_allowed(doc_type: str, atom_type: str) -> bool: ...      # 基底 + 变体统一判据
+def missing_required_meta(doc_type: str, meta: dict | None) -> list[str]: ...  # 必填 meta 缺口（M03/M09A）
 
 def get_json_schema(atom_type: str) -> dict: ...                     # schemas 表缓存加载
 def register_schema(atom_type: str, schema: dict, version: int, ctx: WriteContext) -> None: ...  # A16 写入路径
