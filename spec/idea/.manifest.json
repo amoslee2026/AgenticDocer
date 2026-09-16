@@ -1,0 +1,22 @@
+{
+  "skill": "it.idea",
+  "skill_version": "1.0.0",
+  "inputs": [
+    {
+      "id": "idea_v01",
+      "path": "spec/idea/芯片设计知识库-结构化文档方案-v0.1.md",
+      "hash": "sha256:34b108f4338bb0616963ededee1de6960b569391297ba5377bbdbc79b82b6389"
+    }
+  ],
+  "outputs": [
+    { "id": "design_doc", "path": "spec/idea/design_doc.md", "phase": 8, "source": "idea_v01" },
+    { "id": "approach_analysis", "path": "spec/idea/approach_analysis.md", "phase": 8, "source": "idea_v01" },
+    { "id": "trade_off_matrix", "path": "spec/idea/trade_off_matrix.md", "phase": 8, "source": "idea_v01" },
+    { "id": "clarifications", "path": "spec/idea/clarifications.md", "phase": 8, "source": "idea_v01" },
+    { "id": "summary", "path": "spec/idea/summary.md", "phase": 8, "source": "idea_v01" },
+    { "id": "review_issues", "path": "spec/idea/.review/issues.md", "phase": 9.5, "source": "review" },
+    { "id": "plan_spec_central", "path": "spec/idea/plan-spec-central-directory.md", "phase": 12, "source": "idea_v01" }
+  ],
+  "timestamp": "2026-09-16T17:14:00+08:00",
+  "notes": "完整模式（系统级）；对抗评审两轮（E1–E20 全闭环 + N1–N8 全闭环，最终结论：无阻塞）。前一子任务（spec 集中，quick 模式）产物归档于 spec/idea/plan-spec-central-directory.md 与 assumptions.md。"
+}
