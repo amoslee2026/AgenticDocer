@@ -213,7 +213,7 @@ class ParseResult(BaseModel):
 
 class RefKind = Literal["traces_to","see_also","composes_from","source_ref"]
 class Event(BaseModel):
-    event_id: UUID7; entity: Literal["doc","node","ref","comment","schema"]
+    event_id: UUID7; entity: Literal["doc","node","ref","comment","schema","auth"]
     entity_id: str; op: Literal["create","update","delete","status","add","remove"]
     payload: dict; actor: str; ts: datetime
 class Comment(BaseModel):
@@ -641,7 +641,7 @@ CREATE INDEX idx_refs_dst ON refs (dst_doc_id, dst_node_id);
 
 CREATE TABLE events (                            -- append-only
   event_id  uuid PRIMARY KEY,
-  entity    text NOT NULL CHECK (entity IN ('doc','node','ref','comment','schema')),
+  entity    text NOT NULL CHECK (entity IN ('doc','node','ref','comment','schema','auth')),  -- S1：'auth' 为审计事件（不参与实体折叠）
   entity_id text NOT NULL,
   op        text NOT NULL,
   payload   jsonb NOT NULL,
