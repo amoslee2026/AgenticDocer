@@ -615,6 +615,7 @@ async def test_agent_flow_read_write_render_diff(
 
 
 async def test_rbac_and_grant_narrowing(
+    admin: Signer,
     admin_id: UUID,
     client: AsyncClient,
     keys: dict[str, Path],
@@ -729,6 +730,7 @@ async def test_rbac_and_grant_narrowing(
 
 
 async def test_webui_session_login_and_identity(
+    admin: Signer,
     admin_id: UUID,
     client: AsyncClient,
     keys: dict[str, Path],
