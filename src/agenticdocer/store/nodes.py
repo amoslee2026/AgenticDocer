@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from typing import Any, Final
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, literal, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,9 @@ __all__ = ["NODE_COLUMNS", "NodeRepository", "fetch_node", "node_values"]
 
 NODE_COLUMNS: Final = tuple(column for column in nodes.c if column.name != "text_fts")
 """显式列：`text_fts` 是生成列，不在模型里（也无需回传）。"""
+
+_MAX_SUBTREE_DEPTH: Final = 64
+"""子树递归的深度上限（仅保证脏数据不成环死循环；合法大纲层级远小于此）。"""
 
 _MUTABLE_FIELDS: Final = (
     "doc_id",

@@ -753,4 +753,38 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     assert by_cte == section_subtree(doc_nodes, first_child.node_id)
     by_interval = await storage.get_section_nodes(doc_id, first_child.node_id)
     assert [n.node_id for n in by_interval] == [first_child.node_id]
+
+
+async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> None:
+    """脏数据成环（A→B→A）时递归必须有界：不死循环、不重复，语义与 M04 visited 一致。"""
+    from agenticdocer.render.sections import section_subtree
+
+    doc_id = unique_doc("CYCLE")
+    await storage.upsert_doc(doc_in(doc_id), None, CTX)
+    root = await storage.upsert_node(
+        node_in(doc_id, ordinal=1, level=1, anchor=f"{doc_id}#1"), None, CTX
+    )
+    child = await storage.upsert_node(
+        node_in(doc_id, ordinal=2, level=2, parent=root.node_id, anchor=f"{doc_id}#1.1"), None, CTX
+    )
+    # 制造环：把 root 的父指向自己的子节点（ADR-009 下 parent 无 DB 外键，应用层不拦成环）
+    await storage.upsert_node(
+        node_in(doc_id, node_id=root.node_id, ordinal=1, level=1, parent=child.node_id,
+                anchor=f"{doc_id}#1"),
+        root.version,
+        CTX,
+    )
+
+    assert [n.node_id for n in await storage.get_subtree(root.node_id, doc_id=doc_id)] == [
+        root.node_id,
+        child.node_id,
+    ]
+    assert [n.node_id for n in await storage.get_subtree(child.node_id, doc_id=doc_id)] == [
+        root.node_id,
+        child.node_id,
+    ]
+    # 内存 oracle 同样按 visited 截断，二者一致
+    assert await storage.get_subtree(root.node_id, doc_id=doc_id) == section_subtree(
+        await storage.get_doc_nodes(doc_id), root.node_id
+    )
     assert len(by_interval) != len(by_cte)  # detector 前提：两者行数不等即暴露脏数据
