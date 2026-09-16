@@ -339,6 +339,16 @@ _CROSS_REF_MAX_CHARS: Final = 300
 _DEFINITION_MAX_TERM_CHARS: Final = 60
 _DEFINITION_MIN_BODY_CHARS: Final = 20
 
+DEFINITION_STOPWORDS: Final[frozenset[str]] = frozenset(
+    """
+    a an the this that these those it its in if for see as by on at to of and or but note notes when where while
+    each all any some no not yes then than there their is are was were be been being can may must shall should will
+    would so such per via with without from into over under between during after before above below both either
+    neither every other another same very much more most less least only also however therefore thus hence
+    """.split()
+)
+"""术语区段落判定的虚词停用表（首词命中即不视为词条，防「普通句子首词当术语」误判）。"""
+
 
 def clean_text(raw: str) -> str:
     """形态判定用的归一文本：去 HTML 标签（复用 :func:`agenticdocer.model.html_to_text`）+ 折空白。
