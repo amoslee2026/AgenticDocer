@@ -437,6 +437,11 @@ class SigningClient:
             details.extend(_violation_lines(detail))
         elif status == 429:
             hints = ["触发限流（AUTH_RATE_LIMIT_PER_MIN）：等待一分钟后重试。"]
+        elif status >= 500:
+            hints = [
+                "服务端内部错误：agenticdocer logs query --level ERROR --since 10m --json 看堆栈（含 rid）。",
+                "若刚改过代码/依赖，确认服务进程已用新代码重启。",
+            ]
         return CliError(
             f"HTTP {status} {message}",
             hint=hints or None,
