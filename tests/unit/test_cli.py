@@ -28,7 +28,7 @@ from agenticdocer.auth import signing, sshsig
 
 runner = CliRunner()
 
-ROOT_COMMANDS = ("render", "stats")
+ROOT_COMMANDS = ("render", "stats", "quality-gate")
 GROUPS = {
     "auth": ("bootstrap", "whoami", "sign"),
     "user": ("add", "list", "disable", "role"),
@@ -459,6 +459,141 @@ def test_min_role_mapping_matches_m10_matrix() -> None:
     assert cli._min_role("review") == "reviewer"
     assert cli._min_role(cli.MANAGE_USERS) == "admin"
 
+
+
+# ----------------------------------------------------------------------
+# quality-gate（M09B 交付面）
+# ----------------------------------------------------------------------
+
+
+def _whoami_admin(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200, json={"userId": "u-1", "username": "alice", "role": "admin", "permissions": []}
+    )
+
+
+def _whoami_reader(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200, json={"userId": "u-2", "username": "bob", "role": "reader", "permissions": []}
+    )
+
+
+def _stub_reports() -> list[Any]:
+    from agenticdocer.model import QualityReport, Violation
+
+    return [
+        QualityReport(detector_id="broken_refs", violations=[]),
+        QualityReport(
+            detector_id="terms",
+            violations=[
+                Violation(
+                    rule_id="RULE_TERMS_UNSEEDED",
+                    path="SPEC-X#1",
+                    message="术语未入种子表",
+                    fix_hint="把该词写入 data/terms_seed.yaml 后重启服务",
+                )
+            ],
+        ),
+    ]
+
+
+@pytest.fixture()
+def stub_gate(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
+    """把 M09B 的质量门换成固定报告（只测 CLI 的参数/角色/输出形状）。"""
+    import agenticdocer.m09 as m09
+
+    calls: list[Any] = []
+
+    def fake_run(scope: Any, **kwargs: Any) -> list[Any]:
+        calls.append(scope)
+        return _stub_reports()
+
+    monkeypatch.setattr(m09, "run_quality_gate_sync", fake_run)
+    return calls
+
+
+def test_quality_gate_default_detectors_exclude_perf_health() -> None:
+    assert cli.QUALITY_ADMIN_DETECTOR == "perf_health"
+    assert cli.QUALITY_ADMIN_DETECTOR not in cli.QUALITY_DEFAULT_DETECTORS
+    assert set(cli.QUALITY_DEFAULT_DETECTORS) <= set(cli._resolve_detectors(None))
+
+
+def test_quality_gate_accepts_repeated_and_comma_separated_detectors() -> None:
+    assert cli._resolve_detectors(["broken_refs,terms", "assets_missing"]) == [
+        "broken_refs",
+        "terms",
+        "assets_missing",
+    ]
+
+
+def test_quality_gate_rejects_unknown_detector() -> None:
+    result = runner.invoke(cli.app, ["quality-gate", "--detectors", "nope", "--json"])
+    assert result.exit_code == 1
+    assert "未知 detector" in result.stderr
+    assert "broken_refs" in result.stderr  # 可选值清单
+
+
+def test_quality_gate_dry_run_plan(no_key: Path) -> None:
+    """干跑不触网/不触库（无密钥也能自检参数）。"""
+    result = runner.invoke(cli.app, ["quality-gate", "--doc-id", "SPEC-X", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    payload = _json(result.output)
+    assert payload["action"] == "quality-gate"
+    assert payload["arguments"]["docIds"] == ["SPEC-X"]
+    assert payload["authCheck"] == "GET /api/v1/auth/me"
+
+
+def test_quality_gate_output_shape_and_grouping(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], stub_gate: list[Any]
+) -> None:
+    transport, _ = fake_api(key_pair[1], responder=_whoami_admin)
+    patch_transport(monkeypatch, transport)
+    result = run("quality-gate", "--doc-id", "SPEC-X", "--json", env_key=key_pair[0])
+    assert result.exit_code == 0, result.output
+    payload = _json(result.output)
+    assert payload["detectors"] == list(cli.QUALITY_DEFAULT_DETECTORS)
+    assert payload["docIds"] == ["SPEC-X"]
+    assert payload["clean"] is False
+    assert payload["summary"] == {"detectors": 2, "violations": 1, "byDetector": {"broken_refs": 0, "terms": 1}}
+    violation = payload["reports"][1]["violations"][0]
+    assert violation["ruleId"] and violation["path"] and violation["message"]
+    assert violation["fixHint"]  # agent 自修复依据（REQ-M06-F02 口径）
+    assert stub_gate[0].doc_ids == ["SPEC-X"]
+
+
+def test_quality_gate_human_output_states_clean_and_grouped(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], stub_gate: list[Any]
+) -> None:
+    transport, _ = fake_api(key_pair[1], responder=_whoami_admin)
+    patch_transport(monkeypatch, transport)
+    result = run("quality-gate", env_key=key_pair[0])
+    assert result.exit_code == 0, result.output
+    assert "[broken_refs] 无违规" in result.stdout
+    assert "[terms] 违规 1 条" in result.stdout
+    assert "合计" in result.stdout
+
+
+def test_quality_gate_requires_admin_for_perf_health(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], stub_gate: list[Any]
+) -> None:
+    """perf_health 读 DB 内部指标 → 与 /admin/health 同级（admin）。"""
+    transport, _ = fake_api(key_pair[1], responder=_whoami_reader)
+    patch_transport(monkeypatch, transport)
+    denied = run("quality-gate", "--detectors", "perf_health", "--json", env_key=key_pair[0])
+    assert denied.exit_code == 1
+    assert "admin" in denied.stderr
+    assert "agenticdocer user role --username" in denied.stderr
+    assert not stub_gate  # 未越权执行
+
+
+def test_quality_gate_reader_may_run_data_detectors(
+    monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str], stub_gate: list[Any]
+) -> None:
+    transport, _ = fake_api(key_pair[1], responder=_whoami_reader)
+    patch_transport(monkeypatch, transport)
+    result = run("quality-gate", "--json", env_key=key_pair[0])
+    assert result.exit_code == 0, result.output
+    assert stub_gate  # reader 可跑只读巡检
 
 # ----------------------------------------------------------------------
 # 参数解析错误路径
