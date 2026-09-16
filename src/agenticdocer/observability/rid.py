@@ -33,7 +33,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
-
+from typing import cast
 _RID_NAME = "agenticdocer_rid"
 
 #: 计数器位宽：24 位 → 与 8 位毫秒前缀拼成 32 位（8 hex）。
@@ -78,6 +78,6 @@ def rid_scope(rid: str | None = None) -> Iterator[str]:
     """作用域内绑定 rid（未给出则新生成），退出时恢复原值。"""
     token = set_rid(rid)
     try:
-        yield _rid_var.get()  # type: ignore[misc]  # set_rid 后必非 None
+        yield cast("str", _rid_var.get())  # set_rid 保证非 None
     finally:
         reset_rid(token)
