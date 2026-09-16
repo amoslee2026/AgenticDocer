@@ -774,9 +774,9 @@ def _plan(
                 body_text=block.text,
                 fallback=True,
             )
-        if item.section_path == () and section is not None:
-            item.section_path = section.path
-        if not item.anchor_title:
+        if not item.heading:  # 非标题原子：锚取所属章节号路径 +「<类型>-<章节内序号>」
+            if section is not None:
+                item.section_path = section.path
             item.anchor_title = title
         pending.append(item)
     return pending
