@@ -1174,9 +1174,26 @@ def import_commit(
     actor: Annotated[str | None, typer.Option("--actor", help="写入者（缺省取验签身份 userId）")] = None,
     source_root: Annotated[Path | None, typer.Option("--source-root", help="资产取件根（默认源 md 所在目录）")] = None,
     no_assets: Annotated[bool, typer.Option("--no-assets", help="跳过图片资产同步")] = False,
+    bulk: Annotated[bool, typer.Option("--bulk", help="批量路径（COPY + 每批一事务，ADR-009 §3）")] = False,
+    bulk_mode: Annotated[str, typer.Option("--bulk-mode", help="online=在线增量（默认）；initial_load=仅空文档全量装载")] = "online",
+    batch_size: Annotated[int, typer.Option("--batch-size", help="每批行数（批量路径）")] = BULK_ROWS_PER_TRANSACTION,
 ) -> None:
-    """校验 + 事务入库（docs/nodes/refs/events）+ 资产同步。"""
-    if _dry_plan(context, "import.commit", doc_slug=doc_slug, work_dir=work_dir, actor=actor):
+    """校验 + 事务入库（docs/nodes/refs/events）+ 资产同步（``--bulk`` 走批量路径）。"""
+    if bulk_mode not in BULK_MODES:
+        raise CliError(
+            f"未知 --bulk-mode：{bulk_mode}",
+            hint=[f"可选：{'、'.join(BULK_MODES)}（online=在线增量；initial_load=仅空文档全量装载）"],
+        )
+    if _dry_plan(
+        context,
+        "import.commit",
+        doc_slug=doc_slug,
+        work_dir=work_dir,
+        actor=actor,
+        bulk=bulk,
+        bulk_mode=bulk_mode,
+        batch_size=batch_size,
+    ):
         return
     identity = _require_identity(_client_with(context), Need(command="import commit", permission="write"))
     report = asyncio.run(
@@ -1186,6 +1203,9 @@ def import_commit(
             ctx=WriteContext(actor=actor or str(identity.get("userId") or "importer"), source="importer"),
             sync_assets_too=not no_assets,
             source_root=source_root,
+            bulk=bulk,
+            bulk_mode=bulk_mode,  # type: ignore[arg-type]
+            batch_size=batch_size,
         )
     )
     payload = report.model_dump(by_alias=True, mode="json")
