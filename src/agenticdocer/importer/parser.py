@@ -352,10 +352,14 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
     """应用文档级上下文（目录区 / 术语区）与文本线索规则 → 最终规则（+ 待确认标志）。
 
     顺序（先结构、后上下文、再线索）：
-    ① 标题块永远不成兜底——是 `definition`（术语区内词条）还是 `clause`；
-    ② 目录区内（Contents/List of Tables…）的非标题块 → 兜底规则（F01，不计覆盖率）；
-    ③ 术语区内的「术语 释义…」段落 → `definition`（R12，启发式）；
-    ④ 其余段落按线索判 `cross_ref`（R09）/`example`（R10），都不中才并入条款（R11）。
+    ① 结构性原子（表格/图片/代码/块级 HTML）**不受上下文影响**——形态即结论；
+    ② 标题块永远不成兜底——是 `definition`（术语区内词条）还是 `clause`；
+    ③ 目录区内（Contents/List of Tables…）的其余块 → 兜底规则（F01，不计覆盖率）；
+    ④ 术语区内的「术语 释义…」段落 → `definition`（R12，启发式）；
+    ⑤ 其余段落按线索判 `cross_ref`（R09）/`example`（R10），都不中才并入条款（R11）。
+
+    术语区/目录区也可由**纯文本标记行**开启（mineru 常丢标题层级，实测 AMBA AXI
+    `Part C Glossary` 就是一整行普通文本），标记行本身仍按段落规则归属条款。
     """
     out: list[Block] = []
     toc_mode = False
@@ -366,9 +370,13 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
             rule_id, (toc_mode, glossary_mode) = _classify_heading(
                 blocks, position, toc_mode, glossary_mode
             )
+        elif block.rule_id in _STRUCTURAL_RULES:
+            pass
         elif toc_mode:
             rule_id = rules.TOC_RULE_ID
         elif block.kind == rules.PARAGRAPH:
+            if _is_marker_line(block.text, rules.match_glossary_marker):
+                glossary_mode = True
             if glossary_mode and rules.match_definition_paragraph(block.text):
                 rule_id = rules.DEFINITION_BODY_RULE_ID
             elif rules.match_cross_ref(block.text):
@@ -387,6 +395,31 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
             )
         )
     return out
+
+
+_STRUCTURAL_RULES: Final[frozenset[str]] = frozenset(
+    {
+        "R03.table.html",
+        "R04.table.markdown",
+        "R05.code.fenced",
+        "R06.figure.image",
+        "R07.figure.html-img",
+        "F02.html.residue",
+    }
+)
+"""形态即结论的规则：表格/图片/代码/块级 HTML 残余——**不**被目录区上下文改写。"""
+
+_MARKER_MAX_CHARS: Final = 80
+
+
+def _is_marker_line(text: str, matcher: Callable[[str], Any]) -> bool:
+    """纯文本区域标记行（短、无目录点引导）——如 `Part C Glossary`。"""
+    flattened = " ".join(text.split())
+    if not flattened or len(flattened) > _MARKER_MAX_CHARS:
+        return False
+    if rules.match_toc_line(flattened):
+        return False
+    return matcher(flattened) is not None
 
 
 def _classify_heading(
