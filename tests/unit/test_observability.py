@@ -851,3 +851,142 @@ def test_middleware_is_asgi_middleware_subclass() -> None:
     from starlette.middleware.base import BaseHTTPMiddleware
 
     assert issubclass(ObservabilityMiddleware, BaseHTTPMiddleware)
+
+
+# ----------------------------------------------------------------------
+# 健康巡检取数（假连接：验证 SQL 结果 → HealthReport 的映射与分区覆盖判定）
+# ----------------------------------------------------------------------
+
+
+class _FakeConn:
+    """按 SQL 关键字分派的 asyncpg 连接替身。"""
+
+    def __init__(self, tables: list[dict], indexes: list[dict], relkind: str | None, bounds: list[str]) -> None:
+        self._tables = tables
+        self._indexes = indexes
+        self._relkind = relkind
+        self._bounds = [{"relname": f"events_p{i}", "bound": b} for i, b in enumerate(bounds)]
+        self.closed = False
+
+    async def fetch(self, sql: str) -> list[dict]:
+        if "pg_stat_user_tables" in sql:
+            return self._tables
+        if "pg_stat_user_indexes" in sql:
+            return self._indexes
+        return self._bounds
+
+    async def fetchval(self, sql: str) -> str | None:
+        return self._relkind
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _patch_pg(monkeypatch: pytest.MonkeyPatch, conn: _FakeConn) -> None:
+    from agenticdocer.observability import health as health_module
+
+    async def fake_connect(dsn: str, timeout: float = 5.0) -> _FakeConn:
+        return conn
+
+    monkeypatch.setattr(health_module.asyncpg, "connect", fake_connect)
+
+
+def _month_bounds(*months: str) -> list[str]:
+    """生成 `FOR VALUES FROM (…) TO (…)` 边界文本。"""
+    out = []
+    for month in months:
+        year, mon = (int(part) for part in month.split("-"))
+        start = dt.datetime(year, mon, 1, tzinfo=dt.timezone.utc)
+        end = dt.datetime(year + (mon // 12), mon % 12 + 1, 1, tzinfo=dt.timezone.utc)
+        out.append(f"FOR VALUES FROM ('{start:%Y-%m-%d %H:%M:%S+00}') TO ('{end:%Y-%m-%d %H:%M:%S+00}')")
+    return out
+
+
+def _this_month() -> str:
+    now = _now()
+    return f"{now.year:04d}-{now.month:02d}"
+
+
+def test_probe_detects_missing_next_month_partition(
+    logs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = _FakeConn(
+        tables=[],
+        indexes=[],
+        relkind="p",
+        bounds=_month_bounds(_this_month()),
+    )
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert conn.closed  # 连接必须被关闭
+    assert report.partitions.events_next_missing is True
+    assert report.verdict == "fail"
+    assert any("分区" in advice for advice in report.advice)
+    entry = _entries(logs, module="m12.health")
+    assert any(e.get("error_code") == "DTO_PARTITION_MISSING" for e in entry)
+
+
+def test_probe_accepts_covered_next_month(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = _now()
+    nxt = dt.datetime(now.year + (now.month // 12), now.month % 12 + 1, 1)
+    conn = _FakeConn(
+        tables=[
+            {
+                "relname": "nodes",
+                "n_live_tup": 10,
+                "size_bytes": 1024,
+                "n_dead_tup": 0,
+                "last_autovacuum": now,
+            }
+        ],
+        indexes=[{"indexrelname": "idx_nodes_doc_ordinal", "idx_scan": 7, "size_bytes": 1024}],
+        relkind="p",
+        bounds=_month_bounds(_this_month(), f"{nxt.year:04d}-{nxt.month:02d}"),
+    )
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert report.partitions.events_next_missing is False
+    assert report.verdict == "ok"
+    assert [t.name for t in report.tables] == ["nodes"]
+    assert report.partitions.oldest_event_ts is not None
+
+
+def test_probe_flags_unpartitioned_events_table(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = _FakeConn(tables=[], indexes=[], relkind="r", bounds=[])
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert report.partitions.events_next_missing is False
+    assert report.verdict == "degraded"
+    assert any("分区" in advice for advice in report.advice)
+
+
+def test_probe_fails_when_events_table_missing(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = _FakeConn(tables=[], indexes=[], relkind=None, bounds=[])
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert report.verdict == "fail"
+    assert any("迁移" in advice for advice in report.advice)
+
+
+def test_probe_ignores_unparseable_bounds(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = _FakeConn(
+        tables=[],
+        indexes=[],
+        relkind="p",
+        bounds=["DEFAULT"],
+    )
+    _patch_pg(monkeypatch, conn)
+
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    assert report.partitions.oldest_event_ts is None
+    assert report.partitions.events_next_missing is True
+
+def test_health_reports_fail_without_dsn(logs: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    report = asyncio.run(health())
+    assert report.verdict == "fail"
+    assert any("DATABASE_URL" in advice for advice in report.advice)
