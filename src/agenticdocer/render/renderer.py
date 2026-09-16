@@ -149,8 +149,9 @@ def _figure_block(content: Mapping[str, Any], text: str) -> str:
     asset_ref = str(content.get("asset_ref") or "").strip()
     caption = str(content.get("caption") or "").strip()
     if not asset_ref:
-        return "\n\n".join(part for part in (f"![{alt}]({text})" if text else f"![{alt}]()", caption) if part)
-    src = f"assets/{asset_ref}" if "/" in asset_ref or "." in asset_ref else f"assets/{asset_ref}"
+        line = f"![{alt}]({text})" if text else f"![{alt}]()"
+        return f"{line}\n\n{caption}" if caption else line
+    src = f"assets/{asset_ref}"
     line = f"![{alt}]({src})"
     return f"{line}\n\n{caption}" if caption else line
 
@@ -172,7 +173,6 @@ def _state_machine_block(content: Mapping[str, Any]) -> str:
     lines.append("```")
     return "\n".join(lines)
 
-    src = f"assets/{asset_ref}"
 def _cross_ref_target(content: Mapping[str, Any]) -> str:
     anchor = str(content.get("target_anchor") or "").strip()
     if anchor:
