@@ -447,25 +447,43 @@ def match_example(text: str) -> re.Match[str] | None:
     return _EXAMPLE_RE.match(" ".join(text.split()))
 
 
-def match_definition_paragraph(text: str) -> re.Match[str] | None:
-    """术语区内 `术语 释义…` 段落（术语 ≤ 4 词、≤60 字符；释义以大写字母起首）。
+@dataclass(frozen=True)
+class DefinitionMatch:
+    """词条段落匹配结果（与 `re.Match` 同形：`group("term")`/`group("body")`）。"""
 
-    语料实测（AMBA `## Glossary` 区）：词条是「术语 + 空格 + 释义」的段落（如
-    `AHB An AMBA bus protocol that defines…`）。故要求术语首词不在
-    :data:`DEFINITION_STOPWORDS`（虚词/连接词），避免把普通句子首词误当术语。
+    term: str
+    body: str
+
+    def group(self, name: str) -> str:
+        return self.term if name == "term" else self.body
+
+
+def match_definition_paragraph(text: str) -> DefinitionMatch | None:
+    """术语区内 `术语 释义…` 段落（术语 ≤ 4 词且 ≤60 字符；释义以大写字母起首）。
+
+    语料实测（AMBA `## Glossary` 区）：词条是「术语 + 空格 + 释义」的段落，如
+    `AHB An AMBA bus protocol that defines…`、`Cache line A cache line is…`。
+    逐词扩展术语，遇虚词（:data:`DEFINITION_STOPWORDS`，含 `A`/`An`/`The`/`See`…）即止：
+    `AXI An AMBA bus…` → 术语 `AXI`、释义 `An AMBA bus…`（若贪心会误取 `AXI An`）。
     """
-    flattened = " ".join(text.split())
-    match = _DEFINITION_TERM_RE.match(flattened)
-    if match is None:
+    tokens = " ".join(text.split()).split(" ")
+    if not tokens or not _TERM_HEAD_RE.match(tokens[0]):
         return None
-    term = match.group("term")
-    if len(term) > _DEFINITION_MAX_TERM_CHARS:
+    if tokens[0].casefold() in DEFINITION_STOPWORDS:
         return None
-    if term.split(" ", 1)[0].casefold() in DEFINITION_STOPWORDS:
+    end = 1
+    while end < len(tokens) and end < _DEFINITION_MAX_TERM_TOKENS:
+        token = tokens[end]
+        if token.casefold() in DEFINITION_STOPWORDS or not _TERM_TAIL_RE.match(token):
+            break
+        end += 1
+    term = " ".join(tokens[:end])
+    body = " ".join(tokens[end:])
+    if len(term) > _DEFINITION_MAX_TERM_CHARS or len(body) < _DEFINITION_MIN_BODY_CHARS:
         return None
-    if len(match.group("body")) < _DEFINITION_MIN_BODY_CHARS:
+    if not _DEFINITION_BODY_RE.match(body):
         return None
-    return match
+    return DefinitionMatch(term=term, body=body)
 
 
 def count_html_table_markers(line: str) -> tuple[int, int]:
