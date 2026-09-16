@@ -518,7 +518,59 @@ async def change_stream(since: str | None) -> AsyncIterator[Event]: ...   # even
 | auth | login/logout/fail/user_change/grant_change/key_change | `{user_id, key_fingerprint?, ip?, reason?}` | **追加**（B2：鉴权审计，不参与实体折叠，仅审计查询） |
 
 
-@m12
+### M12 可观测性（横切；ADR-010）
+
+```python
+# agenticdocer/observability/logger.py
+from agentic_logger import AgentLogger, ErrorCode
+
+def get_logger(module: str, **ctx) -> AgentLogger:
+    """模块级 logger（program="agenticdocer"，command=<模块/子命令>）。
+    自动注入 rid（ContextVar）与 module（M##.子域）；ctx 作为额外字段写入每行。"""
+
+# agenticdocer/observability/rid.py
+def new_rid() -> str: ...                    # uuid7 短形态（8 hex）；请求/CLI 调用入口生成
+def current_rid() -> str | None: ...         # ContextVar 读取（跨 async 任务传播）
+
+# agenticdocer/observability/metrics.py
+class EndpointMetric(BaseModel): route: str; count: int; p50: int; p95: int; p99: int; error_rate: float
+class SlowQuery(BaseModel): sql_hash: str; count: int; max_dur: int; table: str
+class RenderMetric(BaseModel): section_p95: int; document_p95: int; count: int
+class MetricsSnapshot(BaseModel):
+    window_seconds: int; endpoints: list[EndpointMetric]; slow_queries: list[SlowQuery]
+    auth_failures: int; render: RenderMetric
+def snapshot(since: datetime, window: int = 3600) -> MetricsSnapshot:
+    """从 AgenticLogger 查询层聚合（不引入时序库）。"""
+
+# agenticdocer/observability/health.py
+class TableHealth(BaseModel): name: str; rows: int; size_bytes: int; dead_tup: int; last_autovacuum: datetime | None
+class IndexHealth(BaseModel): name: str; scans: int; size_bytes: int      # scans=0 → 建议清理
+class PartitionHealth(BaseModel): events_next_missing: bool; oldest_event_ts: datetime | None
+class PoolHealth(BaseModel): size: int; checkedout: int; overflow: int
+class HealthReport(BaseModel):
+    tables: list[TableHealth]; indexes: list[IndexHealth]; partitions: PartitionHealth
+    pool: PoolHealth; verdict: Literal["ok","degraded","fail"]; advice: list[str]
+def health() -> HealthReport: ...            # `agenticdocer stats --health` 与 M09B perf_health detector 共用
+```
+
+**错误码扩展**（`agenticdocer/observability/error_codes.py`）：
+
+| 码 | 场景 |
+|---|---|
+| `DTO_PERF_EXCEEDED` | 单次耗时超指标（§1.4） |
+| `DTO_ANCHOR_CONFLICT` | 锚冲突（映射 `Violation.rule_id`） |
+| `DTO_AUTH_REJECTED` | 鉴权拒绝（401/403） |
+| `DTO_REF_BROKEN` | 引用断链（M09B `broken_refs`） |
+| `DTO_PARTITION_MISSING` | 分区缺失（events 未来月份未建） |
+
+**埋点约定**：所有对外操作（HTTP 端点、CLI 子命令、外部调用）走 `with logger.timer(module, op):` 上下文管理器，退出时自动写 `dur`；异常路径自动 `error(..., error_code=...)`。**禁止**业务代码直接 `print` 或 `import logging`（lint 强制，与 P6 验证项 ① 同机制）。
+
+**管理端点**（M07，**admin 专属**）：
+
+| 方法/路径 | 语义 |
+|---|---|
+| `GET /api/v1/admin/metrics?since=&window=` | 指标快照（`MetricsSnapshot`） |
+| `GET /api/v1/admin/health` | 健康巡检（`HealthReport`） |
 ## 4. 数据库 DDL（PostgreSQL 16，database `agenticdocer`；v1.3）
 
 ```sql
