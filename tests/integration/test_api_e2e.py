@@ -362,19 +362,19 @@ async def test_agent_flow_read_write_render_diff(
     created_ref = await admin.post("/api/v1/refs", ref_body)
     assert created_ref.status_code == 201, created_ref.text
     assert created_ref.json()["kind"] == "see_also"
-
     with_ref = await admin.get(f"/api/v1/docs/{doc_id}/diff?from={_utc_now().isoformat()}")
     assert with_ref.status_code == 200
     assert with_ref.json()["summary"]["refs"] == 0  # 上界=「现在」之后无新事件
 
     ref_window = await admin.get(
+        f"/api/v1/docs/{doc_id}/diff?from={before_writes.isoformat()}&to={_utc_now().isoformat()}"
+    )
     assert {item["state"] for item in orphaned.json()} == {"resolved", "orphaned"}
     ref_changes = [
         entry for entry in ref_window.json()["changes"] if entry["field"] == "ref"
     ]
     assert len(ref_changes) == 1 and ref_changes[0]["op"] == "added"
     assert ref_changes[0]["after"]["kind"] == "see_also"
-
     assert (await admin.request("DELETE", "/api/v1/refs", ref_body)).status_code == 204
     assert (
         await admin.request("DELETE", "/api/v1/refs", ref_body)
