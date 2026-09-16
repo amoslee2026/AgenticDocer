@@ -49,8 +49,8 @@ from agenticdocer.store import (
     build_model,
     get_database,
     now,
-    row_to_dict,
 )
+from agenticdocer.store.rows import row_to_dict
 from agenticdocer.store.schema import nonces, sessions, users
 
 from .errors import AuthError, AuthenticationError, RateLimitError
