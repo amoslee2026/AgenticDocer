@@ -378,14 +378,14 @@ class SigningClient:
             response = self._http().request(method.upper(), target, content=raw_body, headers=headers)
         except httpx.HTTPError as exc:
             raise CliError(
-                f"无法连接 API（{self.base_url}{raw_path}）：{exc}",
+                f"无法连接 API（{self.base_url}{target}）：{exc}",
                 hint=[
                     "确认服务已启动：uv run agenticdocer-api --host 0.0.0.0 --port 8787",
                     f"或指定其它基址：--api-url / ${API_URL_ENV}",
                 ],
             ) from exc
         if response.status_code >= 400:
-            raise self._http_error(response, raw_path, need)
+            raise self._http_error(response, target, need)
         return response
 
     def json(
@@ -406,7 +406,7 @@ class SigningClient:
         except ValueError as exc:  # pragma: no cover - 服务端恒返 JSON
             raise CliError(f"响应不是合法 JSON（HTTP {response.status_code}）") from exc
 
-    def _http_error(self, response: httpx.Response, raw_path: str, need: Need | None) -> CliError:
+    def _http_error(self, response: httpx.Response, target: str, need: Need | None) -> CliError:
         """HTTP 失败 → :class:`CliError`（§6 错误映射 + 可操作指引）。"""
         status = response.status_code
         detail = _detail(response)
@@ -415,7 +415,7 @@ class SigningClient:
         log.warn(
             "cli request failed",
             method=response.request.method,
-            path=raw_path,
+            path=target,
             status=status,
             **({"error_code": code} if code else {}),
         )
