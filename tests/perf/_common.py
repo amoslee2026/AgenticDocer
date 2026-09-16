@@ -587,7 +587,6 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
             "proposals": len(result.proposals),
             "rule_covered": result.stats.rule_covered,
             "blocks": result.stats.total_blocks,
-            "proposals": len(result.proposals),
             "fallback": result.stats.fallback,
             "pending": result.stats.pending,
             "coverage": round(coverage(result.stats), 6),
