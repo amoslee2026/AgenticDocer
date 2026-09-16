@@ -57,7 +57,6 @@ from .sshsig import fingerprint_of_blob, validate_public_key
 __all__ = [
     "DEFAULT_ADMIN_USERNAME",
     "GRANT_COLUMNS",
-from .sshsig import validate_public_key
     "USER_COLUMNS",
     "add_ssh_key",
     "authorize_user",
