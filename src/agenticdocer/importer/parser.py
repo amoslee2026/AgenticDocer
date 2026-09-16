@@ -349,37 +349,32 @@ def _is_definition_entry(blocks: Sequence[Block], position: int) -> bool:
 
 
 def classify(blocks: Sequence[Block]) -> list[Block]:
-    """应用文档级上下文（目录区 / 术语区）→ 最终规则（`rule_id` + 待确认标志）。"""
+    """应用文档级上下文（目录区 / 术语区）与文本线索规则 → 最终规则（+ 待确认标志）。
+
+    顺序（先结构、后上下文、再线索）：
+    ① 标题块永远不成兜底——是 `definition`（术语区内词条）还是 `clause`；
+    ② 目录区内（Contents/List of Tables…）的非标题块 → 兜底规则（F01，不计覆盖率）；
+    ③ 术语区内的「术语 释义…」段落 → `definition`（R12，启发式）；
+    ④ 其余段落按线索判 `cross_ref`（R09）/`example`（R10），都不中才并入条款（R11）。
+    """
     out: list[Block] = []
     toc_mode = False
     glossary_mode = False
     for position, block in enumerate(blocks):
         rule_id = block.rule_id
         if block.kind == rules.HEADING:
-            title = block.lines[0]
-            if rules.match_toc_marker(title):
-                toc_mode, glossary_mode = True, False
-                rule_id = rules.RULES_BY_KIND[rules.HEADING]
-            elif toc_mode and _toc_continues(blocks, position):
-                rule_id = rules.RULES_BY_KIND[rules.HEADING]  # 目录页眉伪标题，仍在目录区
-            else:
-                toc_mode = False
-                if rules.match_glossary_marker(title):
-                    glossary_mode = True
-                elif rules.match_glossary_exit(title) or rules.parse_numbering(title):
-                    glossary_mode = False
-                if glossary_mode and _is_definition_entry(blocks, position):
-                    rule_id = rules.DEFINITION_RULE_ID
-                else:
-                    rule_id = rules.RULES_BY_KIND[rules.HEADING]
+            rule_id = _classify_heading(blocks, position, toc_mode, glossary_mode)
+            toc_mode, glossary_mode = rule_id[1]
+            rule_id = rule_id[0]
         elif toc_mode:
             rule_id = rules.TOC_RULE_ID
-        elif (
-            glossary_mode
-            and block.kind == rules.PARAGRAPH
-            and rules.match_definition_paragraph(block.text)
-        ):
-            rule_id = rules.DEFINITION_BODY_RULE_ID
+        elif block.kind == rules.PARAGRAPH:
+            if glossary_mode and rules.match_definition_paragraph(block.text):
+                rule_id = rules.DEFINITION_BODY_RULE_ID
+            elif rules.match_cross_ref(block.text):
+                rule_id = "R09.cross_ref.sentence"
+            elif rules.match_example(block.text):
+                rule_id = "R10.example.callout"
         rule = rules.RULES[rule_id]
         out.append(
             Block(
@@ -392,6 +387,29 @@ def classify(blocks: Sequence[Block]) -> list[Block]:
             )
         )
     return out
+
+
+def _classify_heading(
+    blocks: Sequence[Block],
+    position: int,
+    toc_mode: bool,
+    glossary_mode: bool,
+) -> tuple[str, tuple[bool, bool]]:
+    """标题块的规则与（更新后的）上下文状态：``(rule_id, (toc_mode, glossary_mode))``。"""
+    heading = rules.match_heading(blocks[position].lines[0])
+    assert heading is not None
+    title = heading.group("title")
+    if rules.match_toc_marker(title):
+        return rules.RULES_BY_KIND[rules.HEADING], (True, False)
+    if toc_mode and _toc_continues(blocks, position):
+        return rules.RULES_BY_KIND[rules.HEADING], (True, glossary_mode)  # 目录页眉伪标题
+    if rules.match_glossary_marker(title):
+        glossary_mode = True
+    elif rules.match_glossary_exit(title) or rules.parse_numbering(title):
+        glossary_mode = False
+    if glossary_mode and _is_definition_entry(blocks, position):
+        return rules.DEFINITION_RULE_ID, (False, glossary_mode)
+    return rules.RULES_BY_KIND[rules.HEADING], (False, glossary_mode)
 
 
 # ── 原子构造 ─────────────────────────────────────────────────────────────

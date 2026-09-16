@@ -253,16 +253,7 @@ def test_verify_rsa_rejects_sha1_and_algorithm_mismatch() -> None:
     assert excinfo.value.reason == "hash_algorithm_mismatch"
 
 
-def test_verify_rsa_rejects_sha1_alg_and_weak_modulus() -> None:
-    key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
-    line = signing.public_key_line(key)
-    sha1_blob = _sign_rsa(
-        key, MESSAGE, scheme=padding.PKCS1v15(), hash_cls=hashes.SHA1, _hash_name="sha256"
-    )
-    with pytest.raises(SignatureFormatError) as excinfo:
-        sshsig.verify_sshsig(line, sha1_blob, MESSAGE)
-    assert excinfo.value.reason == "hash_algorithm_mismatch"
-
+def test_validate_public_key_rejects_weak_rsa() -> None:
     weak = rsa.generate_private_key(public_exponent=65537, key_size=1024)
     with pytest.raises(SignatureFormatError) as excinfo:
         sshsig.validate_public_key(signing.public_key_line(weak))
