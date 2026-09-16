@@ -173,6 +173,7 @@ def _state_machine_block(content: Mapping[str, Any]) -> str:
     lines.append("```")
     return "\n".join(lines)
 
+
 def _cross_ref_target(content: Mapping[str, Any]) -> str:
     anchor = str(content.get("target_anchor") or "").strip()
     if anchor:
