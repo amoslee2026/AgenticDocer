@@ -1,4 +1,4 @@
-"""M09B 集成测试：真库 + **人为制造缺陷**，验证六个 detector 真实检出（REQ-M09-F02 / ADR-009）。
+"""M09B 集成测试：真库 + **人为制造缺陷**，验证 detector 真实检出（REQ-M09-F02 / ADR-009）。
 
 每个用例先建一份「干净样本」（源 md + 文档 + 节点，全部经 M02 正规写入路径），断言质量门
 零违规，然后**破坏数据**再断言命中——「能检出」与「不误报」两侧都被验证。
@@ -34,7 +34,6 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from agenticdocer.m09 import DETECTOR_IDS, run_quality_gate, run_quality_gate_sync
 from agenticdocer.m09.quality_9b import (
     assets_missing,
-    broken_refs,
     broken_refs,
     doc_type_conformance,
     perf_health,
