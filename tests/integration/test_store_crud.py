@@ -589,7 +589,7 @@ async def test_changes_since_cursor_scan(storage: Storage) -> None:
     # 游标分页：拼接结果与一次扫全逐条相同，且无重复
     first = await storage.changes_since(limit=3)
     second = await storage.changes_since(
-        since_ts=first[-1].ts, since_event_id=first[-1].event_id, limit=10_000
+        since_ts=first[-1].ts, since_event_id=first[-1].event_id, limit=100_000
     )
     assert len(first) == 3
     paged = [event.event_id for event in first + second]
@@ -597,7 +597,7 @@ async def test_changes_since_cursor_scan(storage: Storage) -> None:
     assert len(paged) == len(set(paged))
 
     # 只给时间戳（半开区间）与实体过滤
-    tail = await storage.changes_since(since_ts=first[-1].ts, limit=10_000)
+    tail = await storage.changes_since(since_ts=first[-1].ts, limit=100_000)
     assert [event.event_id for event in tail] == [
         event.event_id for event in everything if event.ts > first[-1].ts
     ]
