@@ -255,8 +255,6 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
 
     unreachable = asyncio.run(_probe(app_url))
     if unreachable is not None:
-        pytest.skip(f"隔离库应用角色不可用：{unreachable}")
-
     work = tmp_path_factory.mktemp("m11-e2e")
     env = {
         **os.environ,
@@ -265,15 +263,18 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
         "IMPORT_WORK_DIR": str(work / "import_work"),
         "RENDER_OUT_DIR": str(work / "rendered"),
         "ADMIN_SSH_PUBKEY_FILE": str(work / "admin_ed25519.pub"),
+        "ADMIN_USERNAME": ADMIN_USERNAME,
         "LOG_DIR": str(work / "logs"),
         "IMPORT_SOURCE_ROOT": str(work),
     }
     keys: dict[str, Path] = {}
     fingerprints: dict[str, str] = {}
-    for actor in ("admin", "editor", "reviewer", "reader"):
+    usernames: dict[str, str] = {}
+    for actor in ("admin", *ROLE_ACTORS, *PROBE_ACTORS):
         private, public = _write_key(work, f"{actor}_ed25519")
         keys[actor] = private
         fingerprints[actor] = signing.fingerprint(public.read_text(encoding="utf-8").strip())
+        usernames[actor] = username_for(actor)
 
     port = _free_port()
     api_url = f"http://127.0.0.1:{port}"
@@ -287,7 +288,28 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
         stderr=subprocess.STDOUT,
         text=True,
     )
-    handle = _Service(env=env, work=work, api_url=api_url, keys=keys, fingerprints=fingerprints)
+    handle = _Service(
+        env=env, work=work, api_url=api_url, keys=keys, fingerprints=fingerprints, usernames=usernames
+    )
+    try:
+        _wait_ready(api_url, server)
+        boot = handle.ok("auth", "bootstrap", "--json")
+        assert isinstance(boot, dict) and boot["username"] == ADMIN_USERNAME, boot
+        # 每个 actor 自建独立身份（唯一用户名 + 唯一密钥）：互不争用，也不依赖库内既有用户
+        for actor, role in ((*((name, name) for name in ROLE_ACTORS), ("probe", "reader"), ("revokable", "editor"))):
+            handle.ok("user", "add", "--username", handle.user(actor), "--role", role, "--json")
+            handle.ok(
+                "user", "key", "add", "--username", handle.user(actor),
+                "--key", str(work / f"{actor}_ed25519.pub"), "--json",
+            )
+        yield handle
+    finally:
+        server.terminate()
+        try:
+            server.wait(timeout=20)
+        except subprocess.TimeoutExpired:  # pragma: no cover - 兜底
+            server.kill()
+        asyncio.run(_maintenance_sql(super_url, f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE)'))
     try:
         _wait_ready(api_url, server)
         boot = handle.ok("auth", "bootstrap", "--json")
