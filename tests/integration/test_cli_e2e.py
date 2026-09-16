@@ -255,6 +255,8 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
 
     unreachable = asyncio.run(_probe(app_url))
     if unreachable is not None:
+        pytest.skip(f"隔离库应用角色不可用：{unreachable}")
+
     work = tmp_path_factory.mktemp("m11-e2e")
     env = {
         **os.environ,
@@ -302,21 +304,6 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
                 "user", "key", "add", "--username", handle.user(actor),
                 "--key", str(work / f"{actor}_ed25519.pub"), "--json",
             )
-        yield handle
-    finally:
-        server.terminate()
-        try:
-            server.wait(timeout=20)
-        except subprocess.TimeoutExpired:  # pragma: no cover - 兜底
-            server.kill()
-        asyncio.run(_maintenance_sql(super_url, f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE)'))
-    try:
-        _wait_ready(api_url, server)
-        boot = handle.ok("auth", "bootstrap", "--json")
-        assert isinstance(boot, dict) and boot["username"] == "admin", boot
-        for actor in ("editor", "reviewer", "reader"):
-            handle.ok("user", "add", "--username", actor, "--role", actor, "--json")
-            handle.ok("user", "key", "add", "--username", actor, "--key", str(work / f"{actor}_ed25519.pub"), "--json")
         yield handle
     finally:
         server.terminate()
