@@ -25,16 +25,12 @@
 """
 
 from __future__ import annotations
-
 import asyncio
-
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query, Response
-from fastapi.responses import FileResponse
-
 from pydantic import Field
 
 from agenticdocer.auth import write_context
@@ -49,8 +45,8 @@ from agenticdocer.model import (
     UUID7,
     derive_text,
 )
-from agenticdocer.observability import get_logger
 from agenticdocer.m09 import validate_write as validate_node
+from agenticdocer.model import (
 from agenticdocer.render import (
     SectionInfo,
     find_section,

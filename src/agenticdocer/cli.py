@@ -1684,6 +1684,96 @@ def _human_health(cli: CliContext, payload: Any) -> None:
             sys.stdout.write(f"  · {line}\n")
 
 
+
+@command(app, "quality-gate")
+def quality_gate(
+    context: typer.Context,
+    detectors: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--detectors",
+            help="要跑的 detector（可重复或逗号分隔）；缺省=全部数据一致性 detector",
+        ),
+    ] = None,
+    doc_ids: Annotated[
+        list[str] | None, typer.Option("--doc-id", help="只巡检这些文档（可重复；缺省全库）")
+    ] = None,
+) -> None:
+    """质量门巡检（M09B 六个 detector；只读）——输出按 detector 分组的违规与修复建议。"""
+    targets = _resolve_detectors(detectors)
+    need = Need(
+        command="quality-gate",
+        permission=MANAGE_USERS if QUALITY_ADMIN_DETECTOR in targets else "read",
+    )
+    if _dry_plan(context, "quality-gate", detectors=targets, docIds=doc_ids):
+        return
+    _require_identity(_client_with(context), need)
+    payload = _quality_gate_payload(targets, doc_ids)
+    _output(context, payload, human=_human_quality_gate)
+
+
+def _resolve_detectors(requested: list[str] | None) -> list[str]:
+    """``--detectors`` → 归一后的 detector id 序列（未登记即报错，列出可选值）。"""
+    from agenticdocer.m09 import detector_ids, resolve_detectors
+    from agenticdocer.store import ValidationError
+
+    wanted = [item.strip() for value in requested or [] for item in value.split(",") if item.strip()]
+    try:
+        return list(resolve_detectors(wanted or list(QUALITY_DEFAULT_DETECTORS)))
+    except (ValidationError, ValueError) as exc:
+        raise CliError(
+            f"未知 detector：{exc}",
+            hint=[
+                "可选：" + "、".join(detector_ids()),
+                f"缺省（不传 --detectors）：{'、'.join(QUALITY_DEFAULT_DETECTORS)}",
+                f"`{QUALITY_ADMIN_DETECTOR}` 巡检 DB 内部指标（pg_catalog/连接池），需 admin 角色。",
+            ],
+        ) from exc
+
+
+def _quality_gate_payload(targets: Sequence[str], doc_ids: list[str] | None) -> dict[str, Any]:
+    """跑质量门 → 结构化结果（按 detector 分组 + 汇总）。"""
+    from agenticdocer.m09 import QualityScope, run_quality_gate_sync
+
+    reports = run_quality_gate_sync(
+        QualityScope(doc_ids=list(doc_ids) if doc_ids else None, detectors=list(targets))
+    )
+    rows = [report.model_dump(by_alias=True, mode="json") for report in reports]
+    by_detector = {str(row["detectorId"]): len(row["violations"]) for row in rows}
+    total = sum(by_detector.values())
+    return {
+        "detectors": list(targets),
+        "docIds": list(doc_ids) if doc_ids else None,
+        "reports": rows,
+        "summary": {"detectors": len(rows), "violations": total, "byDetector": by_detector},
+        "clean": total == 0,
+    }
+
+
+def _human_quality_gate(cli: CliContext, payload: Any) -> None:
+    """人可读输出：按 detector 分组；无违规时显式说明（非空输出）。"""
+    if not isinstance(payload, Mapping):
+        sys.stdout.write(_flat(payload) + "\n")
+        return
+    reports = payload.get("reports") or []
+    for report in reports:
+        violations = report.get("violations") or []
+        detector_id = report.get("detectorId")
+        if not violations:
+            sys.stdout.write(f"[{detector_id}] 无违规\n")
+            continue
+        sys.stdout.write(f"[{detector_id}] 违规 {len(violations)} 条\n")
+        rows = [
+            [item.get("ruleId"), item.get("path"), item.get("message"), item.get("fixHint")] for item in violations
+        ]
+        sys.stdout.write(_table(["ruleId", "path", "message", "fixHint"], rows) + "\n")
+    summary = payload.get("summary") or {}
+    scope = "、".join(payload.get("docIds") or ["全库"])
+    sys.stdout.write(
+        f"合计：{summary.get('detectors')} 个 detector、{summary.get('violations')} 条违规"
+        f"（范围：{scope}）{'；质量门通过（无违规）' if payload.get('clean') else ''}\n"
+    )
+
 @command(logs_app, "stats")
 def logs_stats(
     context: typer.Context,
