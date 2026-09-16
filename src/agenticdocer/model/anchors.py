@@ -51,15 +51,15 @@ _TITLE_HASH_LEN = 6
 _SEPARATOR = "·"  # 章节号路径与标题 slug 的分隔符（ADR-006）
 _SUFFIX = "~"
 _DASH_RUN = re.compile(r"-+")
-_SEQ_LEN_LADDER = (DIGEST_LEN, 12, 16, 32, 64)  # 残余冲突时的摘要长度升级阶梯
+_NUMBERED_HEADING = re.compile(r"^(\d+(?:\.\d+)*)[.)]?\s+(\S.*)$", re.DOTALL)
 
 
 def slugify(title: str) -> str:
     """标题 → slug：NFKC 归一 + casefold + 非字母数字折叠为 ``-``。
 
     CJK 等非 ASCII 字母数字**原样保留**（不做音译），故中文标题可得可读 slug
-    （如 ``3.1 术语与定义`` → ``术语与定义``）。
-    """
+    （如 ``术语与定义`` → ``术语与定义``、``ＡＢＣ`` → ``abc``）。标题自带的章节号由
+    :func:`anchor_base` 按章节号路径剥离（不在本函数内做，避免引入第二个归一化口径）。
     norm = unicodedata.normalize("NFKC", title or "").strip().casefold()
     slug = _DASH_RUN.sub("-", "".join(ch if ch.isalnum() else "-" for ch in norm)).strip("-")
     if not slug:

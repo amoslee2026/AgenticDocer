@@ -29,9 +29,9 @@ class Storage(
     写方法一律携带 `ctx: WriteContext`，并在单事务内写「事件 + 实体」（P2）。
     各仓储共享同一连接池；`db=None` 取进程级单例（`DATABASE_URL`）。
     """
-
-    def __init__(self, db: Database | None = None, *, asset_store_dir: Path | str | None = None) -> None:
+    def __init__(self, db: Database | None = None, *, store_dir: Path | str | None = None) -> None:
         Repository.__init__(self, db)
+        self.store_dir = Path(store_dir) if store_dir is not None else asset_store_dir()
         self.store_dir = Path(asset_store_dir) if asset_store_dir is not None else asset_store_dir()
 
 
