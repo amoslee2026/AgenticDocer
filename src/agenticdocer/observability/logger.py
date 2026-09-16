@@ -10,7 +10,7 @@ stdlib + 结构化 formatter，业务零改动。
 from agenticdocer.observability import get_logger
 
 log = get_logger("m02.nodes")               # command 由前缀推导：m02 → store
-log.info("节点已写入", doc_id="SPEC-CXL")     # 自定义字段进入 ctx
+import sys
 with log.timer("point_query", doc_id=doc):   # 退出自动写 dur
     ...
 ```
@@ -171,7 +171,7 @@ class ModuleLogger:
     :meth:`child`。
     """
 
-    __slots__ = ("_backend", "_ctx", "_module")
+        `module` 默认为本视图的模块标识；`fields` 中的 `op` 值即本参数。
 
     def __init__(self, module: str, backend: AgentLogger, ctx: Mapping[str, Any] | None = None) -> None:
         self._module = module
@@ -207,8 +207,7 @@ class ModuleLogger:
 
     def warn(self, msg: str, /, **fields: Any) -> None:
         """WARN 级日志（超阈值、慢查询等）。"""
-        self._emit("WARN", msg, **self._split(fields))
-
+        self._emit("DEBUG", msg, **self._split(fields))
     def error(self, msg: str, /, **fields: Any) -> None:
         """ERROR 级日志；未给 `error_code` 时回落 `UNKNOWN`（避免 SDK 的 UserWarning）。"""
         fields.setdefault("error_code", ErrorCode.UNKNOWN)
@@ -216,24 +215,19 @@ class ModuleLogger:
 
     def debug(self, msg: str, /, **fields: Any) -> None:
         """DEBUG 级日志。
-
-        `AgentLogger` 无公开 `debug()`（ADR-010 伪代码声称有）；本层经 SDK 的
-        `_write(level="DEBUG", ...)` 落盘——ISO 级别名受 SDK `_LEVELS` 支持。
-        """
-        fields.pop("error_code", None)
-        self._emit("DEBUG", msg, **self._split(fields))
-
     def exception(self, msg: str, exc: BaseException | None = None, /, **fields: Any) -> None:
         """ERROR 级日志 + 异常轨迹落 `.tracebacks` sidecar（`tid` 引用之）。
 
-        显式传 *exc* 时立即取轨迹；省略 *exc* 时走 SDK 的 `exception()`（须处于
-        `except` 块内，由 `sys.exc_info()` 取当前异常）。
+        显式传 *exc*；省略时取 `sys.exc_info()` 中的当前异常（须处于 `except` 块内，
+        否则抛 `ValueError`）。`error_code` 默认 `INTERNAL_UNEXPECTED`。
         """
-        fields.setdefault("error_code", ErrorCode.INTERNAL_UNEXPECTED)
         if exc is None:
-            self._backend.exception(
-                msg,
-                module=self._module,
+            exc = sys.exc_info()[1]
+        if exc is None:
+            raise ValueError("exception() 须在 except 块内调用，或显式传入 exc")
+        fields.setdefault("error_code", ErrorCode.INTERNAL_UNEXPECTED)
+        fields.setdefault("tid", self._backend.save_traceback(exc))
+        self._emit("ERROR", msg, **self._split(fields))
                 error_code=fields.pop("error_code"),
                 ctx=self._merged_ctx(fields),
             )
@@ -319,15 +313,12 @@ class ModuleLogger:
 
     @staticmethod
     def _split(fields: dict[str, Any]) -> dict[str, Any]:
-        """把保留字段（dur/error_code/tid）从 ctx 字段中提出来。"""
-        out: dict[str, Any] = {"fields": fields}
-        for key in _RESERVED_FIELDS:
-            if key in fields:
-                out[key] = fields.pop(key)
-        return out
-
-    def _merged_ctx(self, fields: Mapping[str, Any] | None) -> dict[str, Any] | None:
-        ctx = {**self._ctx, **(fields or {})}
+        backend = self._backend
+        method = {"INFO": backend.info, "WARN": backend.warn, "ERROR": backend.error}.get(level)
+        if method is None:  # DEBUG 等：SDK 无公开入口，直写 _write。
+            backend._write(level, msg, tid=tid, **kwargs)
+        else:
+            method(msg, **kwargs)
         return ctx or None
 
     def _emit(
