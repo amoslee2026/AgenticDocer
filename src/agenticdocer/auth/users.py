@@ -113,7 +113,8 @@ class _FailureBucket:
         self.status_code = status_code
 
 
-_failure_buckets: dict[tuple[str, str], _FailureBucket] = {}
+_failure_buckets: dict[tuple[str, str, str], _FailureBucket] = {}
+"""键 ``(ip, reason, verified_user_id)``——并入已验证身份，使每个被拒主体都有确定性子句。"""
 _failure_lock = threading.Lock()
 
 
