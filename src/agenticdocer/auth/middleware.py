@@ -50,7 +50,7 @@ from .users import (
 )
 
 __all__ = [
-    "DOC_PATHS",
+    "EXEMPT_PATHS",
     "EXEMPT_PATHS",
     "EXEMPT_PREFIXES",
     "KEY_ID_HEADER",
@@ -88,8 +88,10 @@ SIGNATURE_HEADER: Final = "X-SSH-Signature"
 KEY_ID_HEADER: Final = "X-SSH-Key-Id"
 TIMESTAMP_HEADER: Final = "X-Timestamp"
 NONCE_HEADER: Final = "X-Nonce"
-"""X-SSH-* 头名（§3 M06）。"""
+"""``X-SSH-*`` 头名（§3 M06）。"""
 
+MIN_NONCE_CHARS: Final = 22
+"""``X-Nonce`` 下界：≥128 位随机（base64/urlsafe 编码 ≥22 字符，§3 M06）。"""
 
 MAX_NONCE_CHARS: Final = 512
 """``X-Nonce`` 上界（防止把 ``nonces`` 表当存储用）。"""
