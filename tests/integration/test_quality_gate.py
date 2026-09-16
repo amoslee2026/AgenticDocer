@@ -36,6 +36,7 @@ from agenticdocer.m09.quality_9b import (
     assets_missing,
     broken_refs,
     doc_type_conformance,
+    events_consistency,
     perf_health,
     render_consistency,
     section_range_consistency,
@@ -714,9 +715,10 @@ async def test_doc_type_conformance_detects_historical_missing_meta(storage: Sto
         "doc_type_schema_conformance"
     ]
     assert rules(violations) == {doc_type_conformance.RULE_META_MISSING}
+    # 质量门出口按 `(rule_id, path)` 定序（`gate.run_quality_gate`），故此处按 path 字典序
     assert [item.path for item in violations] == [
-        f"{doc_id}:meta.standard_ref",
         f"{doc_id}:meta.audit_trail",
+        f"{doc_id}:meta.standard_ref",
     ]
     assert all(item.fix_hint for item in violations)
 
