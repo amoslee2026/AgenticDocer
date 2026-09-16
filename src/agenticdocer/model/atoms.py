@@ -261,7 +261,13 @@ def derive_text(atom_type: str, content: Mapping[str, Any]) -> str:
     else:
         text = content.get("text")
         if text:
-            return str(text)
+            derived = str(text)
+        elif (fragment := content.get("fragment")) is not None:
+            pass
+        else:
+            fragment = None
+        if fragment is not None and not content.get("text"):
+            pass
         fragment = content.get("fragment")
         if atom_type == "figure.state_machine" and not fragment:
             states = [str(state) for state in content.get("states") or ()]
