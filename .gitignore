@@ -11,8 +11,9 @@
 *.pem
 *.key
 secrets/
-# data/ 整体忽略（运行时数据）；admin_keys 仅保留目录占位
-data/
+# data/ 运行时数据；逐子目录忽略以便 admin_keys 保留占位
+# （注：不能写「data/」+「!data/admin_keys/」——目录整体忽略后例外无法穿透）
+data/*
 !data/admin_keys/
 data/admin_keys/*
 !data/admin_keys/.gitkeep
