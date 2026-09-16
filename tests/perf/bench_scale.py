@@ -267,15 +267,15 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             "docs_requested": args.docs,
             "fresh": bool(args.fresh),
         })
+        projected_nodes = nodes_per_doc * TARGET_DOCS
+        projected_bytes = bytes_per_node * projected_nodes
+        bench.counters["extrapolation"] = {
+            "basis_docs": syn_docs,
+            "basis_nodes": syn_nodes,
+            "projected_nodes_at_10k_docs": round(projected_nodes, 1),
+            "projected_storage_gib_at_10k_docs": round(projected_bytes / 1024**3, 3),
+        }
         if syn_docs and nodes_per_doc:
-            projected_nodes = nodes_per_doc * TARGET_DOCS
-            projected_bytes = bytes_per_node * projected_nodes
-            bench.counters["extrapolation"] = {
-                "basis_docs": syn_docs,
-                "basis_nodes": syn_nodes,
-                "projected_nodes_at_10k_docs": round(projected_nodes, 1),
-                "projected_storage_gib_at_10k_docs": round(projected_bytes / 1024**3, 3),
-            }
             bench.add(
                 metric("scale.projected_nodes_at_10k_docs", round(projected_nodes, 1),
                        note=f"按实测 {nodes_per_doc:.1f} 节点/文档线性外推（§1.4 预期 ≈13.4M）"),
