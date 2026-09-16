@@ -499,15 +499,33 @@ def test_field_names_match_spec(model: type, expected: set[str]):
 
 
 def test_required_optionality_follows_spec_section_3_0():
-    """§3.0 未给默认值者即必填（`X | None` 也须显式传 None）；仅三处默认值。"""
-    defaulted = {
-        (NodeIn, "format"),
-        (DocTypeTarget, "kind"),
-        (DocTarget, "kind"),
+    """§3.0 只在三处给了默认值（Node 继承 NodeIn 的 `format`）；`X | None` 仍为必填。"""
+    allowed_defaults = {
+        ("NodeIn", "format"),
+        ("Node", "format"),
+        ("DocTypeTarget", "kind"),
+        ("DocTarget", "kind"),
     }
     for model in SPEC_FIELDS:
         for name, field_info in model.model_fields.items():
-            assert field_info.is_required() or (model, name) in defaulted, f"{model.__name__}.{name} 意外有默认值"
+            if field_info.is_required():
+                continue
+            assert (model.__name__, name) in allowed_defaults, f"{model.__name__}.{name} 意外有默认值"
+
+    assert NodeIn.model_fields["format"].default == "md"
+    assert DocTypeTarget.model_fields["kind"].default == "doc_type"
+    assert DocTarget.model_fields["kind"].default == "doc"
+
+    required_but_nullable = (
+        (NodeIn, "node_id"),
+        (NodeIn, "parent_node_id"),
+        (NodeIn, "level"),
+        (DocIn, "source_ref"),
+        (Ref, "dst_node_id"),
+        (Violation, "fix_hint"),
+    )
+    for model, name in required_but_nullable:
+        assert model.model_fields[name].is_required(), f"{model.__name__}.{name} 应为必填"
 
 
 def test_camel_case_aliases_are_derived_uniformly():
