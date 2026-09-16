@@ -234,8 +234,8 @@ def test_rule_detects_injected_defect(rule_id: str) -> None:
     assert all(item.fix_hint for item in violations), "违规必须带修复建议（REQ-M06-F02）"
 
 
+def test_rule_catalog_is_exhaustive() -> None:
     """无死规则：`RULES_9A` = 缺陷样本可命中的 id 全集（`M01.doc_type.atom` 见后文差异化测）。"""
-    """无死规则：`RULES_9A` = 缺陷样本可命中的 id 全集（`M01.doc_type.atom` 见下一测）。"""
     assert set(DEFECTS) | {RULE_DOC_TYPE_ATOM} == set(RULES_9A)
 
 
