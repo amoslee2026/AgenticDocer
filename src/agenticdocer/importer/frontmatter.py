@@ -215,9 +215,14 @@ def parse_frontmatter(
     doc_slug: str,
     source_path: Path | None = None,
 ) -> Frontmatter:
-    """解析 + 校验 frontmatter（C5 十七字段 + `spec_type`/`status` 取值域）。
+    """解析 + 校验 frontmatter（C5 十七字段 + `spec_type` 归一 + 组合规则必填字段）。
 
-    :raises ValidationError: 缺必填字段、`spec_type` 不在 `DOC_TYPES`、`status` 非法。
+    `spec_type` 先经 :func:`doc_type_map.resolve_doc_type` 归一（5 个 `doc_type` 值、映射表 §2
+    的 slug 与别名均可写）；`product` 大类的细分入 `meta.doc_subtype`（不新增 `doc_type`）。
+
+    :raises ValidationError: 缺必填字段、`spec_type` 无法归一、`doc_subtype` 非法、
+        组合规则（`missing_required_meta`）缺字段、`verification_plan_format` 缺失/非法、
+        `status` 非法。
     """
     fields, body, body_start = split_frontmatter(text)
     missing = [name for name in C5_META_FIELDS if name not in fields]
@@ -227,20 +232,64 @@ def parse_frontmatter(
             entity="doc",
             entity_id=str(fields.get("spec_id") or doc_slug),
         )
-    doc_type = str(fields["spec_type"])
-    if doc_type not in DOC_TYPES:
+    raw_spec_type = str(fields["spec_type"])
+    try:
+        resolved = resolve_doc_type(raw_spec_type)
+    except UnknownDocTypeError:
         raise ValidationError(
-            f"spec_type={doc_type!r} 不在取值域 {list(DOC_TYPES)}（A22）",
+            f"spec_type={raw_spec_type!r} 不在取值域 {list(DOC_TYPES)}（A22），"
+            f"亦非映射表 §2 的已知类型 slug/别名（合法写法共 {len(RESOLVABLE_KEYS)} 个）",
             entity="doc",
             entity_id=str(fields["spec_id"]),
-        )
-    extra_missing = missing_required_meta(doc_type, fields)
+        ) from None
+    doc_type = resolved.doc_type
+    declared_subtype = fields.get("doc_subtype")
+    if declared_subtype is not None:
+        doc_subtype: str | None = str(declared_subtype).strip()
+        known_subtypes = subtypes_for(doc_type)
+        if doc_subtype not in known_subtypes:
+            raise ValidationError(
+                f"doc_subtype={declared_subtype!r} 不在 doc_type={doc_type!r} 的细分取值域"
+                f" {list(known_subtypes)}（映射表 §2 收敛原则：细分只加 `meta`，不新增 `doc_type`）",
+                entity="doc",
+                entity_id=str(fields["spec_id"]),
+            )
+    else:
+        doc_subtype = resolved.doc_subtype
+    frontmatter = Frontmatter(
+        fields=fields,
+        body=body,
+        body_start=body_start,
+        doc_slug=doc_slug,
+        source_path=source_path,
+        resolved_doc_type=doc_type,
+        resolved_doc_subtype=doc_subtype,
+    )
+    meta = frontmatter.meta
+    extra_missing = missing_required_meta(doc_type, meta)
     if extra_missing:
         raise ValidationError(
             f"doc_type={doc_type!r} 的组合规则另需字段 {extra_missing}（REQ-M01-F03）",
             entity="doc",
             entity_id=str(fields["spec_id"]),
         )
+    if doc_subtype == VERIFICATION_PLAN_SUBTYPE:
+        plan_missing = missing_verification_plan_meta(meta)
+        if plan_missing:
+            raise ValidationError(
+                f"doc_subtype={VERIFICATION_PLAN_SUBTYPE!r} 另需字段 {plan_missing}"
+                f"（映射表 §4：UCIS/vPlan 对齐）",
+                entity="doc",
+                entity_id=str(fields["spec_id"]),
+            )
+        bad_format = invalid_verification_plan_format(meta)
+        if bad_format is not None:
+            raise ValidationError(
+                f"verification_plan_format={bad_format!r} 非法"
+                f"（合法值 {list(VERIFICATION_PLAN_FORMATS)}；映射表 §4）",
+                entity="doc",
+                entity_id=str(fields["spec_id"]),
+            )
     status_key = str(fields.get("status", "")).strip().lower()
     if status_key not in STATUS_MAP:
         raise ValidationError(
@@ -249,13 +298,7 @@ def parse_frontmatter(
             entity="doc",
             entity_id=str(fields["spec_id"]),
         )
-    return Frontmatter(
-        fields=fields,
-        body=body,
-        body_start=body_start,
-        doc_slug=doc_slug,
-        source_path=source_path,
-    )
+    return frontmatter
 
 
 def doc_in_from_meta(doc_meta: dict[str, Any]) -> DocIn:
