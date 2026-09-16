@@ -242,10 +242,10 @@ async def test_export_package_writes_three_files_and_counts(
     assert manifest["files"] == {"nodes": EXPORT_NODES_FILE, "relations": EXPORT_GRAPH_FILE}
 
 
-async def test_export_package_defaults_skip_deleted_nodes(tmp_path: Path) -> None:
 async def test_export_package_defaults_skip_deleted_nodes(
     tmp_path: Path, no_relations: None
 ) -> None:
+    nodes = [_node(DOC_A, 0), _node(DOC_A, 1, status="deleted")]
     store = _FakeStorage([_doc(DOC_A)], nodes)
     result = await export_package([DOC_A], tmp_path, storage=store)
     assert result.nodes == 1
