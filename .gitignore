@@ -1,0 +1,118 @@
+# ============================================================
+# AgenticDocer .gitignore
+# 原则：仓库只含「源码 + 规格 + 测试 + 配置模板」；
+#       一切凭据、运行时数据、构建产物、缓存均不入库。
+# ============================================================
+
+# ---------- 凭据与机密（最高优先级，绝不可入库）----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ---------- 运行时数据（ADR-007 / §5 部署清单）----------
+data/
+!data/admin_keys/
+data/admin_keys/*
+!data/admin_keys/.gitkeep
+logs/
+build/
+rendered/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+
+# 打包/构建
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+*.egg
+MANIFEST
+
+# 测试与覆盖率
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# 类型检查/静态分析
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pytype/
+
+# uv / pip
+uv.lock.bak
+*.whl
+pip-wheel-metadata/
+
+# ---------- Node / WebUI（M08）----------
+node_modules/
+webui/node_modules/
+webui/dist/
+webui/.vite/
+webui/.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/
+
+# ---------- 数据库/迁移运行时 ----------
+alembic/versions/__pycache__/
+*.sqlite
+*.sqlite3
+*.db
+
+# ---------- 日志与临时 ----------
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+temp/
+tmp/
+.DS_Store
+Thumbs.db
+
+# ---------- IDE / 编辑器 ----------
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+*.sublime-*
+project.inspector/
+
+# ---------- 工具链本地状态 ----------
+.skills_local/
+**/.skills_local/
+**/.logs/
+.incremental_manifest.json
+build/perf.json
+
+# ---------- 导出/中间产物 ----------
+exports/
+import_work/
+*.tracebacks
