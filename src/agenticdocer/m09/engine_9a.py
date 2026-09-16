@@ -102,8 +102,6 @@ RULES_9A: tuple[str, ...] = (
 )
 """M09A 全部规则 id（机检清单：测试断言规则集自证）。"""
 
-
-
 _EXTERNAL_PREFIX: Final = "EXT:"
 _CLIP_CHARS: Final = 120
 
