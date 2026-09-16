@@ -211,20 +211,63 @@ def check_timestamp(moment: datetime, *, reference: datetime | None = None) -> N
 
 
 def raw_path(request: Request) -> str:
-    """请求行中的 **RAW_PATH**（含 query 原样字节；不百分号解码、不规范化，S2）。"""
+    """请求行中的 **RAW_PATH**（路径 + ``?`` + query 的**原样字节**；不百分号解码、不规范化，S2）。
+
+    取 ASGI ``scope["raw_path"]``（请求行里未经解码的字节，**可选字段**）而非 ``scope["path"]``
+    （已被百分号解码）——后者会让「签编码形态 vs 签解码形态」成为未写入规范的隐式耦合
+    （SecAudit AUD-2）。字节经 ``latin-1`` 还原为字符串，与 ``request_payload`` 的编码口径
+    在 **ASCII 目标**上逐字节一致；客户端契约因此是：**签请求行里那个（percent-encoded）目标串**，
+    不要先解码。非 ASCII 字节不会静默错配——会验签失败（fail-closed）。
+
+    服务器未实现 ``raw_path``（ASGI 允许省略）时回落到解码路径并**告警一次**：此时客户端必须
+    改签解码形态，属降级而非默认口径。
+    """
     query = request.scope.get("query_string") or b""
-    path = request.scope.get("path") or request.url.path
     suffix = "?" + query.decode("latin-1") if query else ""
-    return f"{path}{suffix}"
+    raw = request.scope.get("raw_path")
+    if raw:
+        return raw.decode("latin-1") + suffix
+    _warn_missing_raw_path()
+    return str(request.scope.get("path") or request.url.path) + suffix
+
+
+_MISSING_RAW_PATH_WARNED: bool = False
+
+
+def _warn_missing_raw_path() -> None:
+    """ASGI ``raw_path`` 缺失时的**一次性**告警（避免逐请求刷日志）。"""
+    global _MISSING_RAW_PATH_WARNED
+    if _MISSING_RAW_PATH_WARNED:
+        return
+    _MISSING_RAW_PATH_WARNED = True
+    log.warn(
+        "ASGI scope 未提供 raw_path：回落解码路径拼载荷（客户端须签解码形态）",
+        op="raw_path",
+    )
 
 
 def client_ip(request: Request) -> str | None:
-    """客户端 IP（``AUTH_TRUSTED_PROXY=1`` 时才采信 ``X-Forwarded-For`` 首段）。"""
-    if _env_flag("AUTH_TRUSTED_PROXY", False):
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-    return request.client.host if request.client is not None else None
+    """客户端 IP（限流与审计的键）。
+
+    ``AUTH_TRUSTED_PROXY=1`` 时才采信 ``X-Forwarded-For``，且取**由可信代理追加的那一段**：
+    从**右往左数第 ``AUTH_PROXY_COUNT``（默认 1）** 段。取首段（旧实现）等于把限流键交给
+    客户端伪造（SecAudit AUD-1：逐次改首段即可无限打 ``/auth/challenge`` 并让 ``nonces``
+    无界增长）。
+
+    契约：**可信反代必须 append（而非透传客户端已给的 XFF）**；链长不足 ``AUTH_PROXY_COUNT``
+    时视为头不可信，回落直连对端地址（宁可收紧，不可放松）。
+    """
+    peer = request.client.host if request.client is not None else None
+    if not _env_flag("AUTH_TRUSTED_PROXY", False):
+        return peer
+    forwarded = request.headers.get("X-Forwarded-For")
+    if not forwarded:
+        return peer
+    hops = [part.strip() for part in forwarded.split(",") if part.strip()]
+    trusted_hops = max(1, _env_int("AUTH_PROXY_COUNT", 1))
+    if len(hops) < trusted_hops:
+        return peer
+    return hops[-trusted_hops]
 
 
 def auth_database(request: Request) -> Database | None:
