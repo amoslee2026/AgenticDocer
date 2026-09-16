@@ -310,7 +310,6 @@ async def test_render_section_scoped_and_fast(
     other_fragments = [str(node.content.get("fragment", "")) for node in outside]
     leaked = [f for f in other_fragments if f and f in body]
     assert leaked == [], f"章节产物混入章节外内容：{leaked[:1]}"
-    print(f"[M04] render_section 耗时 {elapsed * 1000:.1f}ms（子树 {len(subtree)} 节点）")
     print(
         f"[M04] render_section {elapsed * 1000:.1f}ms"
         f"（AMBA 最大章节：{len(subtree)} 节点 / 全档 {len(nodes)} 节点）"
@@ -329,7 +328,7 @@ async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path
     doc_id = f"SPEC-CXL-FULL-{next(_SEQ)}"
     doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
     source_form = normalize_markdown(source)
-
+    _doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
     # (a) 解析保真
     assert await normalize(doc_id, storage=storage) == source_form
 
