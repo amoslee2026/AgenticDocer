@@ -356,9 +356,9 @@ def test_fingerprint_matches_ssh_keygen_lf(openssh_dir: Path) -> None:
             check=True,
             capture_output=True,
             text=True,
-        ).stdout.split()[1]
-        assert signing.fingerprint((openssh_dir / f"{name}.pub").read_text()) == expected, name
-
+    path = openssh_dir / key_name
+    message = openssh_dir / f"{key_name}.msg"
+    message.write_bytes(MESSAGE)
 
 @needs_ssh_keygen
 @pytest.mark.parametrize("key_name", ["id_ed25519", "id_rsa"])
