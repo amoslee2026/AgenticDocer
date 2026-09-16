@@ -36,6 +36,7 @@ from .normalize import (
 )
 from .renderer import (
     DEFAULT_RENDER_OUT_DIR,
+    asset_id_of,
     body_text,
     collect_image_srcs,
     document_frontmatter,
@@ -68,7 +69,8 @@ __all__ = [
     "document_frontmatter",
     "frontmatter_text",
     "iter_image_srcs",
-    "node_block_text",
+    "DEFAULT_RENDER_OUT_DIR",
+    "asset_id_of",
     "render_document",
     "render_out_dir",
     "render_section",
