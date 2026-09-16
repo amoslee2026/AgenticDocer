@@ -436,18 +436,23 @@ def privilege_statements(
         f"GRANT USAGE ON SCHEMA public TO {app_role}",
         f"GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO {app_role}",
     ]
-    # relkind 'r' = 普通表/分区，'p' = 分区父表（nodes/events）——父表 ACL 是经父表
-    # 访问的判定依据，分区各自的 ACL 决定直接访问，两者都要授。
+    # relkind 'r' = 普通表/分区，'p' = 分区父表（nodes/events）。经父表路由的 DML 只查
+    # 父表 ACL，但直连分区查分区 ACL——两者都授，使 §4.3「ALL TABLES」在分区化后仍成立。
+    # 分区归属按其**父表**判定（PG 自省，不靠命名前缀），`MUTABLE_TABLES` 是唯一口径来源。
     relations = connection.execute(
         text(
-            "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "SELECT c.relname AS relname, COALESCE(p.relname, c.relname) AS root_name "
+            "FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "LEFT JOIN pg_inherits i ON i.inhrelid = c.oid "
+            "LEFT JOIN pg_class p ON p.oid = i.inhparent "
             "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') "
             "AND c.relname <> 'alembic_version' ORDER BY c.relname"
         )
-    ).scalars()
-    for relname in relations:
+    )
+    for relname, root_name in relations:
         statements.append(f"GRANT SELECT, INSERT ON TABLE {relname} TO {app_role}")
-        if relname in MUTABLE_TABLES:
+        if root_name in MUTABLE_TABLES:
             statements.append(f"GRANT UPDATE, DELETE ON TABLE {relname} TO {app_role}")
         else:
             statements.append(f"REVOKE UPDATE, DELETE, TRUNCATE ON TABLE {relname} FROM {app_role}")
