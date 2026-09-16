@@ -73,7 +73,6 @@ _LEVELS: Final = ("feature", "sub_feature", "coverage_item", "test")
 _NAME_CHILD_TAGS: Final = ("name", "title")
 
 _FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
-_XML_DECL_RE: Final = ("<!doctype", "<!entity")
 
 
 def _local(tag: str) -> str:
