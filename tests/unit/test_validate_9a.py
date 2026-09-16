@@ -203,6 +203,11 @@ def _external_ref_with_node() -> list[Violation]:
     )
 
 
+def _doc_type_variant() -> list[Violation]:
+    """`standard` 拒绝 `safety` 专属变体（基底 `table` 放行 → 成因在变体白名单）。"""
+    return validate_write(node("table.failure_mode", format="html"), doc_type="standard")
+
+
 DEFECTS: dict[str, Callable[[], list[Violation]]] = {
     RULE_ATOM_UNKNOWN: _unknown_atom,
     RULE_ATOM_SCHEMA: _extra_property,
@@ -213,6 +218,7 @@ DEFECTS: dict[str, Callable[[], list[Violation]]] = {
     RULE_PARENT_SELF: _self_parent,
     RULE_TABLE_FORMAT: _table_format_mismatch,
     RULE_CROSS_REF_EXTERNAL_NODE: _external_ref_with_node,
+    RULE_DOC_TYPE_VARIANT: _doc_type_variant,
 }
 
 
@@ -228,7 +234,7 @@ def test_rule_detects_injected_defect(rule_id: str) -> None:
     assert all(item.fix_hint for item in violations), "违规必须带修复建议（REQ-M06-F02）"
 
 
-def test_rule_catalog_is_exhaustive() -> None:
+    """无死规则：`RULES_9A` = 缺陷样本可命中的 id 全集（`M01.doc_type.atom` 见后文差异化测）。"""
     """无死规则：`RULES_9A` = 缺陷样本可命中的 id 全集（`M01.doc_type.atom` 见下一测）。"""
     assert set(DEFECTS) | {RULE_DOC_TYPE_ATOM} == set(RULES_9A)
 
