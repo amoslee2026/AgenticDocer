@@ -60,8 +60,6 @@ message, fix_hint}`），供两条路径消费：
 节点零未覆盖），故生产写入不受影响；新增原子类型需**同时**改 `M01.ATOM_SCHEMAS` 与
 `DOC_TYPE_RULES`（代码种子）才可通过校验。
 """
-PUT 40.=40:
-"""
 
 from __future__ import annotations
 
