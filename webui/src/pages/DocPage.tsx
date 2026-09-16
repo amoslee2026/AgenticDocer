@@ -159,6 +159,7 @@ export function DocPage() {
             </button>
           ) : null}
         </div>
+        {notice ? <div className="notice">{notice}</div> : null}
         <div className="card">
           <div className="card-head">
             <div className="tabs" style={{ margin: 0, borderBottom: "none" }}>
