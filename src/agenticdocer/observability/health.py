@@ -375,10 +375,10 @@ async def health(
             partitions=PartitionHealth(events_next_missing=False, oldest_event_ts=None),
             pool=pool_health(engine),
             verdict="fail",
-            advice=[f"数据库不可达（{type(exc).__name__}: {exc}）；检查 DATABASE_URL 与 PG 状态"],
+            advice=[f"数据库连接失败（{type(exc).__name__}: {exc}）；检查 DATABASE_URL、PG 状态与凭据"],
         )
         logger.error(
-            "健康巡检失败：数据库不可达",
+            "健康巡检失败：数据库连接失败",
             error_code=ErrorCode.NET_CONN_REFUSED,
             reason=f"{type(exc).__name__}: {exc}",
         )
