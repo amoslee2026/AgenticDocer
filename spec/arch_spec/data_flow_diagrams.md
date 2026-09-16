@@ -170,4 +170,6 @@ flowchart LR
 | LightRAG 索引 | 现：`/home/lxx/lightrag/rag_storage`（JSON）；迁移后：同 PG 实例 `LIGHTRAG_*` 表 | 派生（可重建） |
 | **SSH 公钥（管理员自举）** | `data/admin_keys/admin.pub`（gitignore） | 部署期输入；入库后以 DB 为准 |
 | **SSH 私钥** | 用户 `~/.ssh/`（**系统从不持有**） | 由用户自行管理 |
+| **运行日志（AgenticLogger）** | `logs/*.jsonl`（gitignore）；超出保留策略后归档 `logs/archive/` | 运行态（30 天/500MB，可丢弃）；**非审计源** |
+| **审计事件** | PG `events`（`entity='auth'/'doc'/'node'/…`） | 永久（append-only，>24 月仅归档分区，**不可丢**） |
 
