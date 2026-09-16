@@ -125,6 +125,16 @@ export function NodeForm({
 
       <label className="field">
         <span>原子类型（来自 /schemas——新增类型无需改前端）</span>
+        <select value={atomType} onChange={(e) => setAtomType(e.target.value)}>
+          {schemas.map((entry) => (
+            <option key={entry.typeName} value={entry.typeName}>
+              {entry.typeName}（v{entry.version}）
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="row">
         <label className="field" style={{ flex: 2 }}>
           <span>锚（anchor）</span>
           <input type="text" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
