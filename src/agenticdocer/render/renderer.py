@@ -255,7 +255,7 @@ async def _resolve_and_export(
     exported: dict[str, str] = {}
     unresolved: list[str] = []
     for src in srcs:
-        asset_id, ext = await _identify_asset(storage, src)
+        asset_id = asset_id_of(src)
         if asset_id is None:
             unresolved.append(src)
             continue
@@ -265,7 +265,8 @@ async def _resolve_and_export(
             except NotFoundError:
                 unresolved.append(src)
                 continue
-            suffix = ext or source_path.suffix.lstrip(".")
+            # 扩展名以 CAS（`assets.path`，由 M02 按 MIME 决定）为准：源引用的后缀可能过时
+            suffix = source_path.suffix.lstrip(".").lower()
             name = f"{asset_id}.{suffix}" if suffix else asset_id
             destination = out_dir / "assets" / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -281,30 +282,18 @@ async def _resolve_and_export(
     return mapping, len(exported), unresolved
 
 
-async def _identify_asset(storage: Storage, src: str) -> tuple[str | None, str | None]:
-    """引用 → ``(asset_id, ext)``；解析不出 ``asset_id`` 时返回 ``(None, None)``。
+def asset_id_of(src: str) -> str | None:
+    """图片引用 → ``asset_id``（``<sha256>``）；解析不出返回 ``None``。
 
-    库内形态（``assets/<sha>.<ext>``，``ASSET_REF_PATTERN``）优先；其次从任意路径抽
-    ``<sha256>``（``images/<sha>.jpg``、裸 sha），扩展名缺失时回查 ``assets.path``。
+    库内形态（``assets/<sha>.<ext>``，``ASSET_REF_PATTERN``）与任意路径中的 ``<sha256>``
+    （源侧 ``images/<sha>.jpg``、裸 sha）都认；外链 URL / 未落库相对路径一律 ``None``
+    —— 此时引用原样直通（P4），由 M09B ``assets_missing`` 与 M03 ``assets_sync`` 处置。
     """
     match = ASSET_REF_PATTERN.search(src)
     if match:
-        return match.group(1), match.group(2).lower()
+        return match.group(1)
     token = _HASH_TOKEN.search(src)
-    if token is None:
-        return None, None
-    asset_id, ext = token.group(1), (token.group(2) or "").lower() or None
-    if ext is None:
-        ext = await _asset_extension(storage, asset_id)
-    return asset_id, ext
-
-
-async def _asset_extension(storage: Storage, asset_id: str) -> str | None:
-    try:
-        asset = await storage.get_asset(asset_id)
-    except NotFoundError:
-        return None
-    return Path(asset.path).suffix.lstrip(".").lower() or None
+    return token.group(1) if token else None
 
 
 # ── frontmatter（§6 C5 十七字段）─────────────────────────────────────────
