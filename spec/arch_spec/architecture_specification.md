@@ -248,7 +248,7 @@ def fetch_assets(refs: list[str], source_root: Path) -> AssetSyncReport: ...
 ```python
 def render_document(doc_id: str, out_dir: Path) -> RenderResult:
     """节点树（status='active'，按 ordinal）→ Markdown：format=html 片段零改写直通；
-    frontmatter 按 §3.4 映射回写；图片（含 HTML 片段内 <img src>，A7）重写为
+    frontmatter 按 §6（frontmatter 映射）回写；图片（含 HTML 片段内 <img src>，A7）重写为
     assets/<sha256>.<ext> 相对路径，并从资产存储导出至 out_dir/assets/。"""
 def normalize(doc_id: str) -> NormalForm: ...                  # 库侧（节点树）
 def normalize_markdown(source: str | Path) -> NormalForm: ...  # 源侧（markdown 文本）
@@ -357,7 +357,7 @@ async def change_stream(since: str | None) -> AsyncIterator[Event]: ...   # even
 
 ```sql
 CREATE TABLE docs (
-  doc_id     text PRIMARY KEY,                -- SPEC-*（映射见 §3.4 A22）
+  doc_id     text PRIMARY KEY,                -- SPEC-*（映射见 §6 frontmatter 映射表）
   doc_type   text NOT NULL CHECK (doc_type IN ('standard','lang','tool-manual','product','safety')),
   title      text NOT NULL,
   meta       jsonb NOT NULL DEFAULT '{}',
@@ -452,11 +452,14 @@ CREATE TABLE terms (
 ### 4.1 角色与权限（A15）
 
 ```sql
--- 属主：agenticdocer（database owner）
-CREATE ROLE agenticdocer_app LOGIN PASSWORD '…';        -- 应用连接角色（alembic 用属主，应用用此角色）
+-- 属主：agenticdocer（database owner，建库时创建）
+CREATE ROLE agenticdocer LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
+CREATE ROLE agenticdocer_app LOGIN PASSWORD '…';         -- 应用连接角色（最小权限）
 GRANT CONNECT ON DATABASE agenticdocer TO agenticdocer_app;
 GRANT USAGE ON SCHEMA public TO agenticdocer_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO agenticdocer_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agenticdocer_app;   -- L4：后续新表默认授权
 REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（P2）
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
@@ -483,11 +486,11 @@ systemd --user: agenticdocer-api.service
 | 序列化（A11） | pydantic `alias_generator=to_camel`；HTTP JSON 一律 camelCase；DB 与 Python 内部 snake_case |
 | 日志 | Agentic Logger SDK（AGENTS.md 强制）；结构化字段：module(M##)、event_id、doc_id、rule_id |
 | 错误 | ConflictError→409、ValidationError→422、NotFound→404；Violation 结构统一 |
-| ID | 应用侧 UUIDv7（时间有序）；`doc_id` 采用 `SPEC-*` 映射（A22 见 §3.4） |
+| ID | 应用侧 UUIDv7（时间有序）；`doc_id` 采用 `SPEC-*` 映射（A22，映射表见 §6） |
 | 时间 | UTC（timestamptz）；展示本地化 |
 | 配置 | 环境变量（§5 清单）；默认值指向仓库 `data/`、`build/`（gitignore） |
 
-**frontmatter → docs 映射（A22，C5 十七字段）**：`title→title`；`spec_id→doc_id`；`spec_type→doc_type`；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。校验清单：17 字段 + spec 专有四字段（`spec_id`/`spec_type`/`spec_org`/`spec_revision`）必填。
+**frontmatter → docs 映射（A22，C5 十七字段，含 spec 专属 4 项）**：`title→title`；`spec_id→doc_id`；`spec_type→doc_type`；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。必填校验：C5 十七字段（title/type/purpose/audience/direction/status/version/section_meta/spec_id/spec_type/spec_org/spec_revision/source/converted_by/converted_at/reviewed_by/reviewed_at）。
 
 ## 7. 与 idea 层的偏差声明
 
