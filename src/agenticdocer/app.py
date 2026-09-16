@@ -79,6 +79,18 @@ _STATUS_ERRORS: Final = {
 }
 """HTTP 状态 → 稳定错误串（`code` 字段另给 `DTO_*`，§3 M12）。"""
 
+ERROR_RESPONSES: Final[dict[int, dict[str, Any]]] = {
+    status: {"model": ErrorResponse, "description": description}
+    for status, description in (
+        (401, "无凭据或凭据无效（S4：豁免清单外 fail-closed）"),
+        (403, "角色或文档集级授权不足（S5）"),
+        (404, "实体不存在（或已软删，A2）"),
+        (409, "乐观锁版本不匹配或唯一约束冲突（可重试）"),
+        (422, "请求/载荷校验失败；携 `violations[]` 与 `fixHint`（REQ-M06-F02）"),
+    )
+}
+"""全局错误响应声明（§6 错误映射）：让错误形状（含 `Violation`）进入 OpenAPI。"""
+
 
 def _env_flag(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
