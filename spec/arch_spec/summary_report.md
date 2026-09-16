@@ -17,15 +17,15 @@ section_meta: "@meta"
 
 | 文件 | 内容 | 状态 |
 |---|---|---|
-| `functional_specification.md` v1.3 | **52 条 REQ**（M01–M11 + M-LR；新增 M10 鉴权 5 条、M11 CLI/skill 7 条、M07-F06、M08-F05），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
+| `functional_specification.md` v1.3 | **48 条 REQ**（M01–M11 + M-LR；新增 M10 鉴权 5 条、M11 CLI/skill 7 条、M07-F06、M08-F05），P0/P1/P2 分级，验收标准可机械验证 | ✅ |
 | `user_manual.md` | 双角色使用路径（agent 操作者 / 人类评审者），命令与路径实测校正 | ✅ |
-| `architecture_specification.md` v1.3 | 模块接口契约（含 **31 类型定义**）、DDL **12 表**（新增 users/ssh_keys/grants/sessions/nonces）、**10 模块**（新增 M10）、§9 CLI 与 Skill、§8 批注处置表 | ✅ |
+| `architecture_specification.md` v1.3 | 模块接口契约（含 **31 类型定义**）、DDL **13 表**（新增 users/ssh_keys/grants/sessions/nonces）、**10 模块**（新增 M10）、§9 CLI 与 Skill、§8 批注处置表 | ✅ |
 | `data_flow_diagrams.md` | DF-1..5 数据流（系统级/写入/评审/检索/**鉴权**）+ 数据驻留表 | ✅ |
 | `workflow_diagrams.md` | WF-1..5 工作流（含 **agent 鉴权与写入链**）+ 文档状态机 | ✅ |
 | `ADR/ADR-001..009` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 / **SSH 鉴权** / **M05 降级** / **规模化存储** | ✅ |
 | `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `clarifications.md` | 架构级输入确认与假设（AB1–AB5；**B6/B10 已作废替换**） | ✅ |
-| `traceability/requirements_matrix.arch.csv` | 52 REQ ↔ 架构章节追溯 | ✅ |
+| `traceability/requirements_matrix.arch.csv` | **48 REQ** ↔ 架构章节追溯 | ✅ |
 | `.review/issues.md` | 对抗评审 A1–A25 清单与闭环记录 + **v1.3 批注评审** | ✅ |
 
 ## 2. 关键决策汇总
