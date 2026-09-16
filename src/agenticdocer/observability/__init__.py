@@ -70,13 +70,12 @@ from agenticdocer.observability.rid import (
 
 __all__ = [
     "DTO_ANCHOR_CONFLICT",
-    "REQUEST_ID_HEADER",
-    "UNROUTED",
     "DTO_PARTITION_MISSING",
     "DTO_PERF_EXCEEDED",
     "DTO_REF_BROKEN",
     "PROGRAM",
     "REQUEST_ID_HEADER",
+    "UNROUTED",
     "DtoErrorCode",
     "EndpointMetric",
     "HealthReport",
