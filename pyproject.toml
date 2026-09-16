@@ -30,7 +30,10 @@ dev = [
     "pytest-cov>=6.0",
 ]
 
-# entry points 见下方 [project.scripts]
+[project.scripts]
+agenticdocer = "agenticdocer.cli:app"
+agenticdocer-api = "agenticdocer.app:main"
+
 [project.urls]
 Homepage = "https://github.com/amoslee2026/AgenticDocer"
 Repository = "https://github.com/amoslee2026/AgenticDocer"
