@@ -824,19 +824,16 @@ def test_no_llm_or_network_imports_in_m09() -> None:
 
 def test_section_sample_is_deterministic_and_representative() -> None:
     """抽样：确定性 + 覆盖根/边界/叶子/最小 level；`level` 空者不参与（区间不可判定）。"""
-    nodes = [
-        make_node(node_id=new_uuid7(), ordinal=index, level=1 if index % 3 == 0 else 2)
-        for index in range(1, 40)
+    root = make_node(node_id=new_uuid7(), ordinal=1, level=1, parent_node_id=None)
+    children = [
+        make_node(node_id=new_uuid7(), ordinal=ordinal, level=2, parent_node_id=root.node_id)
+        for ordinal in range(2, 22)
     ]
-    for node in nodes[1:]:
-        nodes[0].__dict__  # noqa: B018 - 仅确保对象可用（保持列表构造显式）
-    # 建立父子：节点 1 为根，其余挂在它下面（覆盖 root/leaf/middle）
-    nodes = [
-        make_node(node_id=new_uuid7(), ordinal=index, level=level, parent_node_id=parent)
-        for index, (level, parent) in enumerate(
-            [(1, None), *[(2, nodes[0].node_id)] * 20, *[(1, None)] * 18], start=1
-        )
+    siblings = [
+        make_node(node_id=new_uuid7(), ordinal=ordinal, level=1, parent_node_id=None)
+        for ordinal in range(22, 40)
     ]
+    nodes = [root, *children, *siblings]
     first = section_range_consistency.sample_nodes(nodes, 10)
     second = section_range_consistency.sample_nodes(nodes, 10)
 
