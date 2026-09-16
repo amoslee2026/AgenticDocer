@@ -120,7 +120,10 @@ async def change_stream(
         cursor = await _resolve_exact(store, cursor.pending_id)
     emitted = 0
     while True:
-        with log.timer("change_stream_batch", module="mlr.stream", limit=batch_size):
+        # 追尾模式的空轮询不计指标：空闲期会按 poll_interval 每秒写一行日志
+        with nullcontext() if follow else log.timer(
+            "change_stream_batch", module="mlr.stream", limit=batch_size
+        ):
             batch = await store.changes_since(
                 since_ts=cursor.ts,
                 since_event_id=cursor.event_id,
@@ -129,13 +132,7 @@ async def change_stream(
             )
         if not batch:
             if not follow:
-                log.info(
-                    "change_stream drained",
-                    since=since,
-                    entity=entity,
-                    events=emitted,
-                    cursor=cursor.ts.isoformat() if cursor.ts is not None else None,
-                )
+                _log_drained(since, entity, emitted, cursor)
                 return
             await asyncio.sleep(poll_interval)
             continue
@@ -144,13 +141,7 @@ async def change_stream(
             emitted += 1
             yield event
         if len(batch) < batch_size and not follow:
-            log.info(
-                "change_stream drained",
-                since=since,
-                entity=entity,
-                events=emitted,
-                cursor=cursor_token(batch[-1]),
-            )
+            _log_drained(since, entity, emitted, cursor)
             return
 
 
