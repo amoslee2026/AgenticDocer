@@ -374,6 +374,23 @@ L1 五份文件版本已升 1.2.0（functional L8 / user_manual L8 / research_re
 | N3 | architecture_specification.md L170-171 vs M07 端点表 L303-311 | `upsert_term` 注释把「M07 API」列为 terms 写入路径之一，但 M07 端点表无 terms 端点；种子文件 `data/terms_seed.yaml` 也未出现在 §2 目录映射/§5 环境清单中（不影响 M09B 阶段实现，建议补行或改注「随 M09B 定义」） |
 | N4 | functional_specification.md L139 | REQ-M03-F05 正文/验收仍只描述 `images/<sha256>.jpg` 引用一种写法，未同步架构 M03 已覆盖的两种语法（md `![](...)` + HTML `<img src>`）；该 REQ 是 P1 且其验收（抽样哈希一致 / 缺失清单）直接影响 80 处 HTML 内嵌图片，建议补一句 |
 
+## 收口确认（第 3 轮，N1–N4 核对）
+
+| 项 | 状态 | 核实证据 |
+|---|---|---|
+| N1 | ✅ 闭环 | `architecture_specification.md` L25：P2 验证方式已改为「事务注入测试；角色 REVOKE 审计（**§4.1 角色与权限**）」——§4.1 实地存在且即含 GRANT/REVOKE 语句。附带全量复扫：全包 `§\d+\.\d+` 引用共 7 处子节引用（§1.3 / §3.0 / §3.5 / §4.1 / §7.1 及 `design_doc §5.2`/`§5.4` 外部引用），**无悬空引用** |
+| N2 | ✅ 闭环 | `architecture_specification.md` L255-257 两式并列：(a) 解析保真 `normalize(doc_id) == normalize_markdown(src)`；(b) 渲染保真 `normalize_markdown(<产物文件>) == normalize_markdown(src)`，并注明「HTML 直通/内联标记/frontmatter 回写的破坏只发生在渲染层，必须由 (b) 覆盖；images 以重写前哈希路径集合比较」；`functional_specification.md` L147 已同步为同一两式（含「判定口径见 §3 M04」）——两份文档不再矛盾，渲染环节逐字入判据，此前 (a) 单独存在的检测盲区已消除 |
+| N3 | ✅ 闭环 | M07 端点表新增「`GET/POST /api/v1/terms`（术语表读写）」（L306）；§5 环境变量新增 `TERMS_SEED=<repo>/data/terms_seed.yaml（规范性关键词种子，随 migrate 载入）`（L478）——`upsert_term` 声明的三条写入路径（M03 导入 / M07 API / 种子文件）均有落地位置 |
+| N4 | ✅ 闭环 | `functional_specification.md` L139：REQ-M03-F05 已改为「按两类引用取件（md 形式 `images/<sha256>.jpg` + HTML `<img src>`，后者 80 处均在 `<table>` 片段内）、校验哈希、写 `assets`」——与架构 M03 `fetch_assets` 的覆盖面一致 |
+
+### 整轮结论汇总
+
+| 轮次 | 范围 | 结果 |
+|---|---|---|
+| 首轮 | A1–A25（架构包 vs idea v1.1 对抗评审） | 1 CRITICAL / 7 HIGH / 14 MEDIUM / 3 LOW → 全部处置 |
+| 第 2 轮复核 | R1–R10 阻塞残留 + L1–L9 非阻塞残留 | 10/10 与 9/9 闭环（其中 A9 的判据收口在 N2 彻底完成） |
+| 第 3 轮收口 | N1–N4 | 4/4 闭环，全包子节引用无悬空 |
+
 ## 结论
 
-存在 2 个阻塞残留（N1–N2），非阻塞残留 2 项（N3–N4）。除 N1/N2 外，首轮 A1–A25 与复核 R1–R10 / L1–L9 均已闭环。
+无阻塞问题。
