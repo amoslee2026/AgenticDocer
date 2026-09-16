@@ -481,6 +481,13 @@ def _env_flag(name: str, default: bool) -> bool:
     return raw not in ("0", "false", "False")
 
 
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except ValueError:
+        return default
+
 def cookie_secure(request: Request | None = None) -> bool:
     """会话 Cookie 是否带 ``Secure``（S6）。
 
