@@ -50,7 +50,7 @@ section_meta: "@meta"
 
 | 项 | 值 |
 |---|---|
-| 开发形态 | 单 Agent 串行实现（模块按 M 编号交付序）；WebUI 前端可并行（仅依赖 §3 M07 契约） |
+| 模块数量 | 11 模块（M01–M11）+ 1 边界（M-LR）+ 1 横切（M12 可观测性） |
 | 模块数量 | 9 模块（M01–M09）+ 1 边界（M-LR）≤10 |
 | 依赖深度 | 最长链 M01 → M02 → M03 → M04 → M06/M07（深度 5） |
 | 参考文档 | 本规范 + `../idea/design_doc.md`（设计依据）+ `../idea/clarifications.md`（B/Q 台账） |
@@ -116,6 +116,24 @@ section_meta: "@meta"
 
 
 | 指标 | 目标 | 测量口径 |
+
+> **指标测量机制（ADR-010，用户要求「要有性能评估和监控机制」）**：上表所有指标均**可测可验**，测量手段三层——
+> 1. **在线**：AgenticLogger 记 `dur`/`error_code`（按端点/模块聚合），`GET /api/v1/admin/metrics` 查询快照；
+> 2. **离线基准**：`tests/perf/bench_{point_query,render,auth,scale,import}.py`（可复现，验收证据）；
+> 3. **健康巡检**：`agenticdocer stats --health`（分区/索引/膨胀/连接池/归档逾期）。
+> 分层告警语义：单次 >0.8×指标 → `warn`；>指标 → `error`（`DTO_PERF_EXCEEDED`）；窗口 P95 >1.5×指标 → `critical`（建议分区/索引/连接池）。
+
+| 监控项 | 采集点 | 存储/查询 |
+|---|---|---|
+| API 耗时（端点 × P50/95/99） | M06/M07 中间件 | AgenticLogger JSONL → `agenticdocer logs stats` |
+| 错误率（端点 × error_code） | 同上 | 同上（`--group-by error_code`） |
+| 慢查询 Top-N | M02 查询包装器（> `SLOW_QUERY_MS`） | 同上 |
+| 鉴权失败率 | M10 `verify_signature` | JSONL + PG `events(entity='auth')` |
+| 渲染耗时（整档/章节） | M04 | JSONL |
+| 导入进度/覆盖率 | M03 | JSONL |
+| 容量健康（分区/膨胀/索引/归档） | M09B `perf_health` detector | `agenticdocer stats --health` |
+
+**审计与日志分离（P2 强化）**：AgenticLogger 记**运行日志**（可轮转可丢弃）；审计事件仍落 PG `events`（append-only 权威）。两者不可互替。
 |---|---|---|
 | 规模（文档） | **≥10,000 份文档**（新增）；单库节点 ≈13.4M（条款级粒度，按 1,343 原子/文档实测校准） | 库内计数（`SELECT count(*)`）；超 20M 节点触发再评估（分区/归档） |
 | 规模（身份） | **≥10,000 个已注册 agent 身份**；并发写入者 ≤50（按用户澄清口径） | `users` 表计数；并发以 PG `pg_stat_activity` 活跃写事务峰值度量 |
