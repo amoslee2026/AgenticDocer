@@ -224,6 +224,44 @@ def blocks_to_nodes(doc_id: str, blocks: list[str]) -> list[NodeIn]:
     return nodes
 
 
+async def bulk_ingest_markdown(
+    storage: Storage, source: Path, doc_id: str
+) -> tuple[str, str]:
+    """整档入库的**性能基准夹具**：单事务 ``executemany`` 直插 ``nodes``（不写事件）。
+
+    仅供性能测量（最大文档 CXL 3.59MB / 13,835 节点）——逐条 ``upsert_node``（真实 M03
+    写入路径）在该规模下耗时过长，而性能测量关心的是**读取 + 渲染**成本，不是写入成本。
+    功能断言（往返/渲染/P4）一律走 :func:`ingest_markdown` 的真实路径。
+    """
+    from agenticdocer.model import new_uuid7
+    from agenticdocer.store.nodes import node_values
+    from agenticdocer.store.rows import now
+    from agenticdocer.store.schema import nodes as nodes_table
+    from sqlalchemy import insert
+
+    raw = source.read_text(encoding="utf-8")
+    front, body = split_frontmatter(raw)
+    await storage.upsert_doc(
+        DocIn(
+            doc_id=doc_id,
+            doc_type="standard",
+            title=str(front.get("title") or source.stem),
+            meta={"spec_org": str(front.get("spec_org") or "n/a"), "status": "approved"},
+            source_ref=str(front.get("source") or "") or None,
+        ),
+        None,
+        CTX,
+    )
+    timestamp = now()
+    rows = [
+        node_values(node.node_id or new_uuid7(), node.model_dump(), created_at=timestamp)
+        for node in blocks_to_nodes(doc_id, split_blocks(body))
+    ]
+    async with storage.db.transaction() as session:
+        await session.execute(insert(nodes_table), rows)
+    return doc_id, body
+
+
 async def ingest_markdown(
     storage: Storage,
     source: Path,
