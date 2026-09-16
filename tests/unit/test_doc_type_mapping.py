@@ -474,6 +474,14 @@ def test_coverage_matrix_atom_conforms_to_model_schema() -> None:
     assert "<table" in content["fragment"]
     assert content["meta"] == {"rows": 6, "cols": 5, "cells": 30, "max_colspan": 1}
     assert "CI1 写响应顺序" in content["text"], "A10：content.text 由 M01 单点派生（非空）"
+    assert is_atom_allowed("product", COVERAGE_MATRIX_ATOM), "§4：product 放行覆盖矩阵变体"
+    assert not is_atom_allowed("standard", COVERAGE_MATRIX_ATOM), "standard 路径不受影响"
+
+
+def test_vplan_format_values_feed_frontmatter_field() -> None:
+    """§4 闭环：解析出的 `format` 是 frontmatter `verification_plan_format` 的合法取值。"""
+    assert parse_vplan(VPLAN_XML).format in VERIFICATION_PLAN_FORMATS
+    assert parse_vplan(UCIS_XML).format in VERIFICATION_PLAN_FORMATS
 
 
 def test_coverage_matrix_content_rejects_empty_rows() -> None:
