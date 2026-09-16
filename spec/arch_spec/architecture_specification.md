@@ -486,23 +486,41 @@ def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders
     (3) key_id → users 表查 active 公钥；(4) 验签。任一失败 → AuthError(401/403)。"""
 
 # 会话（WebUI 路径）
-async def create_challenge() -> Challenge: ...       # nonce，一次性，TTL 120s
-async def login(key_fingerprint: str, nonce: str, signature: str) -> Session: ...
-async def resolve_session(token: str) -> User | None: ...   # 会话 TTL 8h，滑动续期
+async def create_challenge(ip: str) -> Challenge: ...   # nonce 一次性 TTL 120s；**按 IP 限流**（S7）
+async def login(key_fingerprint: str, nonce: str, signature: str) -> Session:
+    """SSHSIG 验签（namespace=agenticdocer@auth）；成功 → session。
+    session.token = secrets.token_urlsafe(32)（**256 位 CSPRNG**，S13）；DB 仅存 SHA256(token)。"""
+async def resolve_session(token: str) -> User | None:
+    """**JOIN users 且 status='active'**，否则删除会话并返回 None（401）——S8：
+    禁用用户/吊销密钥后，既有 WebUI 会话立即失效。会话 TTL 8h 滑动续期；
+    过期清理与 nonce 清理同一任务（S15：DELETE WHERE expires_at < now()）。"""
 def logout(session_id: str) -> None: ...
 
-# RBAC
-def authorize(user: User, permission: str, target: GrantTarget | None) -> None:
-    """role 基线权限 ∪ 文档集级 grant（B3）：admin=全部；editor=read+write+review；
-    reviewer=read+review；reader=read。grant 仅能**叠加**不能超过角色上限。
-    违规 → ForbiddenError(403)，落审计（events.entity='auth'）。"""
+# RBAC（S5 修复：形式化判定，消除「OR 越权」与「上限未定义」矛盾）
+ROLE_PERMISSIONS: dict[RoleName, frozenset[str]] = {
+    "admin":    frozenset({"read","write","review","manage_users"}),
+    "editor":   frozenset({"read","write","review"}),
+    "reviewer": frozenset({"read","review"}),
+    "reader":   frozenset({"read"}),
+}
+# 角色上限 = 该角色自身权限集（grant 不得超出）；文档集级 grant 仅在此集内**细分范围**，不扩权。
+def role_permits(role: RoleName, perm: str) -> bool: ...
+def grant_matches(user: User, perm: str, target: GrantTarget) -> bool: ...
+def authorize(user: User, perm: str, target: GrantTarget | None) -> None:
+    """判定式（S5 形式化）：
+       (1) `role_permits(user.role, perm)` 必须为真 —— 角色是**硬上限**（reader + write grant 永远被拒）；
+       (2) 若 target 给定且该 doc/doc_type 上存在**收窄性 grant**，则要求 `grant_matches(...)` ——
+           grant 用于**限制**（如 editor 仅在 product 类型上可写），不用于扩权。
+       违规 → ForbiddenError(403)，落 audit 事件。
+       授予侧（POST /grants）**同时**校验 `role_permits(grantee.role, permission)`，越权 grant 在授予时即 409/422。"""
 
-# 管理员自举（用户裁决：环境变量引导）
+# 管理员自举（用户裁决：环境变量引导；S9 修复：语义统一）
 def bootstrap_admin(public_key_path: Path) -> User:
-    """migrate/首次启动时执行：若 users 表无 admin，则由
-    ADMIN_SSH_PUBKEY_FILE（默认 data/admin_keys/admin.pub）读公钥建 admin 用户。
-    幂等：已存在 admin 则跳过。"""
-```
+    """**触发条件（统一语义）：不存在 status='active' 的 admin 时**执行（可重复救援）；
+    否则幂等跳过。用户管理端点另有约束（S9）：
+      · 不可 disable/demote/delete **自身**；
+      · 不可操作**最后一个 active admin**（否则 409 并提示先指定继任者）。
+    已存在 admin 且键文件变更时不自动改写（以 DB 为准）。"""
 
 **权限矩阵（B3 四角色 + 文档集级授权）**：
 
@@ -513,7 +531,11 @@ def bootstrap_admin(public_key_path: Path) -> User:
 | reviewer | ✗ | ✗ | ✅ | ✅ | ✅ | ✗ |
 | reader | ✗ | ✗ | ✗ | ✗ | ✅ | ✗ |
 
-**鉴权审计**：所有鉴权失败（401/403）与用户/授权变更落 `events`（`entity='auth'`，A18 载荷规范扩展），供审计追溯。
+**鉴权审计（S1/S10 修复）**：所有鉴权失败（401/403）与用户/授权/密钥变更落 `events`（`entity='auth'`，**已加入 DDL CHECK 与 Event Literal**）。**失败事件的 actor 固定为 `anonymous`**（身份尚未验证），请求中自述的身份值一律记入 `claimed_*` 字段并与验证结果区分，**不得**直接写入 `user_id`/`key_fingerprint`（防污染审计，S10）。成功登录/变更事件的 actor 为验签所得真实 `user_id`。
+
+**grant 语义（S5 修复）**：`scope ∈ {doc_type, doc}` **二选一**（`repo` 已删除——docs/nodes 无 repo 字段，属悬空概念）；`GrantTarget = DocTypeTarget(value) | DocTarget(doc_id)`（类型已补入 §3.0）。grant 为**收窄器**：角色决定「能做什么」，grant 决定「在哪些文档上」。
+
+**速率限制（S7 修复）**：`/auth/challenge` 与 `/auth/login` 按 IP 限流（默认 10 次/分钟，`AUTH_RATE_LIMIT_PER_MIN` 可配）；**验签失败的请求不写 nonces 表**（nonce 仅在验签通过后消费）；`auth` 失败事件按 `(ip, 5min)` 聚合计数（避免审计淹没）。
 
 ### M-LR LightRAG 边界（暂缓联调，C7）
 
