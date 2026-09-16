@@ -85,7 +85,6 @@ section_meta: "@meta"
 # 部署时（环境变量引导，用户裁决）
 echo "$(cat ~/.ssh/id_ed25519.pub)" > data/admin_keys/admin.pub
 uv run agenticdocer auth bootstrap            # **S9：不存在 active admin 时可重复执行**（救援语义）
-uv run agenticdocer auth bootstrap            # **S9：不存在 active admin 时可重复执行**（救援语义）
 ```
 `data/admin_keys/` 纳入 `.gitignore`（含个人公钥，虽非秘密但不必入库）。
 
