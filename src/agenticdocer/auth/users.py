@@ -53,10 +53,10 @@ from agenticdocer.store import (
 )
 from agenticdocer.store.rows import row_to_dict, as_uuid
 from agenticdocer.store.schema import grants, ssh_keys, users
-
 from .errors import SignatureFormatError
 from .rbac import ROLE_PERMISSIONS, authorize, validate_grant
-from .signing import fingerprint_of_blob, normalize_key_id, validate_public_key
+from .signing import normalize_key_id
+from .sshsig import fingerprint_of_blob, validate_public_key
 
 __all__ = [
     "DEFAULT_ADMIN_USERNAME",
