@@ -766,8 +766,6 @@ async def test_webui_session_login_and_identity(
     events = await admin.get(f"/api/v1/events?entity=node&entity_id={written.json()['nodeId']}")
     assert events.status_code == 200
     assert events.json()[0]["actor"] == str(admin_id)  # 会话身份 = 验签所得 user_id
-    assert events.status_code == 200
-    assert events.json()[0]["actor"] == str(actor)  # 会话身份 = 验签所得 user_id
 
     # logout 删行后，同一 Cookie 再用即 401（S15）
     assert (await client.post("/api/v1/auth/logout")).status_code == 204
