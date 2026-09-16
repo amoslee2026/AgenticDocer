@@ -71,8 +71,7 @@ EVENTS_PARTITION_PREFIX: Final = "events_"
 EVENTS_DEFAULT_PARTITION: Final = "events_default"
 
 
-def _uuid_pk() -> Column[Any]:
-    return Column("_placeholder", PGUUID(as_uuid=True))
+def _pk_uuid(name: str) -> Column[Any]:
 
 
 def _pk_uuid(name: str) -> Column[Any]:
