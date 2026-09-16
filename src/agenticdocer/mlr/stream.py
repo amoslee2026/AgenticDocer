@@ -38,7 +38,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Final
 from uuid import UUID
 
-from agenticdocer.model import Event, is_uuid7, uuid7_timestamp_ms
+from agenticdocer.model import Event, uuid7_timestamp_ms
+from agenticdocer.model.uuid7 import is_uuid7
 from agenticdocer.observability import get_logger
 from agenticdocer.store import Storage, ValidationError
 
