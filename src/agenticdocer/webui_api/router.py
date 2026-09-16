@@ -65,8 +65,10 @@ from agenticdocer.model import (
     SchemaDef,
     SshKey,
     Term,
-    TermKind,
-    UnknownAtomTypeError,
+    User,
+    get_atom_schema,
+)
+from agenticdocer.model.types import UserStatus
     User,
     UserStatus,
     get_atom_schema,
