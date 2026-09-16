@@ -123,6 +123,12 @@ __all__ = [
     "report",
     "rule_counts",
     "scan_blocks",
+    # vplan（§4：UCIS/vPlan 对齐）
+    "COVERAGE_MATRIX_ATOM",
+    "CoverageRow",
+    "VPlan",
+    "coverage_matrix_atom",
+    "parse_vplan",
     # bulk（ADR-009 §3）
     "BULK_ROWS_PER_TRANSACTION",
     "bulk_insert_nodes",
