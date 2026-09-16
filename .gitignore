@@ -15,3 +15,16 @@ temp/
 build/
 dist/
 .venv/
+
+# 凭据与运行数据（ADR-007）
+.env
+.env.*
+!.env.example
+data/
+logs/
+
+# 构建与 uv
+.venv/
+build/
+dist/
+*.egg-info/
