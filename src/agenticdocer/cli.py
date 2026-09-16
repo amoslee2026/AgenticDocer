@@ -180,8 +180,6 @@ def _forbidden_hint(need: Need, *, fingerprint_text: str | None = None) -> list[
     if fingerprint_text:
         lines.append(f"你的公钥指纹：{fingerprint_text}（用于核对 users 表登记项）。")
     return lines
-        lines.append("（用户管理为 admin 专属，grant 无法提权：只能由现任 admin 授予 admin 角色）")
-    return lines
 
 
 def _key_hint(fingerprint_text: str | None = None) -> list[str]:
@@ -313,7 +311,7 @@ class SigningClient:
 
     def key_fingerprint(self) -> str:
         """私钥对应公钥指纹（``SHA256:…``）。"""
-        return fingerprint(public_key_line(self._load()))
+        return fingerprint(public_key_line(self.private_key()))
 
     def optional_fingerprint(self) -> str | None:
         """尽力取指纹（干跑/私钥缺失时返回 ``None``，不抛错）。"""
@@ -357,7 +355,7 @@ class SigningClient:
         if self.dry_run:
             return _dry_response(target, method, raw_path, raw_body, self.optional_fingerprint())
 
-        headers = sign_request_headers(self._load(), method, raw_path, raw_body)
+        headers = sign_request_headers(self.private_key(), method, raw_path, raw_body)
         if raw_body is not None:
             headers["Content-Type"] = "application/json"
         log.info("cli request", method=method.upper(), path=raw_path, api=self.base_url)
@@ -489,10 +487,6 @@ def _violation_lines(detail: Any) -> list[str]:
 
 
 # ── 输出（人可读 / --json 结构化）─────────────────────────────────────────
-
-
-@dataclass
-class CliContext:
 
 
 def _emit_json(payload: Any) -> None:
@@ -784,7 +778,7 @@ def bootstrap(
 def whoami(context: typer.Context) -> None:
     """打印当前身份 / 角色 / 公钥指纹（REQ-M11-F04）。"""
     need = Need(command="auth whoami", permission="read")
-    client = _client_with(context, need)
+    client = _client_with(context)
     identity = client.json("GET", _ME, need=need)
     if not isinstance(identity, Mapping):  # pragma: no cover
         raise CliError("身份响应异常（非对象）")
@@ -823,7 +817,7 @@ def sign(
     if login and nonce is None:
         raise CliError("--login 需要同时给 --nonce <登录页显示的 nonce>")
     payload_bytes = login_payload(nonce) if nonce is not None else str(message).encode("utf-8")
-    key = client._load()
+    key = client.private_key()
     signature = sign_message(key, payload_bytes)
     payload = {
         "mode": "login" if nonce is not None else "message",
@@ -1256,7 +1250,7 @@ def doc_delete(
             }
         )
         return
-    client = _client_with(context, need)
+    client = _client_with(context)
     nodes = client.json("GET", f"/api/v1/docs/{doc_id}/nodes", need=need)
     targets = [
         (str(node.get("nodeId")), int(node.get("version") or 1))
