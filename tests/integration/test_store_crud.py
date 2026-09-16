@@ -182,7 +182,8 @@ async def test_doc_lifecycle_and_status_flow(storage: Storage) -> None:
 
     listed = {d.doc_id: d for d in await storage.list_docs()}
     assert listed[doc_id].status == "draft"
-    assert [d.doc_id for d in await storage.list_docs(status="approved")] == []
+    # 共享库上可能有他人的 approved 文档（默认不重建 schema）→ 只断言本 doc 的状态
+    assert doc_id not in {d.doc_id for d in await storage.list_docs(status="approved")}
 
     reviewed = await storage.update_doc_status(doc_id, "reviewed", doc.version, CTX)
     assert (reviewed.status, reviewed.version) == ("reviewed", 2)
