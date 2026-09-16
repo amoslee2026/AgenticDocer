@@ -70,7 +70,6 @@ __all__ = [
     "key_type_for",
     "parse_sshsig",
     "public_key_line_from_blob",
-    "public_key_line_from_blob",
     "signed_data",
     "validate_public_key",
     "verify_sshsig",
