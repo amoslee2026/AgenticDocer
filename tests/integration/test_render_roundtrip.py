@@ -217,19 +217,20 @@ async def _store_single_table_doc(storage: Storage, doc_id: str, fragment: str) 
 
 
 @pytest.mark.asyncio
-async def test_frontmatter_writeback_matches_c5_mapping(storage: Storage, tmp_path: Path) -> None:
+async def test_frontmatter_writeback_matches_c5_mapping(
+    amba: tuple[str, str], storage: Storage, tmp_path: Path
+) -> None:
     """§6：产物 frontmatter = C5 十七字段（title/spec_id/spec_type/source 由 doc 列回填）。"""
-    _require(AMBA)
-    await ingest_markdown(storage, AMBA, AMBA_DOC)
-    doc = await storage.get_doc(AMBA_DOC)
-    result = await render_document(AMBA_DOC, tmp_path / "rendered", storage=storage)
+    doc_id, _ = amba
+    doc = await storage.get_doc(doc_id)
+    result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
     text = Path(result.out_path).read_text(encoding="utf-8")
 
     assert text.startswith("---\n")
     head = text.split("---\n", 2)[1]
     parsed = yaml.safe_load(head)
     assert parsed["title"] == doc.title
-    assert parsed["spec_id"] == doc.doc_id == AMBA_DOC
+    assert parsed["spec_id"] == doc.doc_id == doc_id
     assert parsed["spec_type"] == doc.doc_type == "standard"
     assert parsed["source"] == doc.source_ref
     missing = [field for field in ("spec_org", "spec_revision", "status", "version") if field not in parsed]
@@ -283,10 +284,11 @@ async def test_image_assets_exported_and_rewritten(storage: Storage, tmp_path: P
 
 
 @pytest.mark.asyncio
-async def test_render_section_scoped_and_fast(storage: Storage, tmp_path: Path) -> None:
+async def test_render_section_scoped_and_fast(
+    amba: tuple[str, str], storage: Storage, tmp_path: Path
+) -> None:
     """分章节渲染（B10）：只含该子树、产物落 ``sections/<anchor>.md``、耗时 <1s（§1.4）。"""
-    _require(AMBA)
-    doc_id, _ = await ingest_markdown(storage, AMBA, AMBA_DOC)
+    doc_id, _ = amba
     nodes = await storage.get_doc_nodes(doc_id)
     sections = list_sections(nodes)
     assert sections, "应能识别出 level-1/2 章节"
@@ -312,12 +314,13 @@ async def test_render_section_scoped_and_fast(storage: Storage, tmp_path: Path) 
 
 
 @pytest.mark.asyncio
-async def test_render_missing_targets_raise_not_found(storage: Storage, tmp_path: Path) -> None:
+async def test_render_missing_targets_raise_not_found(
+    amba: tuple[str, str], storage: Storage, tmp_path: Path
+) -> None:
     """不存在 → ``NotFoundError``（404），不产出半成品文件。"""
+    doc_id, _ = amba
     with pytest.raises(NotFoundError):
         await render_document("SPEC-DOES-NOT-EXIST", tmp_path / "rendered", storage=storage)
-    _require(AMBA)
-    doc_id, _ = await ingest_markdown(storage, AMBA, AMBA_DOC)
     with pytest.raises(NotFoundError):
         await render_section(doc_id, new_uuid7(), tmp_path / "rendered", storage=storage)
 
