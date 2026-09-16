@@ -352,15 +352,17 @@ def test_fingerprint_matches_ssh_keygen_lf(openssh_dir: Path) -> None:
 
 @needs_ssh_keygen
 @pytest.mark.parametrize("key_name", ["id_ed25519", "id_rsa"])
-def test_verify_real_ssh_keygen_signature(openssh_keys: dict[str, Path], key_name: str) -> None:
+def test_verify_real_ssh_keygen_signature(openssh_dir: Path, key_name: str) -> None:
     """**硬验收（S11）**：``ssh-keygen -Y sign`` 的产物必须被本验签器接受。"""
-    path = openssh_keys[key_name]
+    path = openssh_dir / key_name
+    message = openssh_dir / "message"
     subprocess.run(
-        [SSH_KEYGEN, "-Y", "sign", "-n", sshsig.NAMESPACE, "-f", str(path), str(openssh_keys / "message")],
+        [SSH_KEYGEN, "-Y", "sign", "-n", sshsig.NAMESPACE, "-f", str(path), str(message)],
         check=True,
         capture_output=True,
     )
-    signature = Path(f"{openssh_keys / 'message'}.sig").read_text()
+    signature = Path(f"{message}.sig").read_text()
+    public_key = (openssh_dir / f"{key_name}.pub").read_text()
     public_key = path.with_suffix(".pub").read_text()
     verified = sshsig.verify_sshsig(public_key, signature, MESSAGE)
     assert verified.namespace == sshsig.NAMESPACE
@@ -374,7 +376,7 @@ def test_verify_real_ssh_keygen_signature(openssh_keys: dict[str, Path], key_nam
 @needs_ssh_keygen
 @pytest.mark.parametrize("key_name", ["id_ed25519", "id_rsa"])
 def test_ssh_keygen_verifies_our_signature(
-    openssh_keys: dict[str, Path], key_name: str, tmp_path: Path
+    openssh_dir: Path, key_name: str, tmp_path: Path
 ) -> None:
     """反向互操作：本模块签名 → ``ssh-keygen -Y verify`` 判定 Good signature。
 
@@ -382,7 +384,7 @@ def test_ssh_keygen_verifies_our_signature(
     故该方向对 RSA 用 v1.5 生成签名的验签器输入；签名侧默认 PSS（S11）已由
     ``test_verify_rsa_accepts_pss_and_legacy_pkcs1v15`` 覆盖。
     """
-    path = openssh_keys[key_name]
+    path = openssh_dir / key_name
     key = signing.load_private_key(path)
     if key_name == "id_ed25519":
         signature = signing.sign_message(key, MESSAGE)
