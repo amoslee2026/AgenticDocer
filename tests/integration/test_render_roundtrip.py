@@ -326,8 +326,6 @@ async def test_full_cxl_document_roundtrip_and_timing(storage: Storage, tmp_path
     """
     _require(CXL)
     doc_id = f"SPEC-CXL-FULL-{next(_SEQ)}"
-    doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
-    source_form = normalize_markdown(source)
     _doc_id, source = await bulk_ingest_markdown(storage, CXL, doc_id)
     # (a) 解析保真
     assert await normalize(doc_id, storage=storage) == source_form
