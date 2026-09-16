@@ -229,7 +229,7 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
         "ASSET_STORE_DIR": str(work / "assets"),
         "IMPORT_WORK_DIR": str(work / "import_work"),
         "RENDER_OUT_DIR": str(work / "rendered"),
-        "LOG_DIR": str(work / "logs"),
+        "ADMIN_SSH_PUBKEY_FILE": str(work / "admin_ed25519.pub"),
         "ADMIN_SSH_PUBKEY_FILE": str(work / "admin.pub"),
         "IMPORT_SOURCE_ROOT": str(work),
     }
