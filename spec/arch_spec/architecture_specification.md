@@ -658,7 +658,6 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 ### 4.1 DB 角色与权限（A15）
 
 ```sql
-```sql
 -- 属主：agenticdocer（database owner，建库时创建）
 CREATE ROLE agenticdocer LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
 CREATE ROLE agenticdocer_app LOGIN PASSWORD '…';         -- 应用连接角色（最小权限）
