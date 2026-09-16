@@ -14,10 +14,13 @@
 故 `review` 默认只走「未决 + 待确认/兜底」，`A`（批量通过）**仅作用于非待确认项**，
 其余需逐条显式处置（REQ-M03-F02 验收）。
 
-**入库口径（REQ-M03-F03）**：先经 :func:`check_proposals`（M09A 等价 schema 级校验，
-用 M01 `ATOM_SCHEMAS` + jsonschema 本地实施），再经 M02 逐写（每次写入 = 事件 + 实体同事务）；
-整个导入**幂等**（同锚复用既有节点、无变化不写事件），故部分失败可安全重跑。
-`parent_node_id` 由 `level` + `ordinal` 在提交期重建（node_id 到提交期才产生）。
+**入库口径（REQ-M03-F03）**：先经 :func:`check_proposals` 门禁——其中 schema / `content.text`
+（含与 `derive_text` 的一致性）/ 原子注册 / 锚形态 / `doc_type` 组合规则**一律由 M09A
+（:func:`agenticdocer.m09.validate_write` / `validate_proposal`）判定**（P5：判据单点，
+M03 不重复实现），M03 只追加结构判据（锚同档唯一、兜底锚登记、必备原子在场）。
+其后经 M02 逐写（每次写入 = 事件 + 实体同事务）；整个导入**幂等**（同锚复用既有节点、
+无变化不写事件），故部分失败可安全重跑。`parent_node_id` 由 `level` + `ordinal` 在提交期
+重建（node_id 到提交期才产生）。
 """
 
 from __future__ import annotations
