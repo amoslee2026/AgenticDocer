@@ -22,12 +22,12 @@ uv run alembic upgrade head         # 建库（database: agenticdocer）
 uv run agenticdocer-api             # 启动服务（默认 127.0.0.1:8787）
 
 # 导入一份规范文档（三步骤：解析 → 审核 → 入库）
-uv run python -m agenticdocer.import parse ../spec/standards/IHI0024_AMBA_APB_spec.md   # 生成提议清单
-uv run python -m agenticdocer.import review IHI0024_AMBA_APB_spec                      # 逐条审核（CLI）
-uv run python -m agenticdocer.import commit IHI0024_AMBA_APB_spec                      # 校验+事务入库
+uv run agenticdocer-import parse spec/standards/amba/IHI0024_AMBA_APB_spec.md   # 生成提议清单（在仓库根目录执行）
+uv run agenticdocer-import review IHI0024_AMBA_APB_spec                         # 逐条审核（CLI，状态落 data/import_work/）
+uv run agenticdocer-import commit IHI0024_AMBA_APB_spec --actor importer        # 校验+事务入库
 
 # 渲染（产物落 build/rendered/，不动 spec/）
-uv run python -m agenticdocer.render IHI0024_AMBA_APB_spec
+uv run agenticdocer-render IHI0024_AMBA_APB_spec
 ```
 
 ## 2. 导入与审核（半自动流程）

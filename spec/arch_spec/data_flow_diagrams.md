@@ -55,7 +55,7 @@ sequenceDiagram
     participant R as M04
     A->>V: NodeIn + expected_version
     V-->>A: Violation[]（拒）
-    V->>S: 事务开始
+    V-->>S: 校验通过 → M02 开启事务
     S->>S: INSERT events（字段级 diff）
     S->>S: UPDATE nodes（version+1）
     S->>S: 事务提交

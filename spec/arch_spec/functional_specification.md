@@ -66,7 +66,7 @@ section_meta: "@meta"
 
 节点字段（`format` ∈ {md,html,text}、`parent_node_id`、`level`、`anchor`）的构造与校验规则：锚 = 章节号路径，重复标题加「内容 sha256 前 8 位」消歧；与位置无关。
 
-**验收标准**：对语料实测的 219×「Test Steps:」类重复标题生成互异且稳定的锚；锚生成在两次相同解析中逐字节一致（幂等）。
+**验收标准**：锚消歧口径 = 「同父路径+同标题 → 正文摘要 sha256[:8]；正文亦同 → 同级序号」（A1）；对实测 219×「Test Steps:」（同父同题）全组生成**互异**锚，且两次相同解析结果逐字节一致（幂等）。
 
 ### REQ-M01-F03: doc_type 组合规则
 
@@ -102,7 +102,7 @@ section_meta: "@meta"
 
 批注创建（锚定 `target_event_id`）、解决（resolved）、节点删除后置 `orphaned`（保留不级联）。
 
-**验收标准**：节点删除后批注仍在且 `state=orphaned`；历史视图可按批注的 `target_event_id` 定位其锚定版本。
+**验收标准**：节点**软删**（`delete_node`，乐观锁校验）后 `status=deleted` 且批注仍在并置 `state=orphaned`（同事务触发 `orphan_comments`）；读路径默认过滤已删节点；历史视图可按批注的 `target_event_id` 定位其锚定版本。
 
 ### REQ-M02-F06: 资产表读写（sha256 寻址）
 
@@ -144,7 +144,7 @@ section_meta: "@meta"
 
 节点树 → Markdown 文档：`format:html` 片段原样回写（零改写）；frontmatter 按 C5 字段回写；图片以相对路径指向导出资产。
 
-**验收标准**：`normalize(render(store(parse(src)))) == normalize(src)`（§测试策略）；HTML 表格行列数与单元格文本保真。
+**验收标准**：`normalize(render(store(parse(src)))) == normalize(src)`（判定口径：本节 §3 M04 `normalize()` 与 `../idea/design_doc.md` §10）；HTML 表格行列数与单元格文本保真；图片集合（含 HTML `<img>`）一致。
 
 ### REQ-M04-F02: normalize() 规范化表示
 
@@ -168,7 +168,7 @@ section_meta: "@meta"
 
 PG FTS（english 起步）全文检索 + 结果含 node_id 与文档锚。
 
-**验收标准**：语料抽样关键词可命中预期节点（人工标注集）；P95 <200ms（B10）。
+**验收标准**：`tests/fixtures/search_goldenset.yaml`（≥30 条 `query → 期望 node_id`，一次性人工标注入库）命中率 ≥90%；性能：`tests/perf/` 固定查询集（≥100 次，7 份语料全量入库后，本机 PG 16.15）P95 <200ms。
 
 ### REQ-M06-F01: 结构化读写 API
 
@@ -192,7 +192,7 @@ PG FTS（english 起步）全文检索 + 结果含 node_id 与文档锚。
 
 schema 驱动表单引擎（Q3 ADR 裁决实现）；（结构化 diff 视图）；批注面板（含 orphaned）；追溯与历史视图。
 
-**验收标准**：表单由 schema 自动生成（新增原子类型零手写 UI）；diff 视图并排展示新旧值；批注/历史交互闭环。
+**验收标准**：e2e 动作——仅向 `schemas` 表插入一个新 `atom_type`（**不改任何前端文件**）后出现可用表单（「零手写 UI」的机械判据）；diff 视图并排展示新旧值；批注/历史交互闭环。
 
 ### REQ-M09-F01: M09A schema 校验引擎
 

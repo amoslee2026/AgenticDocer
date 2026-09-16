@@ -43,7 +43,7 @@ section_meta: "@meta"
 | 标题行 | 5,954 |
 | 表格形态 | **100% HTML 标记**：`<table>` 2,440 / `<tr>` 19,763 / `<td>` 79,817；57,005 单元格带 `colspan/rowspan/bgcolor/align` |
 | 内联标记 | `<sup>/<br>` 等 ≥239 行 |
-| 图片引用 | `images/<sha256>.jpg` × 1,019（实物在 GigaRAG `corpus/02_converted/specifications/*/auto/images/`） |
+| 图片引用 | md 形式 `images/<sha256>.jpg` × 1,019 + HTML `<img>` × 80（合计 **1,099**）；实物在 GigaRAG `corpus/02_converted/specifications/*/auto/images/` |
 | 标题重复 | CXL「Test Steps:」×219、「Fail Conditions:」×217、「Pass Criteria:」×214；PCIe「IMPLEMENTATION NOTE」×154；HBM4「Wrapper Data Register」×21；无编号标题存在（AMBA「Chapter A2」「Part C Glossary」） |
 
 **对设计的直接影响**：催生 v1.1 的 E1（HTML 直通策略）、E2（资产模型）、E7（稳定锚）修订（已内化于 `../idea/design_doc.md`）。
