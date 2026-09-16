@@ -406,6 +406,9 @@ def create_app(
     application.add_exception_handler(StoreError, store_error_handler)
     application.add_exception_handler(RequestValidationError, request_validation_handler)
 
+    # AUD-6/S4 启动期自检：漏挂鉴权依赖的非豁免路由 → 装配即失败（而非静默开放）
+    assert_auth_coverage(application)
+
     mounted = mount_webui(application)
     log.info(
         "API 装配完成",
