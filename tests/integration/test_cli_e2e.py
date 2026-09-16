@@ -50,8 +50,24 @@ STARTUP_TIMEOUT = 40.0
 SOURCE_MD = f"""---
 spec_id: {DOC_ID}
 title: M11 端到端样例
-doc_type: standard
+SOURCE_MD = f"""---
+title: M11 CLI 端到端样例
+type: composite
+purpose: spec
+audience: both
+direction: input
 status: draft
+version: "1.0.0"
+section_meta: "@meta"
+spec_id: {DOC_ID}
+spec_type: standard
+spec_org: TEST
+spec_revision: "1.0"
+source: corpus/01_raw/specifications/test/m11.pdf
+converted_by: mineru
+converted_at: 2026-09-16
+reviewed_by: tester
+reviewed_at: 2026-09-16
 ---
 
 # 1 概述
@@ -66,8 +82,6 @@ status: draft
 
 - 断言：驱动到被测器件的一段激励。
 """
-
-
 # ----------------------------------------------------------------------
 # 隔离库 + 进程夹具
 # ----------------------------------------------------------------------

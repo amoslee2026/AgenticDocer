@@ -240,10 +240,11 @@ def _events_statement(entity: str, entity_ids: Sequence[str] | None) -> Select[A
     return statement
 
 
-def _group(rows: Sequence[Any]) -> dict[str, list[Event]]:
+def _group(rows: Sequence[Mapping[str, Any]]) -> dict[str, list[Event]]:
+    """事件行（`RowMapping`）→ `entity_id → 按 ts 定序的事件序列`。"""
     grouped: dict[str, list[Event]] = {}
     for row in rows:
-        event = build_model(Event, row_to_dict(row))
+        event = build_model(Event, dict(row))
         grouped.setdefault(str(event.entity_id), []).append(event)
     return grouped
 
