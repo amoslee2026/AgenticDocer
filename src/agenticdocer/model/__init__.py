@@ -32,10 +32,14 @@ from .doc_types import (
     C5_META_FIELDS,
     DOC_TYPE_RULES,
     DOC_TYPES,
+    LANG_ATOM_TYPES,
+    LANG_META_FIELDS,
     DocTypeRule,
     allowed_atom_types,
+    allowed_atom_variants,
     get_doc_type_rule,
     is_atom_allowed,
+    is_variant_allowed,
     missing_required_meta,
     register_doc_type_rule,
 )
@@ -60,7 +64,7 @@ __all__ = [
     "normalize_body",
     "section_path_str",
     "slugify",
-    # atoms（八类 + 2 变体，A10）
+    # atoms（八类 + 4 变体，A10）
     "ATOM_SCHEMAS",
     "ATOM_TYPES",
     "ATOM_VARIANTS",
@@ -71,12 +75,16 @@ __all__ = [
     "html_to_text",
     # doc_type 组合规则（REQ-M01-F03）
     "C5_META_FIELDS",
+    "LANG_ATOM_TYPES",
+    "LANG_META_FIELDS",
     "DOC_TYPE_RULES",
     "DOC_TYPES",
     "DocTypeRule",
     "allowed_atom_types",
+    "allowed_atom_variants",
     "get_doc_type_rule",
     "is_atom_allowed",
+    "is_variant_allowed",
     "missing_required_meta",
     "register_doc_type_rule",
 ]
