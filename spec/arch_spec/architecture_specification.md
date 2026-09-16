@@ -638,7 +638,7 @@ CREATE TABLE nonces (                          -- 签名重放防护（B2）
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- TTL 300s 定期清理
 ```
 
-### 4.2 分区策略（ADR-009，批注 A8）
+### 4.4 分区策略（ADR-009，批注 A8）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、外键降级）
 
 ```sql
 -- 规模：≥10,000 文档 / ≈13.4M 节点 / 20–54GB
@@ -655,9 +655,9 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 -- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底），避免分区键侵入唯一索引
 ```
 
-### 4.3 DB 角色与权限（A15）
+### 4.1 DB 角色与权限（A15）
 
-
+```sql
 ```sql
 -- 属主：agenticdocer（database owner，建库时创建）
 CREATE ROLE agenticdocer LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
@@ -671,7 +671,7 @@ REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
 
-#### 4.3.1 应用层 RBAC（M10，批注 A1/A2/B3）
+#### 4.1.1 应用层 RBAC（M10，批注 A1/A2/B3）
 
 见 §3 M10「权限矩阵」。DB 层仅区分属主（迁移）与应用（最小权限）；用户级权限（四角色 + 文档集级 grant）由 **M10 应用层**强制，落 `users`/`grants` 表（§4）。
 
