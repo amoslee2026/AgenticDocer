@@ -105,6 +105,7 @@ RULES_9A: tuple[str, ...] = (
 
 _TEXT_REQUIRED_MESSAGE: Final = "'text' is a required property"
 """jsonschema 对 `required: ["text"]` 的文案（`A10.content.text` 拥有该判据，故在此剔除）。"""
+
 _EXTERNAL_PREFIX: Final = "EXT:"
 _CLIP_CHARS: Final = 120
 
