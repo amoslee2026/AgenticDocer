@@ -23,13 +23,13 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from agenticdocer.auth import bootstrap, middleware, rbac, sessions, signing, sshsig
+from agenticdocer.auth import bootstrap, middleware, sessions, signing, sshsig
 from agenticdocer.auth import users as auth_users
-from agenticdocer.auth.errors import AuthenticationError, BootstrapError
+from agenticdocer.auth.errors import BootstrapError
 from agenticdocer.auth.router import router as auth_router
 from agenticdocer.model import DocTarget, DocTypeTarget, WriteContext, new_uuid7
 from agenticdocer.store import (

@@ -43,6 +43,7 @@ from agenticdocer.importer.parser import (
     parse_markdown,
 )
 from agenticdocer.importer.rules import MATCHERS, parse_numbering
+from agenticdocer.model import RawFallback
 
 pytestmark = pytest.mark.filterwarnings("error::UserWarning")
 
