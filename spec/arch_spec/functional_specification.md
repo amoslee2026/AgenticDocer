@@ -271,33 +271,35 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 ### REQ-M10-F01: SSH 公钥签名鉴权（全端点）
 
-所有 HTTP 端点（含读）要求 SSH 签名：请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`/`X-Actor`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nTimestamp\nNonce`。服务端按「时间窗 → nonce 未复用 → 公钥查表 → 验签」顺序校验。
+所有 HTTP 端点需 SSH 签名（**豁免白名单除外**：`/auth/challenge`、`/auth/login`、登录页静态资源、`/healthz`）。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`（**无 `X-Actor`**——S14：身份一律取自验签结果）。签名载荷（**S2**）：`METHOD\nRAW_PATH(含query原样字节)\nSHA256(body).hexdigest()\nTIMESTAMP\nNONCE`；编码统一 **SSHSIG**（namespace `agenticdocer@auth`，RSA 用 PSS，**S11**）。校验顺序（**S3/S7**）：① 时间窗 → ② 公钥查表 → ③ **验签** → ④ **验签通过后**才消费 nonce。
 
-**验收标准**：(a) 有效签名通过，`actor` 解析为 `user_id`；(b) 篡改 body/path/时间戳任一 → 401；(c) 重放同一 nonce → 401；(d) 时间戳偏移 >300s → 401；(e) 未注册公钥 → 403；(f) `X-Actor` 与验签身份不一致 → 403；(g) 无凭据 → 401（**fail-closed**）。
+**验收标准**：(a) 有效签名通过，`actor` 解析为验签所得 `user_id`；(b) 篡改 body / path / **query 任一参数**（如 `expected_version`）/ 时间戳 → 401；(c) 重放同一 nonce → 401；(d) 时间戳偏移 > `SIGNATURE_MAX_SKEW_SECONDS`（默认 300s）**或未来偏移 >30s** → 401；(e) 未注册公钥 → 403；(f) 签名有效但角色不足 → 403；(g) 无凭据 → 401（**fail-closed**）；(h) **豁免清单外端点无凭据必 401**；(i) 验签失败的请求**不写 nonces 表**（S7）。
 
 ### REQ-M10-F02: WebUI 会话登录（挑战-响应）
 
-`POST /auth/challenge` 取一次性 nonce（TTL 120s）→ 客户端用 SSH 私钥签名 → `POST /auth/login` 验签通过后签发会话 Cookie（httpOnly/SameSite=Lax，TTL 8h 滑动续期）；`POST /auth/logout` 销毁。
+`POST /auth/challenge`（**按 IP 限流**，S7）取一次性 nonce（TTL 120s）→ 客户端用 SSH 私钥签名 → `POST /auth/login` 验签通过后签发会话 Cookie（httpOnly/SameSite=Lax/**Secure**，TTL 8h 滑动续期）；`POST /auth/logout` 销毁；过期会话由定期任务清理（**S15**，与 nonce 清理同任务）。
 
-**验收标准**：(a) 有效签名登录成功并 Set-Cookie；(b) nonce 复用/过期 → 401；(c) 会话过期后请求 → 401；(d) logout 后原 Cookie 失效；(e) 会话 token 在 DB 仅存 SHA256 哈希（明文不入库）。
+**登录签名方式（S12）**：仅两条——(a) 本地 CLI 签名后粘贴（`agenticdocer auth sign --login --nonce <n>`）；(b) 上传一次性签名文件。**不做** WebAuthn（无数据模型支撑）、**不在浏览器读私钥**。
+
+**验收标准**：(a) 有效签名登录成功并 Set-Cookie；(b) nonce 复用/过期 → 401；(c) 会话过期后请求 → 401；(d) logout 后原 Cookie 失效；(e) token 在 DB 仅存 SHA256 哈希（明文不入库）；(f) **token = `secrets.token_urlsafe(32)`（256 位 CSPRNG，S13）**；(g) 非 loopback 部署时 Cookie 带 `Secure`（**S6**，见架构 §5）。
 
 ### REQ-M10-F03: 用户与 SSH 公钥管理（admin）
 
 `GET/POST /api/v1/users`、`PATCH/DELETE /api/v1/users/{id}`、`POST /api/v1/users/{id}/keys`（登记/吊销公钥）。
 
-**验收标准**：(a) 仅 admin 可访问（其他角色 403）；(b) 禁用用户后其所有密钥立即失效（后续请求 401）；(c) 吊销单个密钥不影响同用户其他密钥；(d) 用户变更落 `auth` 事件（审计）；(e) 用户名唯一冲突返回 409。
+**验收标准**：(a) 仅 admin 可访问（其他角色 403）；(b) 禁用用户后**其密钥与既有会话均立即失效**（后续请求 401，**S8**：`resolve_session` JOIN `users.status`）；(c) 吊销单个密钥不影响同用户其他密钥；(d) 用户变更落 `auth` 事件（审计）；(e) 用户名唯一冲突返回 409；(f) **不可 disable/demote/delete 自身，也不可操作最后一个 active admin**（409，**S9**）。
 
 ### REQ-M10-F04: RBAC 四角色 + 文档集级授权
 
-四角色基线权限（见架构 §3 M10 权限矩阵）+ `grants` 表按 `doc_type`/`doc`/`repo` 授予额外权限；`authorize(user, perm, target)` 判定：角色基线 ∪ 有效 grant，**grant 不可超越角色上限**。
+四角色基线权限（见架构 §3 M10 权限矩阵）；`grants` 表按 **`doc_type` / `doc`**（**S5：`repo` 已删除**——无数据模型支撑）作**范围收窄**。判定式（**S5 形式化**）：`role_permits(role, perm)` 必须为真（**角色是硬上限**），且 target 上有收窄 grant 时须 `grant_matches`；grant 的 `permission` 仅 `read`/`write`/`review`（**无 `admin`**）。越权 grant 在**授予与判定两处**均拒。
 
-**验收标准**：(a) reader 写操作 → 403；(b) reviewer 可批注与审批但不能改正文；(c) editor 不可管理用户；(d) 文档集级 grant 生效范围精确（他 doc 不受影响）；(e) 越权 grant 尝试（如给 reader 授 write）被拒。
+**验收标准**：(a) reader 写操作 → 403；(b) reviewer 可批注与审批但不能改正文；(c) editor 不可管理用户；(d) 收窄 grant 生效范围精确（他 doc 不受影响）；(e) **给 reader 授 write 被拒**（授予时 422 且判定时仍 403——两处均验）；(f) `GrantTarget` 类型为 `DocTypeTarget | DocTarget`。
 
 ### REQ-M10-F05: 管理员自举与鉴权审计
 
 `ADMIN_SSH_PUBKEY_FILE` 指向的公钥在首次 migrate/启动时创建 admin 用户（幂等）；无任何用户时系统 fail-closed（全部请求 401 并提示自举步骤）。鉴权失败（401/403）与用户/授权/密钥变更落 `events`（`entity='auth'`）。
 
-**验收标准**：(a) 空库启动 → 自举成功后 admin 可用；(b) 重复自举幂等（不重复创建）；(c) 无 `users` 行时所有端点 401 且错误信息指向自举；(d) 每次鉴权失败产生 `auth` 事件（含时间戳/端点/失败原因，不含密钥材料）。
+**验收标准**：(a) 空库启动 → 自举成功后 admin 可用；(b) 重复自举**在不存在 active admin 时**执行（**S9：救援语义**），存在时幂等跳过；(c) 无 `users` 行时所有端点 401 且错误信息指向自举；(d) 每次鉴权失败产生 `auth` 事件（含时间戳/端点/失败原因，不含密钥材料）；(e) **失败事件 `actor='anonymous'`，请求自述身份记入 `claimed_*` 前缀**（**S10**，防污染审计）；(f) `entity='auth'` 已在 DDL CHECK 与 Event Literal 中（**S1**）。
 
 ### REQ-M11-F01: CLI 工具族（导入/删除/修改/读取）
 
