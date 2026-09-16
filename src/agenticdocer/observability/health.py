@@ -195,7 +195,11 @@ def evaluate_health(
         advice.append(message)
 
     if partitions.events_next_missing:
-        fail("events 未来月份分区缺失：事件写入将失败；请创建下月分区（CREATE TABLE ... PARTITION OF events FOR VALUES FROM (...) TO (...)，见 ADR-009 §4.2）")
+        fail(
+            "events 未来月份分区缺失：新月份数据将落入 DEFAULT 分区（无 DEFAULT partition 时"
+            "写入直接失败）；请创建下月分区（CREATE TABLE ... PARTITION OF events "
+            "FOR VALUES FROM (...) TO (...)，见 ADR-009 §4.2）"
+        )
 
     now = dt.datetime.now(dt.timezone.utc)
     for table in tables:
