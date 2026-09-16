@@ -29,6 +29,7 @@ __all__ = [
     "register_editable_doc_type",
     "resolve_table_mode",
     "section_subtree",
+    "find_section",
 ]
 
 EDITABLE_DOC_TYPES: frozenset[str] = frozenset()
@@ -38,7 +39,7 @@ EDITABLE_ROLES: Final = frozenset({"admin", "editor"})
 """可编辑表格的调用方角色（B6：非 editor 一律只读）。"""
 
 _ATX: Final = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)(?:\s+#+)?\s*$")
-    "find_section",
+
 
 class SectionInfo(Model):
     """章节清单条目（M07 ``GET /api/v1/docs/{id}/sections`` 的数据源）。"""
