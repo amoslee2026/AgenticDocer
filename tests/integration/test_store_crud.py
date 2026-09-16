@@ -704,3 +704,45 @@ async def test_get_asset_paths_batch(storage: Storage) -> None:
     assert set(await storage.get_asset_paths([first, second])) == {first}
     with pytest.raises(NotFoundError):
         await storage.get_asset_path(second)
+
+
+async def test_section_interval_falls_back_on_outline_violation(storage: Storage) -> None:
+    """大纲契约被破坏（子节点排在兄弟之后）→ 快路径自检失败、自动回退 CTE，结果仍正确。
+
+    这是「仅校验首行即根」的**反例**：`b` 的区间会多收 `a1`（它是 `a` 的子节点，不是 `b` 的），
+    而首行仍是 `b` —— 故必须做父链连通性自检（见 `NodeRepository._section_interval`）。
+    """
+    from agenticdocer.render.sections import section_subtree
+
+    doc_id = unique_doc("OUTLINE")
+    await storage.upsert_doc(doc_in(doc_id), None, CTX)
+    root = await storage.upsert_node(
+        node_in(doc_id, ordinal=1, level=1, anchor=f"{doc_id}#1"), None, CTX
+    )
+    first_child = await storage.upsert_node(
+        node_in(doc_id, ordinal=2, level=2, parent=root.node_id, anchor=f"{doc_id}#1.1"), None, CTX
+    )
+    second_child = await storage.upsert_node(
+        node_in(doc_id, ordinal=3, level=2, parent=root.node_id, anchor=f"{doc_id}#1.2"), None, CTX
+    )
+    # 违约：first_child 的子节点排在 second_child 之后
+    misplaced = await storage.upsert_node(
+        node_in(doc_id, ordinal=4, level=3, parent=first_child.node_id, anchor=f"{doc_id}#1.1.1"),
+        None,
+        CTX,
+    )
+
+    doc_nodes = await storage.get_doc_nodes(doc_id)
+    assert [n.node_id for n in await storage.get_subtree(second_child.node_id, doc_id=doc_id)] == [
+        second_child.node_id
+    ]
+    # 快路径自检失败 → 回退 CTE，结果与 oracle 一致（若只查首行，这里会多出 misplaced）
+    assert [n.node_id for n in await storage.get_section_nodes(doc_id, second_child.node_id)] == [
+        second_child.node_id
+    ]
+    assert await storage.get_section_nodes(doc_id, first_child.node_id) == section_subtree(
+        doc_nodes, first_child.node_id
+    )
+    assert [
+        n.node_id for n in await storage.get_section_nodes(doc_id, first_child.node_id)
+    ] == [first_child.node_id, misplaced.node_id]
