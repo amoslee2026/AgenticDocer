@@ -34,6 +34,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import cast
+
 _RID_NAME = "agenticdocer_rid"
 
 #: 计数器位宽：24 位 → 与 8 位毫秒前缀拼成 32 位（8 hex）。
