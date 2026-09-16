@@ -42,7 +42,7 @@ function TreeView({ items, selectedId, onSelect, depth }: Props & { items: TreeI
     <ul className="tree">
       {items.map((item) => (
         <li key={item.node.nodeId}>
-          <div
+function TreeView({ items, selectedId, onSelect, depth }: { items: TreeItem[]; selectedId: string | null; onSelect: (node: NodeDTO) => void; depth: number }) {
             className={`node-row${item.node.nodeId === selectedId ? " current" : ""}`}
             onClick={() => onSelect(item.node)}
           >
