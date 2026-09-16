@@ -30,8 +30,20 @@ from typing import Any, Final
 
 import yaml
 
-from agenticdocer.model import DOC_TYPES, DocIn, DocStatus, missing_required_meta
+from agenticdocer.model import C5_META_FIELDS, DOC_TYPES, DocIn, DocStatus, missing_required_meta
+from agenticdocer.store import ValidationError
 
+__all__ = [
+    "FRONTMATTER_DELIMITER",
+    "STATUS_MAP",
+    "Frontmatter",
+    "split_frontmatter",
+    "parse_frontmatter",
+    "doc_in_from_meta",
+    "frontmatter_field_names",
+]
+
+FRONTMATTER_DELIMITER: Final = "---"
 
 STATUS_MAP: dict[str, DocStatus] = {
     "approved": "approved",
