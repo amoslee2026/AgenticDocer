@@ -47,7 +47,6 @@ from .storage import Storage, get_storage
 __all__ = [
     "ASSET_REF_PATTERN",
     "ENTITY_OPS",
-    "MODEL_LAYER_READY",
     "UUID7",
     "Asset",
     "AssetRepository",
