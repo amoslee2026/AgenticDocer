@@ -49,16 +49,42 @@ _ATOM_DOMAIN = {"clause", "definition", "table", "figure", "code", "example", "n
 
 
 def corpus_paths() -> list[pathlib.Path]:
-    paths = sorted(CORPUS.glob("*/*.md"))
+    """**standard 子集**：7 份行业标准语料（精确基线的对象）。
+
+    2026-09-17 语料集扩大（方案 C 新增 `lang`/`tool-manual`/`product`/`safety`/`ucis`），
+    原 `glob("*/*.md")` 会连带捕获新语料，使跨语料的绝对计数基线（1,019 引用 / 2,440 表格 /
+    9.4k 节点等）失配。**故按 doc_type 分离**：
+      - 本夹具 → `standard` 目录（`{pcie,cxl,jedec,amba}`，稳定，可做精确基线）；
+      - `new_corpus_paths()` → 方案 C 新语料，只做**性质断言**（覆盖率 / P4 / 门禁），
+        不硬编码跨语料绝对计数（集合会随方案 C 继续扩大）。
+    """
+    paths = sorted(p for org in STANDARD_ORGS for p in (CORPUS / org).glob("*.md"))
     if len(paths) < 7:
-        pytest.skip(f"语料缺失（需 7 份）：{CORPUS}")
+        pytest.skip(f"standard 语料缺失（需 7 份）：{CORPUS}")
     return paths
+
+
+def new_corpus_paths() -> list[pathlib.Path]:
+    """方案 C 新增语料的**可直接解析**子集（`.md`，经 `upgrade_frontmatter.py` 补过 frontmatter）。
+
+    非 markdown 格式（`.n` nroff / `.rst` / `.hjson` / `.adoc` / `.xml`）**不在此列**——
+    它们需前置格式转换（见 `spec/standards/DOWNLOADED.md` 与 `doc_type_mapping.md` 验证边界）。
+    """
+    return sorted(
+        p for p in (CORPUS / "lang").glob("*.md") + tuple((CORPUS / "safety").glob("*.md"))
+    )
 
 
 @pytest.fixture(scope="session")
 def corpus_results() -> dict[str, object]:
-    """7 份语料的解析结果（会话级缓存：解析确定性，重复解析无收益）。"""
+    """standard 语料的解析结果（会话级缓存：解析确定性，重复解析无收益）。"""
     return {path.name: parse_markdown(path) for path in corpus_paths()}
+
+
+@pytest.fixture(scope="session")
+def new_corpus_results() -> dict[str, object]:
+    """方案 C 新语料的解析结果（性质断言用）。"""
+    return {path.name: parse_markdown(path) for path in new_corpus_paths()}
 
 
 @pytest.fixture(scope="function")
