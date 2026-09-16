@@ -1,2 +1,0 @@
-{"ts": "2026-09-16T11:06:57.388+00:00", "level": "__GLOBAL_CTX__", "msg": "Global context", "module": "__system__", "rid": "78dd7bbc", "pid": "1638340", "seq": 0, "program": "agentic_logger", "command": "list-files"}
-{"level": "INFO", "msg": "CLI list-files ok", "module": "agentic_logger.cli", "ctx": {"command": "list-files", "exit_code": 0, "dur_ms": 0}, "ts": "2026-09-16T11:06:57.388+00:00", "pid": "1638340", "rid": "78dd7bbc", "seq": 1}

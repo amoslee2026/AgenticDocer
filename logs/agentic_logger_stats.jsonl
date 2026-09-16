@@ -1,4 +1,0 @@
-{"ts": "2026-09-16T11:06:57.232+00:00", "level": "__GLOBAL_CTX__", "msg": "Global context", "module": "__system__", "rid": "79f87610", "pid": "1638336", "seq": 0, "program": "agentic_logger", "command": "stats"}
-{"level": "INFO", "msg": "CLI stats ok", "module": "agentic_logger.cli", "ctx": {"command": "stats", "exit_code": 0, "dur_ms": 0}, "ts": "2026-09-16T11:06:57.232+00:00", "pid": "1638336", "rid": "79f87610", "seq": 1}
-{"level": "INFO", "msg": "CLI stats ok", "module": "agentic_logger.cli", "ctx": {"command": "stats", "exit_code": 0, "dur_ms": 17}, "ts": "2026-09-16T11:07:27.357+00:00", "pid": "1641721", "rid": "84b30c11", "seq": 1}
-{"level": "INFO", "msg": "CLI stats ok", "module": "agentic_logger.cli", "ctx": {"command": "stats", "exit_code": 0, "dur_ms": 10}, "ts": "2026-09-16T11:08:20.432+00:00", "pid": "1648911", "rid": "c082c018", "seq": 1}

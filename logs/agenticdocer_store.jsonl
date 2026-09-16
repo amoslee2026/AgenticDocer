@@ -1,2 +1,0 @@
-{"ts": "2026-09-16T11:07:05.580+00:00", "level": "__GLOBAL_CTX__", "msg": "Global context", "module": "__system__", "rid": "ae1b80f8", "pid": "1639199", "seq": 0, "program": "agenticdocer", "command": "store"}
-{"level": "WARN", "msg": "slow query", "module": "m02.nodes", "rid": "ec73c580", "dur": 350, "ctx": {"op": "point_query", "sql_hash": "deadbeef", "table": "nodes"}, "ts": "2026-09-16T11:07:05.580+00:00", "pid": "1639199", "seq": 1}

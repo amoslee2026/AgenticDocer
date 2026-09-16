@@ -11,11 +11,12 @@
 *.pem
 *.key
 secrets/
-
-# ---------- 运行时数据（ADR-007 / §5 部署清单）----------
+# data/ 整体忽略（运行时数据）；admin_keys 仅保留目录占位
 data/
 !data/admin_keys/
 data/admin_keys/*
+!data/admin_keys/.gitkeep
+***
 !data/admin_keys/.gitkeep
 logs/
 build/

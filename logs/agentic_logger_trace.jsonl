@@ -1,2 +1,0 @@
-{"ts": "2026-09-16T11:07:05.888+00:00", "level": "__GLOBAL_CTX__", "msg": "Global context", "module": "__system__", "rid": "d72dd7df", "pid": "1639211", "seq": 0, "program": "agentic_logger", "command": "trace"}
-{"level": "INFO", "msg": "CLI trace ok", "module": "agentic_logger.cli", "ctx": {"command": "trace", "exit_code": 0, "dur_ms": 0}, "ts": "2026-09-16T11:07:05.889+00:00", "pid": "1639211", "rid": "d72dd7df", "seq": 1}
