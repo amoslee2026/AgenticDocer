@@ -45,10 +45,9 @@ export function HistoryPanel({ node }: { node: NodeDTO }) {
     setBusy(true);
     setError(null);
     setSnap(null);
-    setViewIndex(null);
+    setPointNode(null);
     try {
-      const result = await eventApi.replayNode(node.nodeId);
-      setSnap(result);
+      setSnap(await eventApi.replayNode(node.nodeId));
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : String(exc));
     } finally {
@@ -56,15 +55,7 @@ export function HistoryPanel({ node }: { node: NodeDTO }) {
     }
   }
 
-  const viewed = useMemo(() => {
-    if (!snap) {
-      return null;
-    }
-    if (viewIndex === null) {
-      return snap.node;
-    }
-    return null;
-  }, [snap, viewIndex]);
+  const shown = pointNode ?? snap?.node ?? null;
 
   return (
     <div>
@@ -79,22 +70,27 @@ export function HistoryPanel({ node }: { node: NodeDTO }) {
       {error ? <div className="notice error">{error}</div> : null}
       {snap ? (
         <>
-          {viewed ? (
+          {shown ? (
             <div className="card" style={{ marginBottom: "var(--sp-3)" }}>
               <div className="card-head">
-                <h2>{viewIndex === null ? "当前折叠态" : "历史时点折叠态"}</h2>
-                <span className="chip">v{viewed.version}</span>
+                <h2>{pointNode ? "历史时点折叠态（upto 含端）" : "当前折叠态"}</h2>
+                <span className="chip">v{shown.version}</span>
+                {pointNode ? (
+                  <button className="ghost" onClick={() => setPointNode(null)}>
+                    回到当前态
+                  </button>
+                ) : null}
               </div>
               <div className="card-body">
                 <dl className="kv">
                   <dt>anchor</dt>
-                  <dd>{viewed.anchor}</dd>
+                  <dd>{shown.anchor}</dd>
                   <dt>atomType</dt>
-                  <dd>{viewed.atomType}</dd>
+                  <dd>{shown.atomType}</dd>
                   <dt>status</dt>
-                  <dd>{viewed.status}</dd>
+                  <dd>{shown.status}</dd>
                   <dt>content</dt>
-                  <dd>{JSON.stringify(viewed.content)}</dd>
+                  <dd>{JSON.stringify(shown.content)}</dd>
                 </dl>
               </div>
             </div>
@@ -104,7 +100,7 @@ export function HistoryPanel({ node }: { node: NodeDTO }) {
             </div>
           )}
           <ol className="timeline">
-            {snap.history.map((event, index) => (
+            {snap.history.map((event) => (
               <li key={event.eventId}>
                 <div className="tl-head">
                   <span className="tl-op">{event.op}</span>
