@@ -113,8 +113,13 @@ QUALITY_DEFAULT_DETECTORS: Final = (
     "assets_missing",
     "render_consistency",
     "events_consistency",
+    "section_range_consistency",
 )
 """``quality-gate`` 缺省跑的 detector：全部**数据一致性**巡检（只读，reader 可跑）。
+
+取值 = ``agenticdocer.m09.detector_ids()`` 去掉 :data:`QUALITY_ADMIN_DETECTOR`（声明序前缀，
+新增数据 detector 时在此追加即可；`test_quality_gate_default_detectors_exclude_perf_health`
+与 e2e 都以本常量为准，不会与 M09 的声明序漂移）。
 
 ``perf_health`` 不在缺省内——它读 pg_catalog/连接池等 DB 内部指标，与 ``GET /admin/health``
 同级别（admin），故必须显式 ``--detectors perf_health`` 才执行（M10 权限矩阵：manage_users→admin）。

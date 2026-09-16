@@ -314,9 +314,15 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                        target=TARGET_SECTION_MS),
                 metric("scale.render.document.nodes", doc_nodes),
                 metric("scale.render.section.nodes", section_nodes),
+                metric("scale.render.section.load_section_nodes_p50_ms",
+                       render["load_section_nodes"]["p50_ms"], unit="ms",
+                       note="**当前实现**章节读取（`get_section_nodes`，O(子树)）"),
                 metric("scale.render.section.load_doc_nodes_p50_ms",
-                       render["section_load_nodes"]["p50_ms"], unit="ms",
-                       note="归因：章节渲染内部整档取数"),
+                       render["load_doc_nodes"]["p50_ms"], unit="ms",
+                       note="**历史对照**整档读取（`get_doc_nodes`；非当前章节渲染成本）"),
+                metric("scale.render.section.assets_batched_p50_ms",
+                       render["assets_batched"]["p50_ms"], unit="ms",
+                       note="**当前实现**资产批量取路径"),
             )
 
         # ── 外推（10k 文档口径）──────────────────────────────────────────

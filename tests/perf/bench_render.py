@@ -12,8 +12,12 @@
 
 多次测量取 **中位数**为主判据、**最大值**为保守判据（§1.4 的 <1s/<3s 是上限语义）。
 
-另记录归因数据：`render_section` 内部会整档加载节点（`get_doc_nodes`），单独计时以便区分
-「章节渲染慢」与「整档取数慢」。
+另记录**同轮次分量对照**（实测，不做跨方法/跨窗口相减）：
+
+* 章节读路径：`get_section_nodes`（当前实现，O(子树)）vs `get_doc_nodes`（**历史对照**，O(全档)）；
+* 资产取路径：N+1（逐 src `get_asset_path`，B-2 前实现）vs 批量 `get_asset_paths`（B-2 后）。
+
+**口径纪律**：本基准只报**自己直接测得的**数值；引用他人/其它窗口的数值时必须标注来源与方法。
 
 运行：
 
@@ -142,7 +146,11 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                 "section": results["section"],
                 "document_bytes": results["document_bytes"],
                 "section_bytes": results["section_bytes"],
-                "load_nodes": results["section_load_nodes"],
+                "load_section_nodes": results["load_section_nodes"],
+                "load_doc_nodes": results["load_doc_nodes"],
+                "assets_n_plus_one": results["assets_n_plus_one"],
+                "assets_batched": results["assets_batched"],
+                "asset_refs": results["asset_refs"],
             })
 
         print("\n样本明细（各文档的整档 / 最大 level-1/2 章节）：")
@@ -177,14 +185,21 @@ async def run_bench(args: argparse.Namespace) -> Bench:
         ))
         for report in reports:
             print(f"  · {report['doc_id']} 最大章节 = {report['section_anchor']}"
-                  f"（{report['section_nodes']} 节点）；`get_doc_nodes` 中位 "
-                  f"{report['load_nodes']['p50_ms']:.1f}ms")
+                  f"（{report['section_nodes']} 节点）；读路径中位 "
+                  f"{report['load_section_nodes']['p50_ms']:.1f}ms（get_section_nodes，O(子树)），"
+                  f"历史对照 get_doc_nodes {report['load_doc_nodes']['p50_ms']:.1f}ms；"
+                  f"资产 {report['asset_refs']} 处：N+1 {report['assets_n_plus_one']['p50_ms']:.1f}ms vs "
+                  f"批量 {report['assets_batched']['p50_ms']:.1f}ms")
 
         worst_doc_p50 = max(r["document"]["p50_ms"] for r in reports)
         worst_doc_max = max(r["document"]["max_ms"] for r in reports)
         worst_sec_p50 = max(r["section"]["p50_ms"] for r in reports)
         worst_sec_max = max(r["section"]["max_ms"] for r in reports)
-        worst_load = max(r["load_nodes"]["p50_ms"] for r in reports)
+        worst_section_load = max(r["load_section_nodes"]["p50_ms"] for r in reports)
+        worst_doc_load = max(r["load_doc_nodes"]["p50_ms"] for r in reports)
+        worst_assets_n1 = max(r["assets_n_plus_one"]["p50_ms"] for r in reports)
+        worst_assets_batch = max(r["assets_batched"]["p50_ms"] for r in reports)
+        asset_refs_max = max(r["asset_refs"] for r in reports)
 
         for report in reports:
             suffix = report["doc_id"]
@@ -201,9 +216,20 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                             f"（{report['section_nodes']} 节点）"),
                 metric(f"render.section.{suffix}.max_ms", report["section"]["max_ms"], unit="ms",
                        target=TARGET_SECTION_MS),
+                metric(f"render.section.{suffix}.load_section_nodes_p50_ms",
+                       report["load_section_nodes"]["p50_ms"], unit="ms",
+                       note="**当前实现**的章节读取（`get_section_nodes`，O(子树) 区间快路径）"),
                 metric(f"render.section.{suffix}.load_doc_nodes_p50_ms",
-                       report["load_nodes"]["p50_ms"], unit="ms",
-                       note="归因：章节渲染内部整档取数（`render_section` 调 `get_doc_nodes`）"),
+                       report["load_doc_nodes"]["p50_ms"], unit="ms",
+                       note="**历史对照**：整档读取（`get_doc_nodes`）——自 M04 PERF B-2 起 "
+                            "`render_section` 已不再调用，仅作分量比照，**不代表当前章节渲染成本**"),
+                metric(f"render.section.{suffix}.assets_n_plus_one_p50_ms",
+                       report["assets_n_plus_one"]["p50_ms"], unit="ms",
+                       note=f"**历史实现**的资产取路径（N+1：逐 src `get_asset_path`，"
+                            f"{report['asset_refs']} 处引用）"),
+                metric(f"render.section.{suffix}.assets_batched_p50_ms",
+                       report["assets_batched"]["p50_ms"], unit="ms",
+                       note=f"**当前实现**的资产取路径（`get_asset_paths` 单条 ANY，消 N+1）"),
             )
         bench.add(
             metric("render.document.p50_ms", worst_doc_p50, unit="ms", target=TARGET_DOCUMENT_MS,
@@ -217,8 +243,19 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             metric("render.section.max_ms", worst_sec_max, unit="ms", target=TARGET_SECTION_MS,
                    note="**保守判据**：各文档最慢一次的全局最坏值"),
             metric("render.section.p95_ms", max(r["section"]["p95_ms"] for r in reports), unit="ms"),
-            metric("render.section.load_doc_nodes_p50_ms", worst_load, unit="ms",
-                   note="**保守判据**：`get_doc_nodes` 中位耗时（章节渲染的固定开销）"),
+            metric("render.section.load_section_nodes_p50_ms",
+                   max(r["load_section_nodes"]["p50_ms"] for r in reports), unit="ms",
+                   note="**当前实现**章节读取中位耗时（`get_section_nodes`，O(子树)）"),
+            metric("render.section.load_doc_nodes_p50_ms",
+                   max(r["load_doc_nodes"]["p50_ms"] for r in reports), unit="ms",
+                   note="**历史对照**整档读取中位耗时（`get_doc_nodes`；非当前章节渲染成本）"),
+            metric("render.section.assets_n_plus_one_p50_ms",
+                   max(r["assets_n_plus_one"]["p50_ms"] for r in reports), unit="ms",
+                   note="**历史实现**资产 N+1 取路径中位耗时"),
+            metric("render.section.assets_batched_p50_ms",
+                   max(r["assets_batched"]["p50_ms"] for r in reports), unit="ms",
+                   note="**当前实现**资产批量取路径中位耗时"),
+
             metric("render.docs_measured", len(reports)),
         )
 
@@ -243,10 +280,17 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             "故「载荷最大」与「源文件最大」的选择差异不影响达标结论"
         )
         bench.notes.append(
-            "**瓶颈提示（实现事实，非指标超标）**：`render_section` 内部执行 `get_doc_nodes(doc_id)`"
-            "——章节渲染的取数成本是**整档**级的（O(全档节点)），且每次渲染都重新解析并导出图片资产"
-            "（`_resolve_and_export`）。故「单章节」指标随**文档**变大而劣化，而非随章节变大。"
-            "若要真正 O(章节)，需 M04 增「按子树/父链查询」的 M02 读接口（`idx_nodes_parent` 已存在）"
+            f"**已被 M04 PERF B-2 消除**（原归因：`render_section` 走 `get_doc_nodes` 整档取数 ⇒ 章节成本 "
+            f"O(全档)）：`render_section` 现走 `get_section_nodes`（O(子树) 区间快路径 + CTE 安全网）。"
+            f"同轮次分量实测：`get_doc_nodes`（历史对照）{worst_doc_load:.1f}ms vs `get_section_nodes`（当前）"
+            f"{worst_section_load:.1f}ms ⇒ 章节读路径不再随**文档**大小劣化"
+        )
+        bench.notes.append(
+            f"**资产取路径 N+1 曾是最大单项成本**（B-2 前的逐 src `get_asset_path`）：本基准同轮次分量实测"
+            f"（最多引用 {asset_refs_max} 处）：N+1 {worst_assets_n1:.1f}ms vs 批量 `get_asset_paths`"
+            f"{worst_assets_batch:.1f}ms。与 M04Render 在其隔离库的同机同轮次 A/B"
+            f"（全档读 86.5→35.3ms、资产取路径 188.8→1.6ms / 302 处引用）**方向与量级一致**"
+            f"——**引用值已标注来源与方法，不与本基准数值相减**"
         )
         bench.notes.append(
             "整档渲染含图片资产导出（P4 唯一例外）；未解析到的资产引用原样保留并计入 WARN"
