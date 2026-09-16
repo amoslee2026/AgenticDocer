@@ -216,6 +216,9 @@ class Event(BaseModel):
     event_id: UUID7; entity: Literal["doc","node","ref","comment","schema","auth"]
     entity_id: str; op: Literal["create","update","delete","status","add","remove"]
     payload: dict; actor: str; ts: datetime
+class DocTypeTarget(BaseModel):   kind: Literal["doc_type"]="doc_type"; value: str
+class DocTarget(BaseModel):       kind: Literal["doc"]="doc"; value: str
+GrantTarget = DocTypeTarget | DocTarget      # S5：repo scope 已删除（无数据模型支撑）
 class Comment(BaseModel):
     comment_id: UUID7; node_id: UUID7; target_event_id: UUID7 | None
     body: str; state: Literal["open","resolved","orphaned"]
@@ -482,7 +485,8 @@ class Grant(BaseModel): grant_id: str; user_id: str; scope: Literal["doc_type","
 # 签名验证（agent 路径）
 def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders) -> User:
     """Ed25519 验签。载荷 = f"{method}\n{path}\n{sha256(body).hex()}\n{ts}\n{nonce}"。
-    步骤：(1) ts 偏移 ≤300s；(2) nonce 未被用过（PG 唯一约束，TTL 300s 清理）；
+    步骤：(1) ts 偏移 ∈ [−30s, +SIGNATURE_MAX_SKEW_SECONDS]（S3：未来容忍收紧）；(2) 公钥查表（active）；
+    (3) SSHSIG 验签（namespace=agenticdocer@auth）；(4) **验签通过后**才 INSERT nonce（S7）。任一步失败 → AuthError(401/403)。"""
     (3) key_id → users 表查 active 公钥；(4) 验签。任一失败 → AuthError(401/403)。"""
 
 # 会话（WebUI 路径）
@@ -719,19 +723,19 @@ CREATE TABLE users (
 CREATE TABLE ssh_keys (
   key_id      text PRIMARY KEY,                -- SHA256 指纹（base64，与 ssh-keygen -lf 一致）
   user_id     uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  public_key  text NOT NULL,                   -- 完整 authorized_keys 行
+  token_hash   text NOT NULL UNIQUE,           -- SHA256(token)；token=secrets.token_urlsafe(32)（S13：256 位 CSPRNG，明文仅存 Cookie）
   key_type    text NOT NULL CHECK (key_type IN ('ssh-ed25519','rsa-sha2-512','rsa-sha2-256')),
   added_at    timestamptz NOT NULL DEFAULT now(),
   revoked_at  timestamptz,                     -- 吊销保留行（审计）
   UNIQUE (user_id, key_id)
-);
+CREATE INDEX idx_sessions_expiry ON sessions (expires_at);   -- S15：过期会话由定期任务 DELETE（与 nonce 清理同任务）
 CREATE INDEX idx_ssh_keys_user ON ssh_keys (user_id) WHERE revoked_at IS NULL;
 
 CREATE TABLE grants (                          -- 文档集级授权（B3）
   grant_id   uuid PRIMARY KEY,
   user_id    uuid NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   scope      text NOT NULL CHECK (scope IN ('doc_type','doc','repo')),
-  value      text NOT NULL,                    -- doc_type 值 / doc_id / 仓库标识
+CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s)，**必须 ≥ 时间窗**避免重放窗口
   permission text NOT NULL CHECK (permission IN ('read','write','review','admin')),
   granted_by uuid REFERENCES users(user_id),
   granted_at timestamptz NOT NULL DEFAULT now(),
@@ -770,7 +774,9 @@ END $$;
 
 CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
 -- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
--- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底），避免分区键侵入唯一索引
+**双层防护**：DB 角色防「应用被攻破后越权访问他库」；应用 RBAC 防「合法连接内越权操作」。二者不可互相替代。
+
+**残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticdocer_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 对身份四表启用 PG RLS；② 用户管理 API 走独立的最小权限连接角色。触发升级条件：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
 ```
 
 ### 4.1 DB 角色与权限（A15）
@@ -785,7 +791,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO agenticdo
 ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agenticdocer_app;   -- L4：后续新表默认授权
 REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（P2）
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
+  监听: --host 0.0.0.0（**鉴权后**方可对外；无 users 表则 fail-closed，见 ADR-007）
+  **TLS 强制（S6）**: 对外监听（非 127.0.0.1）**必须**经 TLS 反向代理终止；此时会话 Cookie 强制 `Secure`。
+                     无 TLS 时**仅允许 loopback 绑定**。明文 HTTP 下会话 Cookie 可被嗅探劫持（最长 8h）。
+  CSRF 立场（S6）: 依赖 SameSite=Lax + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
 ```
 
 #### 4.1.1 应用层 RBAC（M10，批注 A1/A2/B3）
