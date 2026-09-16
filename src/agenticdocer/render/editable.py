@@ -137,18 +137,20 @@ def content_to_grid(content: Mapping[str, Any]) -> TableGrid:
             for item in fields
             if isinstance(item, Mapping)
         ]
-        register = content.get("register")
+        register_name = content.get("register")
         return TableGrid(
             rows=rows,
             header=True,
             header_names=list(REGISTER_FIELD_COLUMNS),
-            register=str(register) if register else None,
+            register_name=str(register_name) if register_name else None,
         )
     fragment = content.get("fragment")
     if isinstance(fragment, str) and fragment:
-        register = content.get("register")
+        register_name = content.get("register")
         grid = parse_table_fragment(fragment)
-        return grid.model_copy(update={"register": str(register) if register else None})
+        return grid.model_copy(
+            update={"register_name": str(register_name) if register_name else None}
+        )
     return TableGrid(rows=[], header=False)
 
 
@@ -190,9 +192,9 @@ def grid_to_content(grid: TableGrid, *, atom_type: str = "table") -> dict[str, A
                 fields.append(item)
         if not fields:
             raise ValidationError("table.register_field 需要至少一行含 field 的字段行", entity="node")
-        if not (grid.register or "").strip():
+        if not (grid.register_name or "").strip():
             raise ValidationError("table.register_field 需要 register（寄存器名）", entity="node")
-        content["register"] = grid.register
+        content["register"] = grid.register_name
         content["fields"] = fields
     content["text"] = derive_text(atom_type, content)
     validate_table_content(atom_type, content)
@@ -223,7 +225,7 @@ async def write_table_edit(
         rows=edit.rows,
         header=edit.header,
         header_names=list(edit.header_names),
-        register=edit.register,
+        register_name=edit.register_name,
     )
     content = grid_to_content(grid, atom_type=atom_type)
     updated = NodeIn(
