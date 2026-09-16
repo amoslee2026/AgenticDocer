@@ -17,6 +17,10 @@ data/*
 !data/admin_keys/
 data/admin_keys/*
 !data/admin_keys/.gitkeep
+# 术语种子（§5 TERMS_SEED）：**非运行时数据**，是随 migrate 载入的规范性关键词清单
+# （RFC 2119/8174），必须入库——否则新克隆/新部署无种子可载入，M09B `terms` 判据报
+# `M09B.terms.seed_missing` 且词表数据面为空。
+!data/terms_seed.yaml
 
 logs/
 build/

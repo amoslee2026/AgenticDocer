@@ -1,0 +1,35 @@
+# AgenticDocer 术语种子（TERMS_SEED，§5：随 migrate 载入 terms 表）
+#
+# 口径：
+#   - 规范性关键词（kind: normative-keyword）不对应文档节点 → definition_node_id 保持 NULL，
+#     它们是**规范用语的权威清单**（RFC 2119 / RFC 8174），写条款时用它做术语一致性核对；
+#   - 语料自身的术语（glossary）由 M03 导入 definition 原子时经 M01.upsert_term 写入，
+#     不在此文件声明（种子只承载跨文档的规范用语）。
+#
+# 校验：M09B `terms` detector 的 `M09B.terms.seed_missing` 判据——本文件每条都必须已入库
+# 且 kind 一致，否则视为「种子未载入/词表漂移」。
+version: 1
+terms:
+  # RFC 2119（及其更新 RFC 8174）的规范性关键词
+  - term: MUST
+    kind: normative-keyword
+  - term: MUST NOT
+    kind: normative-keyword
+  - term: REQUIRED
+    kind: normative-keyword
+  - term: SHALL
+    kind: normative-keyword
+  - term: SHALL NOT
+    kind: normative-keyword
+  - term: SHOULD
+    kind: normative-keyword
+  - term: SHOULD NOT
+    kind: normative-keyword
+  - term: RECOMMENDED
+    kind: normative-keyword
+  - term: NOT RECOMMENDED
+    kind: normative-keyword
+  - term: MAY
+    kind: normative-keyword
+  - term: OPTIONAL
+    kind: normative-keyword
