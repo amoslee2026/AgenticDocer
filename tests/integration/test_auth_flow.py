@@ -520,7 +520,6 @@ async def test_challenge_login_session_and_token_hashing(
     )
     set_cookie = response.headers["set-cookie"]
     assert "httponly" in set_cookie.lower() and "samesite=lax" in set_cookie.lower()
-    assert "secure" not in set_cookie.lower().split("httponly")[0] or True  # Secure 由部署环境决定
 
     me = await client.get("/api/v1/auth/me", cookies={sessions.SESSION_COOKIE_NAME: token})
     assert me.status_code == 200
