@@ -108,6 +108,20 @@ def _fold(entity: str, history: Sequence[Event]) -> tuple[Any, Violation | None]
         )
 
 
+def _incomplete(model: Any, fields: Sequence[str]) -> list[str]:
+    """折叠结果缺失的字段（`_fold_*` 对部分状态会退回 `model_construct`，快照不完整）。"""
+    return sorted(set(fields) - set(model.model_fields_set))
+
+
+def _no_create(path: str, subject: str, detail: str) -> Violation:
+    return Violation(
+        rule_id=RULE_NO_CREATE,
+        path=path,
+        message=f"{subject}缺 create（折叠不出完整快照）：{detail}",
+        fix_hint="补齐 create 事件（含全量 before 字段）或重导该文档（P2：事件与实体同事务）",
+    )
+
+
 def judge_nodes(
     rows: Sequence[Node], history: Mapping[str, Sequence[Event]]
 ) -> list[Violation]:
@@ -119,15 +133,7 @@ def judge_nodes(
         recorded = history.get(node_id)
         if not recorded:
             violations.append(
-                Violation(
-                    rule_id=RULE_NO_CREATE,
-                    path=path,
-                    message=(
-                        f"节点存在但无任何事件：{node_id}（doc_id={node.doc_id}）——"
-                        "事件与实体未同事务写入（P2）"
-                    ),
-                    fix_hint="核对写入路径是否直接改表绕过 M02（upsert_node/delete_node 才写事件）",
-                )
+                _no_create(path, "节点存在但无任何事件", f"{node_id}（doc_id={node.doc_id}）")
             )
             continue
         snapshot, problem = _fold("node", recorded)
@@ -136,14 +142,16 @@ def judge_nodes(
             continue
         if snapshot.node is None:
             violations.append(
-                Violation(
-                    rule_id=RULE_NO_CREATE,
-                    path=path,
-                    message=(
-                        f"节点事件序列缺 create（折叠不出快照）：{node_id}，"
-                        f"事件数={len(recorded)}，op={[event.op for event in recorded]}"
-                    ),
-                    fix_hint="补齐 create 事件（含全量 before 字段）或重导该文档",
+                _no_create(path, "节点事件序列", f"{node_id}，op={[event.op for event in recorded]}")
+            )
+            continue
+        missing = _incomplete(snapshot.node, tuple(Node.model_fields))
+        if missing:
+            violations.append(
+                _no_create(
+                    path,
+                    "节点事件序列",
+                    f"{node_id}，折叠结果缺字段 {missing}（事件数={len(recorded)}）",
                 )
             )
             continue
@@ -169,18 +177,21 @@ def judge_docs(
         path = f"docs/{doc_id}"
         recorded = history.get(doc_id)
         if not recorded:
-            violations.append(
-                Violation(
-                    rule_id=RULE_NO_CREATE,
-                    path=path,
-                    message=f"文档存在但无任何事件：{doc_id}——事件与实体未同事务写入（P2）",
-                    fix_hint="核对写入路径是否绕过 M02（upsert_doc/update_doc_status 才写事件）",
-                )
-            )
+            violations.append(_no_create(path, "文档存在但无任何事件", doc_id))
             continue
         folded, problem = _fold("doc", recorded)
         if problem is not None:
             violations.append(problem)
+            continue
+        missing = sorted(set(Doc.model_fields) - set(folded))
+        if missing:
+            violations.append(
+                _no_create(
+                    path,
+                    "文档事件序列",
+                    f"{doc_id}，折叠结果缺字段 {missing}（事件数={len(recorded)}）",
+                )
+            )
             continue
         violations.extend(
             _drift(
