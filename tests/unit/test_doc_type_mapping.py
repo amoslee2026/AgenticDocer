@@ -399,6 +399,9 @@ UCIS_XML = """<ucis name="demo-ucis">
     <coverage_item name="CI1">
       <test name="t1" status="pass"/>
     </coverage_item>
+    <coverage_item name="CI2">
+      <test name="t2"/>
+    </coverage_item>
   </feature>
 </ucis>
 """

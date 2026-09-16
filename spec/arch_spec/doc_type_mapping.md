@@ -71,8 +71,8 @@ idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（扩展后 6 值）：
 |---|---|---|---|---|
 | `standard` | 八类全 | `clause` | C5 十七字段 | `table.register_field`、`figure.state_machine` |
 | `lang` | `clause`/`definition`/`code`/`example`/`note`/`cross_ref`/`table` | `clause` | `command_name`、`syntax`、`tool_context` | — |
-| `tool-manual` | 同 `lang` + `figure` | `clause` | **`tool_context` 必填**（厂商+版本，§4.1 明确） | — |
-| `product` | 八类全 | `clause` | `doc_subtype`、`traces_to`（需求追溯链）、`owner` | UCIS/vPlan 子结构（§4） |
+| `tool-manual` | 同 `lang` + `figure` | `clause` | 同 `lang` 三元组（**`tool_context` 语义更强**——idea.md L164「在 4.1 基础上**额外强调** `tool_context`」，故非「仅此一项」，实现裁决 2026-09-17） | — |
+| `product` | 八类全 | `clause` | `doc_subtype`、`traces_to`（需求追溯链）、`owner` | **3 变体**：`table.register_field`（§2 寄存器手册）、`figure.state_machine`（§4.5 MAS pipeline / 时钟复位 reset sequence / Boot flow）、`table.coverage_matrix`（UCIS/vPlan）——实现裁决 2026-09-17，原表只列 UCIS/vPlan 属漏写 |
 | `safety` | 八类全 + `failure_mode_table` 变体 | `clause` + `failure_mode_table` | `standard_ref`、`audit_trail` | **`table.failure_mode`（新增）** |
 
 ## 4. UCIS/vPlan 对齐（修缺陷 3）
@@ -81,7 +81,7 @@ idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（扩展后 6 值）：
 
 **落地方案**：
 - 新增原子变体 **`table.coverage_matrix`**：字段 `feature` / `sub_feature` / `coverage_item` / `test` / `status`；
-- 新增 `product` 子类型的 `required_meta_fields`：`verification_plan_format`（`ucis` | `vplan` | `native`）；
+- `verification_plan_format`（`ucis`|`vplan`|`native`）为 **`product` 子类型粒度**（`meta.doc_subtype == "verification-plan"` 时必填），`DocTypeRule` 的 doc_type 粒度表达不了 → 落在 **importer 映射层**（`doc_type_map.missing_verification_plan_meta`），**不进 `DOC_TYPE_RULES`**（实现裁决 2026-09-17）；
 - **导入/导出**：`importer` 增 vPlan XML 解析（若语料可得）；无真实 vPlan 语料时，**仅实现导入器接口 + 用合成 XML 验证**。
 
 > **验证边界**（重要）：UCIS/vPlan 的**真实语料当前不存在**于 `spec/standards/`。故本项的验收为「接口 + 合成样例通过」，**非真实端到端**。此边界必须显式记录。
