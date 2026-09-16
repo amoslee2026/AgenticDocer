@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import asyncpg
+from agentic_logger import ErrorCode
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
@@ -362,7 +363,7 @@ async def health(
             verdict="fail",
             advice=["未配置 DATABASE_URL：无法巡检数据库"],
         )
-        logger.error("健康巡检失败：缺少 DATABASE_URL", error_code="IO_NOT_FOUND")
+        logger.error("健康巡检失败：缺少 DATABASE_URL", error_code=ErrorCode.IO_NOT_FOUND)
         return report
 
     try:
@@ -378,7 +379,7 @@ async def health(
         )
         logger.error(
             "健康巡检失败：数据库不可达",
-            error_code="NET_CONN_REFUSED",
+            error_code=ErrorCode.NET_CONN_REFUSED,
             reason=f"{type(exc).__name__}: {exc}",
         )
         return report

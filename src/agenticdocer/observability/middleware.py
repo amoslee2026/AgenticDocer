@@ -17,6 +17,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from agentic_logger import ErrorCode
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -84,7 +85,7 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         if exc is not None:
             self._logger.exception(message, exc, **fields)
         elif status >= 500:
-            self._logger.error(message, error_code="INTERNAL_UNEXPECTED", **fields)
+            self._logger.error(message, error_code=ErrorCode.INTERNAL_UNEXPECTED, **fields)
         elif status >= 400:
             error_code = str(DTO_AUTH_REJECTED) if status in _AUTH_STATUS else None
             self._logger.warn(message, error_code=error_code, **fields)
