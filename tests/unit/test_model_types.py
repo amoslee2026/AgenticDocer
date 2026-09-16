@@ -613,3 +613,74 @@ def test_contract_table_covers_every_public_model():
     }
 
     assert public_models == set(SPEC_FIELDS)
+
+UUID7_FIELDS: dict[type, set[str]] = {
+    # §4 DDL uuid 列（节点/引用/事件/批注/术语定义目标/用户族）
+    NodeIn: {"node_id", "parent_node_id"},
+    Node: {"node_id", "parent_node_id"},
+    Ref: {"ref_id", "src_node_id", "dst_node_id"},
+    Event: {"event_id"},
+    Comment: {"comment_id", "node_id", "target_event_id"},
+    Term: {"definition_node_id"},
+    User: {"user_id"},
+    SshKey: {"user_id"},
+    Grant: {"grant_id", "user_id", "granted_by"},
+    Session: {"session_id", "user_id"},
+    # §3.0 以 uuid 表达的结果类型（对应 nodes.node_id）
+    SearchHit: {"node_id"},
+    TraversalHit: {"node_id"},
+}
+
+# 文本标识（**刻意不是 UUID7**，均为文本主键/摘要/审计串）：DDL 中这些列是 text。
+TEXT_IDENTIFIER_FIELDS: tuple[tuple[type, str], ...] = (
+    (DocIn, "doc_id"),
+    (NodeIn, "doc_id"),
+    (NodeIn, "anchor"),
+    (WriteContext, "actor"),
+    (Event, "actor"),
+    (Comment, "author"),
+    (Asset, "asset_id"),  # sha256 hex，非 uuid
+    (SshKey, "key_id"),  # SHA256 指纹，非 uuid
+    (SshKey, "fingerprint"),
+    (Term, "term"),
+    (SchemaDef, "type_name"),
+    (Grant, "value"),
+    (DocTypeTarget, "value"),
+    (DocTarget, "value"),
+    (Proposal, "proposal_id"),
+    (QualityReport, "detector_id"),
+)
+
+
+def _is_uuid_like(annotation: object) -> bool:
+    if annotation is UUID:
+        return True
+    args = set(get_args(annotation))
+    return UUID in args and args <= {UUID, type(None)}
+
+
+@pytest.mark.parametrize(
+    "model, expected",
+    list(UUID7_FIELDS.items()),
+    ids=[model.__name__ for model in UUID7_FIELDS],
+)
+def test_ddl_uuid_columns_are_uuid7_typed(model: type, expected: set[str]):
+    """通检（Main 裁决）：凡对应 DDL uuid 列的字段一律 UUID7，无一遗留 str。"""
+    actual = {name for name, field_info in model.model_fields.items() if _is_uuid_like(field_info.annotation)}
+
+    assert actual == expected
+
+
+def test_text_identifier_fields_stay_str():
+    """反向通检：文本主键/摘要/审计串不得被误改为 uuid。"""
+    for model, name in TEXT_IDENTIFIER_FIELDS:
+        assert model.model_fields[name].annotation is str, f"{model.__name__}.{name} 应为 str"
+
+
+def test_every_uuid_typed_field_is_declared_in_audit_tables():
+    """任何模型新增 uuid 字段都必须登记到 UUID7_FIELDS，避免漏改/漏检。"""
+    declared = {model: set(names) for model, names in UUID7_FIELDS.items()}
+    for model in SPEC_FIELDS:
+        found = {name for name, info in model.model_fields.items() if _is_uuid_like(info.annotation)}
+        assert found == declared.get(model, set()), f"{model.__name__} 的 uuid 字段未登记"
+
