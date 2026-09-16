@@ -65,6 +65,7 @@ from agenticdocer.model import (
     SchemaDef,
     SshKey,
     Term,
+    TermKind,
     User,
     get_atom_schema,
 )
