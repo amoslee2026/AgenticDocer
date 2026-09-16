@@ -202,7 +202,7 @@ sequenceDiagram
 
 | 层 | 选型 | 说明 |
 |---|---|---|
-SKIP
+| 语言/后端 | Python 3.11+（**uv 管理**；系统 python3=3.6.8 不可用）/ FastAPI / SQLAlchemy 2.x 异步（asyncpg） | B5；OpenAPI 契约原生 |
 | 存储 | PostgreSQL **16.15**（复用本机 Podman 容器 `pgvector/pgvector:pg16`，:5432；新建 database `agenticdocer`；现有库 mem0/vectest/gigapie_*）+ JSONB | B2 已验证（Q2 已解决） |
 | 前端 | React + TypeScript + Vite | B4 |
 | 表单引擎 | 候选：RJSF / JSON Forms / 轻量自研 | Q3，Phase 5 ADR |
@@ -215,7 +215,6 @@ SKIP
 
 ```
 /开发仓库:  /home/lxx/wrk/AgenticDocer       （spec/ 语料与设计文档、src/ 代码、docs/ 计划）
-/运行数据:  PG 实例（复用，database=agenticdocer）
 /运行数据:  PG 16.15 容器 pgvector（复用，database=agenticdocer）；本机 /mnt/big10T 不存在，数据落 home 分区
 /备份:      git（代码与 spec/ 文档）+ PG dump（数据）——纳入既有 sys-backup 惯例
 ```
