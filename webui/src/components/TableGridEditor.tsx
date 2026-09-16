@@ -5,7 +5,7 @@ import { nodeApi } from "../api/endpoints";
 
 const REGISTER_FIELD_COLUMNS = ["field", "bits", "access", "reset", "description"];
 /** 与服务端 TABLE_ATOMS 对齐（render/editable.py）。 */
-const TABLE_ATOMS = new Set(["table", "table.register_field"]);
+const TABLE_ATOMS: Record<string, true> = { table: true, "table.register_field": true };
 
 /** 客户端镜像 content_to_grid：fields 优先，其次 HTML 片段（首行 <th> → header）。 */
 function gridFromNode(node: NodeDTO): { rows: string[][]; header: boolean; headerNames: string[]; registerName: string | null } {
@@ -65,7 +65,7 @@ export function TableGridEditor({ node, onSaved }: Props) {
       current.map((row, i) => (i === rowIdx ? row.map((cell, j) => (j === colIdx ? value : cell)) : row)),
     );
   }
-
+  if (!TABLE_ATOMS[node.atomType]) {
   function addRow(at: number) {
     setRows((current) => {
       const width = current[0]?.length ?? 1;
