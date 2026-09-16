@@ -141,11 +141,13 @@ class NodeRepository(Repository):
         if doc_id is not None:
             seed = seed.where(nodes.c.doc_id == doc_id)
         subtree = seed.cte("subtree", recursive=True)
-        subtree = subtree.union_all(
-            select(nodes.c.node_id, nodes.c.parent_node_id)
-            .join(subtree, nodes.c.parent_node_id == subtree.c.node_id)
-            .where(nodes.c.doc_id == doc_id if doc_id is not None else true())
+        child = select(nodes.c.node_id, nodes.c.parent_node_id).join(
+            subtree, nodes.c.parent_node_id == subtree.c.node_id
         )
+        if doc_id is not None:
+            # 递归项带上分区键 → 整棵子树只扫一个分区（ADR-009 V16 的同一思路）
+            child = child.where(nodes.c.doc_id == doc_id)
+        subtree = subtree.union_all(child)
         statement = select(*NODE_COLUMNS).where(nodes.c.node_id.in_(select(subtree.c.node_id)))
         if not include_deleted:
             statement = statement.where(nodes.c.status == "active")
