@@ -367,6 +367,26 @@ def test_non_standard_document_import_is_not_blocked() -> None:
     assert [proposal.atom.atom_type for proposal in result.proposals] == ["clause"]
 
 
+# 合成样例（非真实语料）：正文仅用于触发提议路径，表为普通 table 而非 safety 的必备变体。
+_FAILURE_MODE_BODY = (
+    "# 1 安全分析\n\n失效模式与影响分析正文。\n\n"
+    "<table><tr><th>failure_mode</th></tr><tr><td>stuck-at</td></tr></table>\n"
+)
+
+
+def test_required_atom_variants_are_enforced_in_proposal_path() -> None:
+    """`safety` 的必备**变体** `table.failure_mode` 在提议路径被强制（M01.doc_type.required）。
+
+    回归 SchemaValidate 报告的跨模块缺口：判据曾只查 `clause`，变体类必备项无人强制。
+    """
+    safety = parse_text(_doc("safety", extra=SAFETY_EXTRA) + _FAILURE_MODE_BODY, doc_slug="safety")
+    violations = [item for item in check_proposals(safety) if item.rule_id == "M01.doc_type.required"]
+    assert len(violations) == 1, "只缺 table.failure_mode（clause 已由标题命中）"
+    assert "table.failure_mode" in violations[0].message
+    standard = parse_text(_doc("standard") + _FAILURE_MODE_BODY, doc_slug="std2")
+    assert "M01.doc_type.required" not in {item.rule_id for item in check_proposals(standard)}
+
+
 # ---------------------------------------- §4 vPlan/UCIS（合成样例，非真实语料）
 
 # 合成样例（非真实语料）：`spec/standards/` 中无 vPlan/UCIS 文件，故按映射表 §4 的层级手写。
