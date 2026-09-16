@@ -112,8 +112,8 @@ async def export_package(
 ) -> ExportResult:
     """生成导出包（§3 M-LR / REQ-MLR-F01）。
 
-    :param doc_ids: 参与导出的文档。任取不到 → :class:`NotFoundError`（不静默跳过——
-      静默会让对端收到不完整语料却无从察觉）。
+    :param doc_ids: 参与导出的文档（重复项按首次出现去重）。任取不到 →
+      :class:`NotFoundError`（不静默跳过——静默会让对端收到不完整语料却无从察觉）。
     :param out_dir: 包目录（不存在则创建；同名文件**整体覆盖**，不留上一版残留行）。
     :param storage: 注入 `Storage`（缺省进程级单例，便于 M11 CLI 直接调用）。
     :param hops: 图结构上下文跳数（≥1）。只影响 refs 图遍历深度，不影响 ``nodes.jsonl``。
@@ -121,10 +121,11 @@ async def export_package(
     if hops < 1:
         raise ValidationError(f"hops must be >= 1, got {hops}", entity="node")
     store = storage if storage is not None else Storage()
-    target = Path(out_dir)
+    # 去重保序：重复项会让 `docs` 计数与包内容不符
+    ordered = list(dict.fromkeys(doc_ids))
     # 文档先取（404 在计时之外：失败不是一次导出，不该进导出指标）
-    docs = [await store.get_doc(doc_id) for doc_id in doc_ids]
-    nodes = await store.list_nodes_for_docs(list(doc_ids))
+    docs = [await store.get_doc(doc_id) for doc_id in ordered]
+    nodes = await store.list_nodes_for_docs(ordered)
     records = [node_record(node) for node in nodes]
     with log.timer("export_package", doc_count=len(docs), node_count=len(records), graph_hops=hops):
         relations = await _graph_relations(nodes, store, hops)
