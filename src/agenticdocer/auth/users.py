@@ -790,3 +790,9 @@ async def flush_auth_failure_aggregates(*, db: Database | None = None) -> int:
         await _write_failure_event(reason, ip=ip, bucket=entry, aggregated=True, db=db)
         written += 1
     return written
+
+
+def reset_failure_aggregates() -> None:
+    """清空失败聚合窗口（测试/进程重启用，与 ``sessions.reset_rate_limits`` 对称）。"""
+    with _failure_lock:
+        _failure_buckets.clear()
