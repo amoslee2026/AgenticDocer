@@ -775,16 +775,17 @@ async def _write_failure_event(
     ip: str | None,
     bucket: _FailureBucket,
     aggregated: bool,
-    ip: str | None,
+    claimed_key_id: str | None = None,
     claimed_user_id: str | None = None,
+    verified_user_id: str | None = None,
     db: Database | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "reason": reason,
         "ip": ip,
         "endpoint": bucket.endpoint,
-    claimed_user_id: str | None = None,
-    verified_user_id: str | None = None,
+        "method": bucket.method,
+        "status": bucket.status_code,
         "occurrences": bucket.count,
         "bucket_start": datetime.fromtimestamp(
             bucket.bucket * _FAILURE_BUCKET_SECONDS, tz=timezone.utc
@@ -796,15 +797,15 @@ async def _write_failure_event(
         payload["claimed_key_id"] = claimed_key_id
     if claimed_user_id is not None:
         payload["claimed_user_id"] = claimed_user_id
+    if verified_user_id:
+        payload["verified_user_id"] = verified_user_id
     try:
         await log_auth_event("fail", "anonymous", payload, db=db)
     except Exception:  # noqa: BLE001 - 审计失败不得掩盖 401/403 本身
         log.error("鉴权失败审计事件写入失败", op="log_auth_failure", reason=reason, ip=ip)
 
-    if claimed_user_id is not None:
-        payload["claimed_user_id"] = claimed_user_id
-    if verified_user_id:
-        payload["verified_user_id"] = verified_user_id
+
+async def flush_auth_failure_aggregates(*, db: Database | None = None) -> int:
     """把已过窗的失败计数写成汇总事件（由 :func:`sessions.purge_expired` 同任务调用）。"""
     current_bucket = int(time.time() // _FAILURE_BUCKET_SECONDS)
     with _failure_lock:
@@ -816,10 +817,17 @@ async def _write_failure_event(
         for key, _ in stale:
             _failure_buckets.pop(key, None)
     written = 0
-    for (ip, reason), entry in stale:
+    for (ip, reason, verified_user_id), entry in stale:
         if entry.count <= 1:
             continue
-        await _write_failure_event(reason, ip=ip, bucket=entry, aggregated=True, db=db)
+        await _write_failure_event(
+            reason,
+            ip=ip,
+            bucket=entry,
+            aggregated=True,
+            verified_user_id=verified_user_id or None,
+            db=db,
+        )
         written += 1
     return written
 
