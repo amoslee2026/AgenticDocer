@@ -168,6 +168,8 @@ def build_sshsig(
     hash_algorithm: str = "sha512",
 ) -> bytes:
     """生成 SSHSIG **raw blob**（Ed25519 直签；RSA 用 PSS + 同名摘要，S11）。"""
+    if hash_algorithm not in _HASH_CLASSES:
+        raise SigningError(f"不支持的哈希算法：{hash_algorithm}")
     line = public_key_line(private_key)
     key_type, blob = key_blob_from_line(line)
     data = _signed_data(namespace, hash_algorithm, message)
@@ -175,7 +177,7 @@ def build_sshsig(
         signature_algorithm = "ssh-ed25519"
         signature = private_key.sign(data)
     elif key_type == "ssh-rsa":
-        hash_cls = _HASHES[hash_algorithm]
+        hash_cls = _HASH_CLASSES[hash_algorithm]
         signature_algorithm = f"rsa-sha2-{hash_cls.digest_size * 8}"
         signature = private_key.sign(
             data,

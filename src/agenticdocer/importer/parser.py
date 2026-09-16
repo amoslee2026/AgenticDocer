@@ -423,7 +423,7 @@ def _strip_heading_markers(text: str) -> str:
     return _ATX_PREFIX_RE.sub("", text)
 
 
-def _content(
+def atom_content(
     atom_type: str,
     *,
     fragment: str | None = None,
@@ -552,7 +552,7 @@ def _clause_pending(
         block=block,
         atom_type="clause",
         format="md",
-        content=_content(
+        content=atom_content(
             "clause",
             fragment=fragment,
             text=_strip_heading_markers(fragment),
@@ -575,7 +575,7 @@ def _definition_heading_pending(section: Section, block: Block, prose: Sequence[
         block=block,
         atom_type="definition",
         format="md",
-        content=_content(
+        content=atom_content(
             "definition",
             fragment=fragment,
             text=_strip_heading_markers(fragment),
@@ -596,7 +596,7 @@ def _definition_paragraph_pending(block: Block, match: re.Match[str]) -> _Pendin
         block=block,
         atom_type="definition",
         format="md",
-        content=_content("definition", fragment=block.text, text=block.text, term=match.group("term")),
+        content=atom_content("definition", fragment=block.text, text=block.text, term=match.group("term")),
         level=None,
         section_path=(),
         anchor_title="",
@@ -611,7 +611,7 @@ def _table_pending(block: Block) -> _Pending:
         block=block,
         atom_type="table",
         format="md" if markdown else "html",
-        content=_content("table", fragment=block.text, meta=table_meta(block.text, markdown=markdown)),
+        content=atom_content("table", fragment=block.text, meta=table_meta(block.text, markdown=markdown)),
         level=None,
         section_path=(),
         anchor_title="",
@@ -629,7 +629,7 @@ def _code_pending(block: Block) -> _Pending:
         block=block,
         atom_type="code",
         format="md",
-        content=_content(
+        content=atom_content(
             "code",
             fragment=block.text,
             text=inner.strip() or block.text,
@@ -661,7 +661,7 @@ def _figure_pending(block: Block) -> _Pending:
         block=block,
         atom_type="figure",
         format="html" if block.rule_id == "R07.figure.html-img" else "md",
-        content=_content(
+        content=atom_content(
             "figure",
             text=alt.strip() or source,
             alt=alt.strip() or None,
@@ -680,7 +680,7 @@ def _note_pending(block: Block) -> _Pending:
         block=block,
         atom_type="note",
         format="md",
-        content=_content("note", fragment=block.text, text=block.text),
+        content=atom_content("note", fragment=block.text, text=block.text),
         level=None,
         section_path=(),
         anchor_title="",
@@ -694,7 +694,7 @@ def _cross_ref_pending(block: Block, doc_id: str) -> _Pending:
         block=block,
         atom_type="cross_ref",
         format="md",
-        content=_content("cross_ref", text=block.text, ref_kind="see_also", target_doc_id=doc_id),
+        content=atom_content("cross_ref", text=block.text, ref_kind="see_also", target_doc_id=doc_id),
         level=None,
         section_path=(),
         anchor_title="",
@@ -708,7 +708,7 @@ def _example_pending(block: Block) -> _Pending:
         block=block,
         atom_type="example",
         format="md",
-        content=_content("example", fragment=block.text, text=block.text),
+        content=atom_content("example", fragment=block.text, text=block.text),
         level=None,
         section_path=(),
         anchor_title="",
