@@ -1,0 +1,9 @@
+# 工作区临时文件
+temp/
+*.tmp
+*.bak
+.DS_Store
+
+# skill 本地状态
+.skills_local/
+idea/.logs/
