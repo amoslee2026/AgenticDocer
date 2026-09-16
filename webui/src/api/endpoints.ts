@@ -110,7 +110,7 @@ export const eventApi = {
       search.set("limit", String(params.limit));
     }
     const query = search.toString();
-    return apiGet<import("./types").EventDTO[]>(`/api/v1/events${query ? `?${query}` : ""}`);
+    return apiGet<EventDTO[]>(`/api/v1/events${query ? `?${query}` : ""}`);
   },
   replayNode: (nodeId: string, upto?: string) =>
     apiGet<NodeSnapshotDTO>(
@@ -156,7 +156,7 @@ export const userApi = {
     apiPatch<UserDTO>(`/api/v1/users/${userId}`, payload),
   remove: (userId: string) => apiDelete<void>(`/api/v1/users/${userId}`),
   addKey: (userId: string, publicKey: string) =>
-    apiPost<import("./types").SshKeyDTO>(`/api/v1/users/${userId}/keys`, { publicKey }),
+    apiPost<SshKeyDTO>(`/api/v1/users/${userId}/keys`, { publicKey }),
   revokeKey: (userId: string, keyId: string) =>
     apiDelete<void>(`/api/v1/users/${userId}/keys`, { keyId }),
   roles: () => apiGet<RoleInfoDTO[]>("/api/v1/roles"),
