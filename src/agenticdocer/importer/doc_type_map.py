@@ -779,3 +779,30 @@ def subtypes_for(doc_type: str) -> tuple[str, ...]:
         for mapping in IDEA_DOC_TYPES
         if mapping.doc_type == doc_type and mapping.doc_subtype is not None
     )
+
+
+# ── `verification-plan` 子类型的额外必填项（映射表 §4：UCIS/vPlan 对齐）─────
+#
+# 模型层 `DocTypeRule` 是 **doc_type 粒度**（5 值）；子类型粒度的必填项只此一处，
+# 故落在映射层（区别于 `model.doc_types.missing_required_meta` 的 doc_type 粒度判定）。
+
+VERIFICATION_PLAN_SUBTYPE: Final = "verification-plan"
+"""细分 `product/verification-plan`（idea.md §4.3 的验证计划）。"""
+
+VERIFICATION_PLAN_FORMATS: Final = ("ucis", "vplan", "native")
+"""验证计划的来源/交换格式（映射表 §4）：UCIS、vPlan XML、或本系统原生结构。"""
+
+
+def missing_verification_plan_meta(meta: Mapping[str, Any] | None) -> list[str]:
+    """验证计划子类型缺失的必填字段（空列表 = 通过；`verification_plan_format` 见 §4）。"""
+    present = meta or {}
+    value = str(present.get("verification_plan_format", "")).strip()
+    return [] if value else ["verification_plan_format"]
+
+
+def invalid_verification_plan_format(meta: Mapping[str, Any] | None) -> str | None:
+    """`verification_plan_format` 的非法值（``None`` = 合法或未提供）。"""
+    value = str((meta or {}).get("verification_plan_format", "")).strip().lower()
+    if not value or value in VERIFICATION_PLAN_FORMATS:
+        return None
+    return value
