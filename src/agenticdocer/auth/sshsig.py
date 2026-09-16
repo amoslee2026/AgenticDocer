@@ -172,6 +172,8 @@ def dearmor(data: str | bytes) -> bytes:
     容忍 HTTP 头场景（换行被折叠）与文件场景（多行 armor）；不改变任何字节语义。
     """
     text = data.encode("ascii", "ignore") if isinstance(data, str) else bytes(data)
+    if text.startswith(MAGIC):
+        return text  # 二进制 blob：不得做任何空白裁剪（帧尾字节可能正好是空白字符）
     text = text.strip()
     if text.startswith(MAGIC):
         return text
