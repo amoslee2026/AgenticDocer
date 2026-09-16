@@ -453,7 +453,6 @@ async def test_agent_flow_read_write_render_diff(
     orphaned = await admin.get(f"/api/v1/comments?node_id={node_id}")
     assert orphaned.status_code == 200
     assert {item["state"] for item in orphaned.json()} == {"resolved", "orphaned"}
-    assert "orphaned" in {item["state"] for item in orphaned.json()}
     assert (
         await admin.get(f"/api/v1/docs/{doc_id}/nodes?include_deleted=true")
     ).status_code == 200
