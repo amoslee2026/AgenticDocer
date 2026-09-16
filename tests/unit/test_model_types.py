@@ -528,6 +528,20 @@ SPEC_FIELDS: dict[type, set[str]] = {
 }
 
 
+@pytest.mark.parametrize(
+    "model, expected",
+    list(SPEC_FIELDS.items()),
+    ids=[model.__name__ for model in SPEC_FIELDS],
+)
+def test_field_names_match_contract(model: type, expected: set[str]):
+    assert set(model.model_fields) == expected
+
+
+def test_contract_table_entries_are_all_distinct_models():
+    """别名（GrantTargetDoc/DocTypeTarget 同物）不得重复登记，否则 ids 会重复。"""
+    assert len({id(model) for model in SPEC_FIELDS}) == len(SPEC_FIELDS)
+
+
 def test_required_optionality_follows_spec_section_3_0():
     """§3.0 只在三处给了默认值（Node 继承 NodeIn 的 `format`）；`X | None` 仍为必填。
     例外：内部配置模型 DocTypeRule 的两个可选规则字段（不属 §3.0 传输类型）。"""
