@@ -40,7 +40,8 @@ from agenticdocer.observability import (
     current_rid,
     error_code_for_rule,
     evaluate_health,
-    get_logger,
+    DTO_REF_BROKEN,
+    EndpointMetric,
     health,
     install,
     new_rid,
@@ -548,8 +549,7 @@ def test_snapshot_render_metrics(logs: Path) -> None:
 
     snap = snapshot(since=_since(), window=600, log_dir=logs)
     assert snap.render.count == 3
-    DTO_REF_BROKEN,
-    EndpointMetric,
+    assert snap.render.section_p95 == 200
     assert snap.render.document_p95 == 500
 
 
