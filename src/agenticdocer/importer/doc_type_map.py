@@ -637,7 +637,7 @@ PRODUCT_SUBTYPES: tuple[str, ...] = tuple(
 """`product` 大类的全部细分（写入 `meta.doc_subtype`；不新增 `doc_type`）。"""
 
 
-# ── impporter 侧别名（frontmatter `spec_type` 的自然写法）─────────────────
+<<<PLACEHOLDER>>>
 #
 # 上游文档（人工/agent 书写 frontmatter）常写 idea.md 的类型名或其英文缩写；
 # 别名在此**归一**到 :data:`MAPPINGS_BY_SLUG` 的 slug，避免把判定散落到调用方。
