@@ -93,9 +93,13 @@ def _reset_auth_windows() -> None:
 
 @pytest.fixture(autouse=True)
 async def _clean_auth_tables(database: Database) -> AsyncIterator[None]:
-    """每个用例从空鉴权状态开始（``users`` 级联清 keys/grants/sessions）。"""
+    """每个用例从空鉴权状态开始（``users`` 级联清 keys/grants/sessions）。
+
+    ``grants.granted_by`` 无级联动作，故先置空再删用户（与 ``users.delete_user`` 同口径）。
+    """
     async def _wipe() -> None:
         async with database.transaction() as session:
+            await session.execute(text("UPDATE grants SET granted_by = NULL"))
             await session.execute(text("DELETE FROM users"))
             await session.execute(text("DELETE FROM nonces"))
 
