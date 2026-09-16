@@ -162,7 +162,8 @@ async def run_bench(args: argparse.Namespace) -> Bench:
               f"（{ingest['ingest_ms'] / 1000:.1f}s，{ingest['nodes_per_s']:.0f} 节点/s）")
 
         info = await pg_info(db)
-        parts = await partition_rows(db)
+        rows_by_part = await partition_rows(db)
+        leaves = await partition_leaf_names(db)
         events_parts = await events_partition_rows(db)
         syn_docs = int(await scalar(db, "SELECT count(*) FROM docs WHERE doc_id LIKE 'SPEC-SYN-%'"))
         syn_nodes = int(await scalar(
@@ -170,10 +171,27 @@ async def run_bench(args: argparse.Namespace) -> Bench:
         ))
         nodes_per_doc = syn_nodes / syn_docs if syn_docs else 0.0
         bytes_per_node = info["total_bytes"] / after["nodes"] if after["nodes"] else 0.0
-        rows_per_part = [count for _, count in parts]
+        # 行分布必须按**全部分区**（含空分区）评估，否则「分区均衡」被空分区掩盖
+        rows_per_part = [rows_by_part.get(name, 0) for name in leaves]
+        nonempty = [count for count in rows_per_part if count]
         cv = (
             statistics.pstdev(rows_per_part) / statistics.fmean(rows_per_part)
             if len(rows_per_part) > 1 and statistics.fmean(rows_per_part)
+            else 0.0
+        )
+        # 可判性：文档数 ≫ 分区数时 CV 才反映分布质量，否则由抽样支配（不作达标判定）
+        cv_target = TARGET_PARTITION_CV if syn_docs >= 4 * TARGET_PARTITION_COUNT else None
+
+        # 分区行数分布（只打印头部/尾部，完整数据落 JSON）
+        ordered = sorted(rows_by_part.items(), key=lambda item: item[1])
+        print(f"\n分区行数分布（共 {len(leaves)} 分区，非空 {len(nonempty)}）："
+              f"min={min(rows_per_part)} max={max(rows_per_part)} "
+              f"mean={statistics.fmean(rows_per_part):.0f} CV={cv:.3f}"
+              f"（均衡判据{'启用' if cv_target else '不启用：文档数 < ' + str(4 * TARGET_PARTITION_COUNT)}）")
+        print(render_table(
+            ["分区", "行数"],
+            [[name, count] for name, count in ordered[:3] + ordered[-3:]],
+        ))
             else 0.0
         )
 
