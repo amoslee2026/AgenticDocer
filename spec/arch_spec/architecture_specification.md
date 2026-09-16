@@ -806,7 +806,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 - **对外监听（非 `127.0.0.1`）必须经 TLS 反向代理终止**，此时会话 Cookie 强制 `Secure`；
 - **无 TLS 时仅允许 loopback 绑定**（明文 HTTP 下会话 Cookie 可被嗅探劫持，最长 8h）；
 - CSRF 立场：依赖 `SameSite=Lax` + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
-## 5. 部署与运行（AB1/AB2/B15）
+
 
 ```
 systemd --user: agenticdocer-api.service
