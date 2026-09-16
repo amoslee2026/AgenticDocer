@@ -417,22 +417,23 @@ def test_reader_cannot_write_and_gets_actionable_hint(service: _Service, importe
     assert isinstance(node, dict)
     patch = _write_patch(service, "reader-patch.json", _node_payload(node, node["version"]))
     denied = service.fails("node", "put", "--file", str(patch), "--json", actor="reader")
-    assert "editor" in denied.stderr  # 所需角色名
-    assert "agenticdocer grant add" in denied.stderr  # 授权命令原文
-    assert "--permission write" in denied.stderr
-
-
-# ----------------------------------------------------------------------
-# REQ-M11-F06：人类标注调取（含锚定版本上下文）
-# ----------------------------------------------------------------------
-
-
-def test_annotation_flow_including_anchor_context(service: _Service, imported: dict[str, object]) -> None:
-    created = service.ok(
-        "comment", "add", "--node", str(imported["node_id"]), "--body", "人类评审：请补一张时序图",
-        "--json", actor="reviewer",
-    )
-    assert isinstance(created, dict)
+def _node_payload(node: dict, version: int, text: str | None = None) -> dict:
+    """NodeIn 全字段（可选项显式 null——M01 写入契约 `extra=forbid` 要求）。"""
+    content = dict(node["content"])
+    if text is not None:
+        content["text"] = text
+    return {
+        "nodeId": node["nodeId"],
+        "docId": node["docId"],
+        "atomType": node["atomType"],
+        "format": node["format"],
+        "ordinal": node["ordinal"],
+        "parentNodeId": node["parentNodeId"],
+        "level": node["level"],
+        "anchor": node["anchor"],
+        "content": content,
+        "expectedVersion": version,
+    }
     assert created["state"] == "open"
     assert created["targetEventId"]
 

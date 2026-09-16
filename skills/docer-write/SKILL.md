@@ -34,9 +34,13 @@ agenticdocer node delete <node_id> --expected-version 3 --json
 `patch.json` 示例（字段口径见 `agenticdocer node get --json` 输出）：
 
 ```json
-{"docId": "SPEC-STD-AMBA-APB", "nodeId": "<uuid7>", "atomType": "clause", "anchor": "…#3.2.1·transfer",
- "format": "md", "ordinal": 42, "level": 3, "content": {"text": "修订后的正文"}, "expectedVersion": 3}
+{"nodeId": "<uuid7 或 null>", "docId": "SPEC-STD-AMBA-APB", "atomType": "clause", "format": "md",
+ "ordinal": 42, "parentNodeId": "<父 uuid7 或 null>", "level": 3, "anchor": "…#3.2.1·transfer",
+ "content": {"text": "修订后的正文"}, "expectedVersion": 3}
 ```
+
+> **可选字段必须显式给 `null`**（`nodeId`/`parentNodeId`/`level`）：写入契约 `extra=forbid`，
+> 缺字段会被服务端 422 拒绝（避免拼错字段名被静默丢弃）。`expectedVersion` 可省略（新建时）。
 
 > 全部命令都支持 `--json`（结构化输出，camelCase，与 M06/M07 DTO 同形）与 `--dry-run`
 > （干跑：只回放将要发出的请求，不触网/不写库；用于参数自检与固定 prompt 演练）。
