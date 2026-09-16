@@ -1,3 +1,9 @@
+> [!NOTE]
+> **Annotations present.** This file contains reviewer feedback.
+> `==highlights==` flag text for discussion. `%%comments%%` are inline notes (hidden in preview, visible in source).
+> `~~deletions~~` suggest removal. `> [!EDIT]` blocks are change requests. `> [!TODO]` blocks are instructions to execute.
+> These markers are intentional — do not remove or "clean up" without asking the reviewer.
+
 ---
 title: 功能规格书 — 芯片设计知识库系统
 type: composite
@@ -16,6 +22,12 @@ section_meta: "@meta"
 > 编号规则：`REQ-M##-F##`（M## = 模块，F## = 模块内功能序）。优先级：P0 = 阶段 1（地基+闭环）；P1 = 阶段 2（人机接口）；P2 = 阶段 3（增值）。
 
 ## 功能列表
+
+> [!TODO] 应该提供文档版本管理，获取文档diff
+
+
+> [!TODO] 应该提供skill和CLI 为提供文档导入，删除，修改和读取，另外专用skill调取人类用户的标注；
+
 
 | REQ_ID | 功能 | 模块 | 优先级 | 阶段 |
 |---|---|---|---|---|

@@ -4,6 +4,18 @@ temp/
 *.bak
 .DS_Store
 
+# skill 本地状态（含子目录）
+**/.skills_local/
+**/.logs/
+**/__pycache__/
+**/*.pyc
+.incremental_manifest.json
+
+# 构建产物
+build/
+dist/
+.venv/
+
 # skill 本地状态
 .skills_local/
 idea/.logs/
