@@ -5,7 +5,7 @@ purpose: spec
 audience: both
 direction: input
 status: approved
-version: "1.0.0"
+version: "1.1.0"
 section_meta: "@meta"
 ---
 

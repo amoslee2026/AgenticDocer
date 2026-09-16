@@ -270,3 +270,30 @@ section_meta: "@meta"
 19/20 项完全闭环（E1–E12、E14–E20）；E13 部分闭环，其残余（N1）构成新的阻塞项。其余 N2–N8 为 LOW 信息项。
 
 存在 1 个阻塞问题（N1）
+
+---
+
+# 最终确认（N1–N8 闭环，2026-09-16）
+
+| 项 | 结论 | 核验位置（改后） |
+|---|---|---|
+| N1 | 闭环 | `design_doc.md` §10 L292「规则覆盖率 = 携带 `rule_id` 的源块数 ÷ 总源块数（≥95%）」+ 单列「兜底率/待确认条数」；§6.1 L196 兜底 bullet 注「不计入规则覆盖率」 |
+| N2 | 闭环 | `trade_off_matrix.md` D1（L35）与否决表（L48）均改为 ≤100k（B10 v1.1） |
+| N3 | 闭环 | `design_doc.md` §4 M09B 职责（L99）增「assets 缺失」；`assets` 表（L136）注「缺失引用以 `assets.missing` 违规项记录（不建空行）」 |
+| N4 | 闭环 | `design_doc.md` §5 新增 `terms` 表行（L137：term / definition_node_id / kind=glossary\|normative-keyword） |
+| N5 | 闭环 | `approach_analysis.md` 阶段 1（L78 含 M09A + 规则覆盖率）、阶段 3（L80 M09B）、并行行（L82 M09B） |
+| N6 | 闭环（3 份） | `clarifications.md`/`trade_off_matrix.md`/`summary.md` version → 1.1.0（各 L8） |
+| N7 | 闭环 | `design_doc.md` §4 原则句（L87）改为「依赖以交付序约束（§12）：模块只可依赖已交付模块；模块表列完备依赖，依赖图仅示关键路径」 |
+| N8 | 闭环 | `design_doc.md` §11（L303）改为「实测最大 CXL 3,594,622 B / 31,072 行」 |
+
+## 残留（全部非阻塞，措辞/版本级）
+
+- C1（LOW）：`summary.md` L42 里程碑仍写「解析提议覆盖率 ≥95%」，与 design §10/§6.1 新口径「规则覆盖率」术语不一致（改一个词）。
+- C2（LOW）：`design_doc.md` L166 仍称「`terms` 词汇表（glossary 表）」——§5（L137）已定名 `terms`（kind 含 glossary），括号内旧别名建议删去。
+- C3（LOW）：`approach_analysis.md` 已按 N5 修改但版本仍为 1.0.0（L8），建议随其余文档一并升 1.1.0。
+
+## 最终结论
+
+N1–N8 全部闭环；残留 C1–C3 为措辞/版本级、不影响 it.arch 交接。E1–E13 原阻塞项与其后残余均已闭环。
+
+无阻塞问题
