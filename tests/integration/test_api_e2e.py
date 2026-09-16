@@ -350,10 +350,12 @@ async def test_agent_flow_read_write_render_diff(
     assert "<table>" in whole["markdown"]  # HTML 片段零改写直通（P4）
     assert Path(whole["outPath"]).is_file()
 
-    # 锚含空格：签名覆盖 RAW_PATH（§3 M06/S2「query 参与签名」），故用**线上形态**（%20）
-    section_render = await admin.get(f"/api/v1/docs/{doc_id}/render?section=1.1%20Purpose")
+    # 锚含 `#` 与空格：签名覆盖 RAW_PATH（S2），故按**线上形态**编码（`#`→%23、空格→%20）
+    anchor = f"{doc_id}#1.1 Purpose"
+    encoded = anchor.replace("#", "%23").replace(" ", "%20")
+    section_render = await admin.get(f"/api/v1/docs/{doc_id}/render?section={encoded}")
     assert section_render.status_code == 200, section_render.text
-    assert section_render.json()["section"] == "1.1 Purpose"
+    assert section_render.json()["section"] == anchor
     assert "Purpose of this section" in section_render.json()["markdown"]
     assert "<table>" not in section_render.json()["markdown"]  # 同级表格不在该章节子树内
 
