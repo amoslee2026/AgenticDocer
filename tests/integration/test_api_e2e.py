@@ -246,6 +246,8 @@ async def test_agent_flow_read_write_render_diff(
     assert table.status_code == 200, table.text
     table_node = table.json()
 
+    after_nodes = _utc_now()  # 三个节点已创建、尚未更新（用于「修改」窗口的下界）
+
     # ── 写入门（REQ-M06-F01/F02）：缺 text 的 clause → 422 + violations（含 fixHint）
     invalid = await admin.post(
         "/api/v1/nodes", _node_body(doc_id, "1.3 Bad", ordinal=3, content={})
@@ -352,23 +354,36 @@ async def test_agent_flow_read_write_render_diff(
     assert current.json()["node"]["content"]["text"] == "Scope of the document (revised)"
 
     # ── 文档 diff（B11/REQ-M07-F06）
+    # ① 下界早于建节点 → 三个节点都记「新增」（节点级条目：field="node"，before/after 为节点视图）
     diff = await admin.get(
         f"/api/v1/docs/{doc_id}/diff?from={before_writes.isoformat()}&to={_utc_now().isoformat()}"
     )
     assert diff.status_code == 200, diff.text
     payload = diff.json()
     assert {"docId", "fromTs", "toTs", "changes", "summary"} <= set(payload)
-    modified = [
-        entry
+    added_nodes = {
+        entry["nodeId"]
         for entry in payload["changes"]
+        if entry["op"] == "added" and entry["field"] == "node"
+    }
+    assert {node_id, section.json()["nodeId"], table_node["nodeId"]} <= added_nodes
+    assert payload["summary"]["added"] >= 3
+
+    # ② 下界在「建节点之后、更新之前」→ 同一节点逐字段给出 before/after
+    edits = await admin.get(
+        f"/api/v1/docs/{doc_id}/diff?from={after_nodes.isoformat()}&to={_utc_now().isoformat()}"
+    )
+    assert edits.status_code == 200, edits.text
+    edited = [
+        entry
+        for entry in edits.json()["changes"]
         if entry["nodeId"] == node_id and entry["op"] == "modified"
     ]
-    assert any(entry["field"] == "content" for entry in modified)
-    assert any(entry["field"] == "version" for entry in modified)
-    assert any(
-        entry["op"] == "added" and entry["nodeId"] == table_node["nodeId"]
-        for entry in payload["changes"]
-    )
+    assert {"content", "version"} <= {entry["field"] for entry in edited}
+    content_change = next(entry for entry in edited if entry["field"] == "content")
+    assert content_change["before"]["text"] == "Scope of the document"
+    assert content_change["after"]["text"] == "Scope of the document (revised)"
+    assert content_change["anchor"] == "1 Scope"
 
     empty = await admin.get(f"/api/v1/docs/{doc_id}/diff?from=1&to=1")
     assert empty.status_code == 200
