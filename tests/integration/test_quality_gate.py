@@ -59,6 +59,9 @@ pytestmark = pytest.mark.integration
 
 CTX = WriteContext(actor="m09-tester", source="cli")
 _SEQ = itertools.count(1)
+_RUN = new_uuid7().hex[:12]
+"""本次测试运行的唯一后缀：`doc_id` 跨**运行**唯一（锚唯一约束 `(doc_id, anchor)` 要求如此——
+库不清空时，仅按进程内计数会与上一轮运行冲突）。"""
 
 CLAUSE_FRAGMENT = "## 1 Overview\n\nThis is the overview body."
 TABLE_FRAGMENT = "| a | b |\n| --- | --- |\n| 1 | 2 |"
