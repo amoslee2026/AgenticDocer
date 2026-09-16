@@ -504,6 +504,5 @@ async def test_perf_health_detects_unmigrated_target(storage: Storage, sample: S
     assert all(item.fix_hint for item in violations)
     if report.partitions.events_next_missing:
         assert perf_health.RULE_PARTITION_MISSING in rules(violations)
-
     healthy = await gate(storage, sample.doc_id, ["perf_health"], dsn=storage.db.url)
     assert healthy["perf_health"] == [] or bool(healthy["perf_health"])
