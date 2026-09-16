@@ -323,30 +323,31 @@ def test_sign_request_headers_shape() -> None:
 
 
 @pytest.fixture(scope="module")
-def openssh_keys(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    """用**真实 ssh-keygen** 生成 Ed25519 与 RSA 密钥（互操作用）。"""
+def openssh_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """用**真实 ssh-keygen** 生成 Ed25519 与 RSA 密钥（互操作用），返回目录。"""
     directory = tmp_path_factory.mktemp("openssh")
-    paths: dict[str, Path] = {}
     for name, args in (
         ("id_ed25519", ["-t", "ed25519"]),
         ("id_rsa", ["-t", "rsa", "-b", "3072"]),
     ):
-        target = directory / name
         subprocess.run(
-            [SSH_KEYGEN, "-q", "-N", "", "-f", str(target), *args],
+            [SSH_KEYGEN, "-q", "-N", "", "-f", str(directory / name), *args],
             check=True,
             capture_output=True,
         )
-        paths[name] = target
     (directory / "message").write_bytes(MESSAGE)
-    return paths
-
+    return directory
 
 @needs_ssh_keygen
-def test_fingerprint_matches_ssh_keygen_lf(openssh_keys: dict[str, Path]) -> None:
-    for name, path in openssh_keys.items():
+def test_fingerprint_matches_ssh_keygen_lf(openssh_dir: Path) -> None:
+    for name in ("id_ed25519", "id_rsa"):
         expected = subprocess.run(
-            [SSH_KEYGEN, "-lf", f"{path}.pub"], check=True, capture_output=True, text=True
+            [SSH_KEYGEN, "-lf", f"{openssh_dir / name}.pub"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.split()[1]
+        assert signing.fingerprint((openssh_dir / f"{name}.pub").read_text()) == expected, name
         ).stdout.split()[1]
         assert signing.fingerprint(path.with_suffix(".pub").read_text()) == expected, name
 
