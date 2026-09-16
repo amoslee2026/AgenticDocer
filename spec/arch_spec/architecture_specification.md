@@ -656,7 +656,7 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 ```
 
 ### 4.3 DB 角色与权限（A15）
-#### 4.3.1 应用层 RBAC（M10，批注 A1/A2/B3）
+
 
 ```sql
 -- 属主：agenticdocer（database owner，建库时创建）
@@ -670,6 +670,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
 REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;  -- append-only 强制（P2）
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 ```
+
+#### 4.3.1 应用层 RBAC（M10，批注 A1/A2/B3）
+
+见 §3 M10「权限矩阵」。DB 层仅区分属主（迁移）与应用（最小权限）；用户级权限（四角色 + 文档集级 grant）由 **M10 应用层**强制，落 `users`/`grants` 表（§4）。
+
+**双层防护**：DB 角色防「应用被攻破后越权访问他库」；应用 RBAC 防「合法连接内越权操作」。二者不可互相替代。
 
 ## 5. 部署与运行（AB1/AB2/B15）
 
