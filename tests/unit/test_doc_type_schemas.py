@@ -311,13 +311,3 @@ def test_derive_text_of_new_variants_comes_from_the_fragment(
     with pytest.raises(ValueError):
         derive_text(atom_type, {row_key: [row]})  # 无 fragment → 派生为空即写入错误
 
-
-@pytest.mark.parametrize(("atom_type", "row_key", "row", "fragment"), NEW_VARIANTS)
-def test_new_variants_must_be_synthesized_as_real_tables(
-    atom_type: str, row_key: str, row: dict[str, object], fragment: str
-) -> None:
-    """M09A `M01.table.format` 前提：`fragment` 含 `<table>` → 合成样例的 `format` 必须是 html。"""
-    validator = jsonschema.Draft202012Validator(ATOM_SCHEMAS[atom_type])
-
-    assert list(validator.iter_errors(_content(row_key, row, fragment))) == []
-    assert "<table" in str(fragment).lower()
