@@ -534,12 +534,23 @@ def test_quality_gate_rejects_unknown_detector() -> None:
 
 
 def test_quality_gate_dry_run_plan(no_key: Path) -> None:
-    """干跑不触网/不触库（无密钥也能自检参数）。"""
-    result = runner.invoke(cli.app, ["quality-gate", "--doc-id", "SPEC-X", "--dry-run"])
+    """干跑不触网/不触库（无密钥也能自检参数）；重复旗标与逗号分隔等价。"""
+    result = runner.invoke(
+        cli.app,
+        [
+            "quality-gate",
+            "--doc-id", "SPEC-X",
+            "--doc-id", "SPEC-Y",
+            "--detectors", "broken_refs,terms",
+            "--detectors", "assets_missing",
+            "--dry-run",
+        ],
+    )
     assert result.exit_code == 0, result.output
     payload = _json(result.output)
     assert payload["action"] == "quality-gate"
-    assert payload["arguments"]["docIds"] == ["SPEC-X"]
+    assert payload["arguments"]["docIds"] == ["SPEC-X", "SPEC-Y"]
+    assert payload["arguments"]["detectors"] == ["broken_refs", "terms", "assets_missing"]
     assert payload["authCheck"] == "GET /api/v1/auth/me"
 
 
