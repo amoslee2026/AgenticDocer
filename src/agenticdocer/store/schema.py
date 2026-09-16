@@ -436,13 +436,15 @@ def privilege_statements(
         f"GRANT USAGE ON SCHEMA public TO {app_role}",
         f"GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO {app_role}",
     ]
-    partitions = connection.execute(
+    # relkind 'r' = 普通表/分区，'p' = 分区父表（nodes/events）——父表 ACL 是经父表
+    # 访问的判定依据，分区各自的 ACL 决定直接访问，两者都要授。
+    relations = connection.execute(
         text(
             "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-            "WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY c.relname"
+            "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') ORDER BY c.relname"
         )
     ).scalars()
-    for relname in partitions:
+    for relname in relations:
         statements.append(f"GRANT SELECT, INSERT ON TABLE {relname} TO {app_role}")
         if relname in MUTABLE_TABLES:
             statements.append(f"GRANT UPDATE, DELETE ON TABLE {relname} TO {app_role}")
