@@ -197,11 +197,12 @@ def _wait_ready(api_url: str, server: subprocess.Popen[str]) -> None:
 def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
     """建隔离库 → alembic 迁移 → 起 uvicorn → 自举 admin → 登记三角色用户 → 跑完 DROP。"""
     app_url, owner_url = _app_url(), _owner_url()
-    error = asyncio.run(_probe(app_url)) or asyncio.run(_probe(owner_url))
+    maintenance = make_url(owner_url).set(database="postgres").render_as_string(hide_password=False)
+    app_probe = make_url(app_url).set(database="postgres").render_as_string(hide_password=False)
+    error = asyncio.run(_probe(app_probe)) or asyncio.run(_probe(maintenance))
     if error is not None:
         pytest.skip(f"PostgreSQL 不可用：{error}")
 
-    maintenance = make_url(owner_url).set(database="postgres").render_as_string(hide_password=False)
     asyncio.run(
         _maintenance_sql(
             maintenance,
@@ -220,14 +221,17 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
         "ASSET_STORE_DIR": str(work / "assets"),
         "IMPORT_WORK_DIR": str(work / "import_work"),
         "RENDER_OUT_DIR": str(work / "rendered"),
-    app_url, owner_url = _app_url(), _owner_url()
-    maintenance = make_url(owner_url).set(database="postgres").render_as_string(hide_password=False)
-    app_probe = make_url(app_url).set(database="postgres").render_as_string(hide_password=False)
-    error = asyncio.run(_probe(app_probe)) or asyncio.run(_probe(maintenance))
-    if error is not None:
-        pytest.skip(f"PostgreSQL 不可用：{error}")
+        "LOG_DIR": str(work / "logs"),
+        "ADMIN_SSH_PUBKEY_FILE": str(work / "admin.pub"),
+        "IMPORT_SOURCE_ROOT": str(work),
+    }
+    keys: dict[str, Path] = {}
+    fingerprints: dict[str, str] = {}
+    for actor in ("admin", "editor", "reviewer", "reader"):
+        private, public = _write_key(work, f"{actor}_ed25519")
+        keys[actor] = private
+        fingerprints[actor] = signing.fingerprint(public.read_text(encoding="utf-8").strip())
 
-    asyncio.run(
     port = _free_port()
     api_url = f"http://127.0.0.1:{port}"
     env.update({"AGENTICDOCER_API_URL": api_url, "API_HOST": "127.0.0.1", "API_PORT": str(port)})
