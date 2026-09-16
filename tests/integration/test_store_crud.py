@@ -626,15 +626,16 @@ async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
     child_a = await storage.upsert_node(
         node_in(doc_id, ordinal=2, level=2, parent=root.node_id, anchor=f"{doc_id}#1.1"), None, CTX
     )
-    child_b = await storage.upsert_node(
-        node_in(doc_id, ordinal=3, level=2, parent=root.node_id, anchor=f"{doc_id}#1.2"), None, CTX
-    )
+    # 大纲序：a 的子节点紧随 a 之后，再轮到同级 b（区间法依赖该契约）
     grandchild = await storage.upsert_node(
-        node_in(doc_id, ordinal=4, level=3, parent=child_a.node_id, anchor=f"{doc_id}#1.1.1"),
+        node_in(doc_id, ordinal=3, level=3, parent=child_a.node_id, anchor=f"{doc_id}#1.1.1"),
         None,
         CTX,
     )
-    # 同级另一棵树：必须被区间右边界排除
+    child_b = await storage.upsert_node(
+        node_in(doc_id, ordinal=4, level=2, parent=root.node_id, anchor=f"{doc_id}#1.2"), None, CTX
+    )
+    # 同级另一棵树：必须被区间右边界（level ≤ 1）排除
     sibling_root = await storage.upsert_node(
         node_in(doc_id, ordinal=5, level=1, anchor=f"{doc_id}#2"), None, CTX
     )
@@ -644,7 +645,7 @@ async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
         CTX,
     )
 
-    expected = [root.node_id, child_a.node_id, child_b.node_id, grandchild.node_id]
+    expected = [root.node_id, child_a.node_id, grandchild.node_id, child_b.node_id]
     by_cte = await storage.get_subtree(root.node_id, doc_id=doc_id)
     assert [n.node_id for n in by_cte] == expected  # 不多不少、ordinal 序、含根
     assert [n.ordinal for n in by_cte] == [1, 2, 3, 4]
