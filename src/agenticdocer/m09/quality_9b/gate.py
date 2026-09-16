@@ -67,9 +67,10 @@ DETECTORS: Final[dict[str, Detector]] = {
     perf_health.DETECTOR_ID: perf_health.detect,
     doc_type_conformance.DETECTOR_ID: doc_type_conformance.detect,
 }
-"""detector 登记表（key = `QualityReport.detector_id`）：§3 M09 声明的 6 项 + Main 批准新增的
-`section_range_consistency`（M02 B-2 区间契约兜底）。声明序即报告顺序，**只增不改序**——
-调用方（M11 `quality-gate` 的缺省集合）按各自子集过滤时，相对顺序不变。"""
+"""detector 登记表（key = `QualityReport.detector_id`）：§3 M09 声明的 6 项 + 两项后加——
+`section_range_consistency`（M02 B-2 区间契约兜底）、`doc_type_schema_conformance`（方案 C
+的 doc_type 组合规则历史数据兜底，`doc_type_mapping.md` §3）。声明序即报告顺序，
+**只增不改序**——调用方（M11 `quality-gate` 的缺省集合）按各自子集过滤时，相对顺序不变。"""
 
 DETECTOR_IDS: Final[tuple[str, ...]] = tuple(DETECTORS)
 """声明序 = 报告顺序（常量，便于机检与快照）。"""
