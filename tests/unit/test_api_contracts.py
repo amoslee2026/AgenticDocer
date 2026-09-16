@@ -44,7 +44,7 @@ M07_ROUTES: Final[dict[str, set[str]]] = {
     "/api/v1/nodes/{node_id}/table": {"PATCH"},
     "/api/v1/admin/metrics": {"GET"},
     "/api/v1/admin/health": {"GET"},
-    "/api/v1/users": {"GET", "POST"},
+    "SectionDTO": {"nodeId", "anchor", "title", "level", "ordinal", "childCount"},
     "/api/v1/users/{user_id}": {"PATCH", "DELETE"},
     "/api/v1/users/{user_id}/keys": {"POST", "DELETE"},
     "/api/v1/roles": {"GET"},
