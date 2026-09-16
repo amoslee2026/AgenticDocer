@@ -106,7 +106,10 @@ class CoverageRow:
     """测试名；``None`` = 该覆盖项尚无测试（覆盖缺口，见 :data:`UNASSIGNED_TEST`）。"""
 
     status: str
-    """覆盖状态：`coverage_item` 的 `status` → 退 `test` 的 `status` → :data:`UNKNOWN_STATUS`。"""
+    """覆盖状态：`coverage_item@status` → 退 `test@status` → :data:`UNKNOWN_STATUS`。"""
+
+    test_status: str | None = None
+    """`test@status` 原文（矩阵列放不下两个状态；导出时用它还原测试判定，不丢信息）。"""
 
     @property
     def is_gap(self) -> bool:
@@ -143,9 +146,9 @@ class VPlan:
     def to_xml(self) -> str:
         """反向生成 vPlan XML（按行重建层级；`status` 落在唯一可还原的位置）。
 
-        反向生成的 `status` 位置：行有测试 → 落在 `<test>`；行是缺口 → 落在
-        `<coverage_item>`。故 ``parse_vplan(plan.to_xml())`` 与原行的五字段逐字段相等
-        （存在测试的行不重复写 `coverage_item@status`，避免覆盖逐行状态）。
+        反向生成的 `status` 位置：有测试的行 → `<test@status>`（取 :attr:`CoverageRow.
+        test_status`，缺则用 `status`）；缺口行 → `<coverage_item@status>`。故
+        ``parse_vplan(plan.to_xml())`` 与原 :attr:`VPlan.rows` 逐字段相等。
         """
         groups: dict[tuple[str, str], dict[str, list[CoverageRow]]] = {}
         for row in self.rows:
@@ -164,7 +167,9 @@ class VPlan:
                     continue
                 for row in tested:
                     ElementTree.SubElement(
-                        item_el, "test", {"name": row.test or "", "status": row.status}
+                        item_el,
+                        "test",
+                        {"name": row.test or "", "status": row.test_status or row.status},
                     )
         ElementTree.indent(root, space="  ")
         return '<?xml version="1.0" encoding="UTF-8"?>\n' + ElementTree.tostring(
@@ -195,12 +200,14 @@ def _rows_of_scope(
         if not tests:
             return
         for test in tests:
+            test_status = _status(test) or UNKNOWN_STATUS
             yield CoverageRow(
                 feature=feature_name,
                 sub_feature=sub_feature,
                 coverage_item=UNNAMED,
                 test=_label(test) or None,
-                status=_status(test) or UNKNOWN_STATUS,
+                status=test_status,
+                test_status=test_status,
             )
         return
     for item in items:
