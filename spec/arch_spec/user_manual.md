@@ -139,7 +139,7 @@ uv run agenticdocer logs query --level ERROR --since 1h
 # 容量健康巡检（分区/索引膨胀/连接池/归档逾期）
 uv run agenticdocer stats --health
 
-# 质量门巡检（M09B 六个 detector；按 detector 分组输出违规 + 修复建议 fixHint）
+# 质量门巡检（M09B 数据一致性 detector；按 detector 分组输出违规 + 修复建议 fixHint）
 uv run agenticdocer quality-gate --json
 uv run agenticdocer quality-gate --detectors broken_refs,terms --doc-id SPEC-STD-AMBA-APB
 uv run agenticdocer quality-gate --detectors perf_health          # 需 admin（DB 内部指标）

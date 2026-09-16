@@ -1723,7 +1723,7 @@ def quality_gate(
         list[str] | None, typer.Option("--doc-id", help="只巡检这些文档（可重复；缺省全库）")
     ] = None,
 ) -> None:
-    """质量门巡检（M09B 六个 detector；只读）——输出按 detector 分组的违规与修复建议。"""
+    """质量门巡检（M09B 的 detector；只读）——输出按 detector 分组的违规与修复建议。"""
     targets = _resolve_detectors(detectors)
     need = Need(
         command="quality-gate",
