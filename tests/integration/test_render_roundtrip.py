@@ -37,6 +37,7 @@ from agenticdocer.render import (
     list_sections,
     normalize,
     normalize_markdown,
+    node_block_text,
     render_document,
     render_section,
     resolve_table_mode,
@@ -169,13 +170,6 @@ def _retarget_first_img(fragment: str, asset_id: str) -> str:
     """把片段中第一个图片引用的哈希指向 ``asset_id``（其余字节不动；测试夹具用）。"""
     pattern = re.compile(r"(images/)[0-9a-f]{64}(\.[A-Za-z0-9]+)")
     return pattern.sub(lambda m: f"{m.group(1)}{asset_id}{m.group(2)}", fragment, count=1)
-
-
-def _body_of_product(text: str) -> str:
-    """产物正文（去 frontmatter；产物 frontmatter 由 ``docs.meta`` 回写，非源字节）。"""
-    if text.startswith("---\n"):
-        return text.split("---\n", 2)[2]
-    return text
 
 
 @pytest.fixture
