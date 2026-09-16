@@ -587,12 +587,12 @@ async def test_logout_invalidates_cookie(
 ) -> None:
     await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
     _, token = await _login_with_ssh_key(client, database, key_material["editor_ed25519"])
-    cookies = {sessions.SESSION_COOKIE_NAME: token}
+    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
 
-    assert (await client.get("/api/v1/auth/me", cookies=cookies)).status_code == 200
-    logged_out = await client.post("/api/v1/auth/logout", cookies=cookies)
+    assert (await client.get("/api/v1/auth/me")).status_code == 200
+    logged_out = await client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204
-    assert (await client.get("/api/v1/auth/me", cookies=cookies)).status_code == 401
+    assert (await client.get("/api/v1/auth/me")).status_code == 401
     assert await _scalar(database, "SELECT count(*) FROM sessions") == 0
 
     # 无凭据的 logout 也在豁免清单外 → 401（S4）
