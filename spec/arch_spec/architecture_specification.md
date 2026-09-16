@@ -360,18 +360,15 @@ class NormalForm(BaseModel):
 > **处置（B5，用户裁决）**：**保留 M05 实现但降级为内部接口**。`traverse`/`search_text` 仍实现（M-LR 增量导出需 refs 图结构），但**不在 M06/M07 暴露端点**；对外检索能力由 LightRAG 承担（本系统只提供导出接口）。见 ADR-008。
 
 
-
 ```python
 KIND_RULES: dict[RefKind, tuple[Literal["up","down","both"], bool, int]] = {   # (方向, 参与多跳, 最大跳数) A19
+    "traces_to": ("up", True, 2), "composes_from": ("down", True, 1),
+    "see_also": ("both", True, 1), "source_ref": ("up", False, 0),
+}
+def traverse(node_id: UUID7, hops: int = 1) -> list[TraversalHit]:
+    """hops 按各 kind 的 max_hops 截断（hops=2 仅扩 traces_to）；去重保留最短路径；环截断；
     排序：跳数 → doc 序 → ordinal；默认过滤 status='deleted' 节点（L5）。"""
 def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-005），返回含 score；默认过滤 deleted（L5）
-```
-
-### M06 Agent 接口（HTTP）
-
-| 方法/路径 | 语义 | 关键错误 |
-|---|---|---|
-@authblk
 ```
 
 ### M06 Agent 接口（HTTP）
@@ -384,17 +381,34 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | `DELETE /api/v1/nodes/{node_id}?expected_version=` | **软删**（A2，写 delete 事件 + orphan 批注） | 404/409 |
 | `POST /api/v1/refs` / `DELETE /api/v1/refs` | 引用边增删（body: src,dst_doc,dst_node,kind） | 404/422 |
 | ~~`GET /api/v1/nodes/{node_id}/traverse?hops=`~~ | **已移除**（B5/ADR-008：图遍历属 LightRAG 业务，M05 降级为内部实现） | — |
-| `POST /api/v1/auth/challenge` | 取登录挑战（nonce，一次性，TTL 120s，**按 IP 限流**；B2） |
-| `POST /api/v1/auth/login` | 提交 `{keyFingerprint, nonce, signature}`（SSHSIG）→ 验签通过签发会话 Cookie（httpOnly/SameSite=Lax/**Secure 见 §5 TLS 要求**） |
-| `POST /api/v1/auth/logout` | 销毁会话 |
-| `GET /api/v1/auth/me` | 当前身份（user_id/role/permissions） |
-| `GET/POST /api/v1/users`、`PATCH/DELETE /api/v1/users/{id}` | 用户管理（**admin 专属**；**不可操作自身/最后一个 active admin**，S9） |
-| `POST /api/v1/users/{id}/keys` | 登记/吊销该用户 SSH 公钥 |
-| `GET/POST /api/v1/roles`、`POST /api/v1/grants` | 角色与文档集级授权（**admin 专属**；越权 grant 在**授予时**即拒） |
-| `PATCH /api/v1/nodes/{node_id}/table` | 表格编辑回写（B6 可编辑表格；body 为行列 JSON，服务端转 content，epoch 校验） |
-| `GET /api/v1/admin/metrics` | 指标快照（admin 专属；ADR-010） |
-| `GET /api/v1/admin/health` | 健康巡检（admin 专属；ADR-010） |
-**WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖任何客户端自述字段**（S14 修复：**删除 `X-Actor` 头**，身份一律以验签结果为准）。
+| ~~`GET /api/v1/search?q=&limit=`~~ | **已移除**（同上；检索由 LightRAG 承担） | — |
+| `GET /api/v1/docs/{doc_id}/sections` | 章节清单（level-1/2 节点，B10 分章节渲染入口） | 404 |
+| `GET /api/v1/docs/{doc_id}/render?section=` | 章节渲染（省略 section → 整档；B10） | 404 |
+| `GET /api/v1/assets/{asset_id}` | 资产字节流 | 404 |
+| `POST /api/v1/docs/{doc_id}/render` | 触发渲染 | 404 |
+
+**鉴权（B2/B3）**：**默认所有端点（含读）需 M10 鉴权**；**唯一豁免白名单**（S4 修复）如下——
+
+| 豁免端点 | 理由 | 仍受约束 |
+|---|---|---|
+| `POST /api/v1/auth/challenge` | 登录流程起点，此时无任何凭据 | 按 IP 限流（见 §3 M10） |
+| `POST /api/v1/auth/login` | 同上（提交签名换取会话） | 同上 + nonce 一次性 |
+| `GET /` 与登录页静态资源（`/assets/login-*`） | 登录页自身加载所需 | 仅限白名单文件，不含业务数据 |
+| `GET /healthz` | 进程存活探针（**不返回任何业务/版本信息**） | 无 |
+
+**明确不豁免**：`/docs`、`/openapi.json`、`/redoc` 在非开发模式下**禁用**（`docs_url=None`）；`DEV_MODE=1` 时开启且仅允许 loopback。**豁免清单外端点无凭据必 401**。
+
+**agent 路径**（每请求签名）：
+- 请求头：`X-SSH-Signature`（base64）、`X-SSH-Key-Id`（公钥指纹）、`X-Timestamp`（ISO 8601, UTC, 秒级）、`X-Nonce`（≥128 位随机, base64）。
+- **签名载荷（S2 修复，字节级精确）**：
+  ```
+  payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE
+  ```
+  **规范化规则（双方不得另行规范化）**：`RAW_PATH` = 请求行中路径 + `?` + query 的**原样字节**（不百分号解码、不去点段、不增删尾部斜杠）；**query string 参与签名**——篡改 query 任一参数 → 401。
+- **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 用 `rsa-sha2-512` + **PSS**。CLI 与 WebUI 登录页共用**同一验签器**。
+- **校验顺序（S3/S7 修复）**：① `X-Timestamp` 偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]（**未来偏移容忍 30s**）→ ② `X-SSH-Key-Id` 查 `ssh_keys`（active）→ ③ **验签** → ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。失败：401（无/坏凭据）、403（公钥未注册或角色不足）。
+
+**WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖客户端自述字段**（S14 修复：**已删除 `X-Actor` 头**，身份一律以验签结果为准）。
 
 ### M07 WebUI API
 
