@@ -11,7 +11,7 @@ purpose: spec
 audience: both
 direction: input
 status: approved
-version: "1.3.0"
+version: "1.4.0"
 section_meta: "@meta"
 ---
 
