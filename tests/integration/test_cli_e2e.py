@@ -49,8 +49,6 @@ STARTUP_TIMEOUT = 40.0
 
 SOURCE_MD = f"""---
 spec_id: {DOC_ID}
-title: M11 端到端样例
-SOURCE_MD = f"""---
 title: M11 CLI 端到端样例
 type: composite
 purpose: spec
