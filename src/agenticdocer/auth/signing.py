@@ -150,7 +150,7 @@ def new_nonce() -> str:
 
 def _signed_data(namespace: str, hash_algorithm: str, message: bytes) -> bytes:
     """SSHSIG 被签名数据（与验签侧 :func:`sshsig.signed_data` 同构）。"""
-    digest = _HASHES[hash_algorithm](message).digest()
+    digest = _HASHES[hash_algorithm]().update(message) or _HASHES[hash_algorithm]()
     return (
         b"SSHSIG"
         + _frame(namespace.encode("utf-8"))
