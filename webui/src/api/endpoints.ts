@@ -155,15 +155,15 @@ export const userApi = {
     apiPost<UserDTO>("/api/v1/users", { username, role }),
   patch: (userId: string, payload: { role?: string; status?: string }) =>
     apiPatch<UserDTO>(`/api/v1/users/${userId}`, payload),
-  remove: (userId: string) => apiDelete<void>(`/api/v1/users/${userId}`),
+  remove: (userId: string) => apiDelete(`/api/v1/users/${userId}`),
   addKey: (userId: string, publicKey: string) =>
     apiPost<SshKeyDTO>(`/api/v1/users/${userId}/keys`, { publicKey }),
   revokeKey: (userId: string, keyId: string) =>
-    apiDelete<void>(`/api/v1/users/${userId}/keys`, { keyId }),
+    apiDelete(`/api/v1/users/${userId}/keys`, { keyId }),
   roles: () => apiGet<RoleInfoDTO[]>("/api/v1/roles"),
   grants: (userId?: string) =>
     apiGet<GrantDTO[]>(`/api/v1/grants${userId ? `?user_id=${userId}` : ""}`),
   createGrant: (payload: { userId: string; scope: string; value: string; permission: string }) =>
     apiPost<GrantDTO>("/api/v1/grants", payload),
-  deleteGrant: (grantId: string) => apiDelete<void>(`/api/v1/grants/${grantId}`),
+  deleteGrant: (grantId: string) => apiDelete(`/api/v1/grants/${grantId}`),
 };
