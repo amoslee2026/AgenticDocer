@@ -63,8 +63,6 @@ UNNAMED: Final = "(unnamed)"
 
 UNASSIGNED_TEST: Final = "(unassigned)"
 """覆盖缺口哨兵：覆盖项尚无测试（schema 的 `test` 要求非空字符串）。"""
-
-_FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
 UNKNOWN_STATUS: Final = "unknown"
 """`status` 未标注时的取值。"""
 
@@ -73,6 +71,8 @@ MATRIX_FIELDS: Final = ("feature", "sub_feature", "coverage_item", "test", "stat
 
 _LEVELS: Final = ("feature", "sub_feature", "coverage_item", "test")
 _NAME_CHILD_TAGS: Final = ("name", "title")
+
+_FORBIDDEN_DECL_MARKERS: Final = ("<!doctype", "<!entity")
 _XML_DECL_RE: Final = ("<!doctype", "<!entity")
 
 
