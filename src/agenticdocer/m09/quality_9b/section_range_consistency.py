@@ -149,30 +149,21 @@ def interval_ids(doc_nodes: Sequence[Node], root: Node) -> list[UUID]:
         for node in doc_nodes
         if node.ordinal >= root.ordinal and (end is None or node.ordinal < end)
     ]
-
-
 def _first_diff(left: Sequence[UUID], right: Sequence[UUID]) -> tuple[int, str, str]:
-    """首个差异位置与两侧取值（长度不同而前缀相同 → 差异在截断点）。"""
+    """首个差异位置 + 两侧取值（长度不同而前缀相同 → 差异在截断点）。
+
+    返回 `(index, 区间侧, CTE 侧)`：一侧缺失用「—（区间/CTE 无此节点）」标注，故消息里
+    两侧槽位**始终名副其实**（不会把区间侧的元素印在 CTE 槽里）。
+    """
     for index in range(min(len(left), len(right))):
         if left[index] != right[index]:
             return index, str(left[index]), str(right[index])
     index = min(len(left), len(right))
     if len(left) > index:
-        return index, "—（区间多收）", str(left[index])
+        return index, str(left[index]), "—（CTE 无此节点）"
     if len(right) > index:
-        return index, str(right[index]), "—（区间漏收）"
+        return index, "—（区间无此节点）", str(right[index])
     return index, "—", "—"
-
-
-def judge_section_range(
-    doc_id: str,
-    root: Node,
-    interval: Sequence[UUID],
-    subtree: Sequence[UUID],
-) -> Violation | None:
-    """区间序列 vs CTE 序列（纯函数）：相等 → `None`；不等 → 违规（含两行数与首个差异）。"""
-    if list(interval) == list(subtree):
-        return None
     index, got, want = _first_diff(interval, subtree)
     return Violation(
         rule_id=RULE_SECTION_RANGE_MISMATCH,
