@@ -156,6 +156,71 @@ class NodeRepository(Repository):
             rows = (await session.execute(statement)).all()
         return [build_model(Node, row_to_dict(row)) for row in rows]
 
+    async def get_section_nodes(self, doc_id: str, section_node_id: UUID | str) -> list[Node]:
+        """章节子树（PerfBench B-2 的 **O(子树)** 读路径），与 `get_subtree` **逐元素等价**。
+
+        快路径（利用 `idx_nodes_doc_ordinal`，吃分区裁剪）：
+        ① 点查根 `(ordinal, level)`；② 求右边界 `min(ordinal) WHERE doc_id=:d AND ordinal > :root
+        AND level <= :root_level`；③ 区间扫 `ordinal ∈ [root, end)`。
+
+        **安全网**：区间法依赖「`ordinal` 即文档序且子树在区间内连续」这一既有渲染契约。
+        接口内校验「区间首行即根」；若契约被破坏（或根 `level` 为空，右边界不可判定），
+        则**自动回退到递归 CTE**（`get_subtree`，语义权威）——渲染不可因脏数据 500，
+        脏数据由 M09B 抽样 detector（区间行数 vs CTE 行数）报告。
+
+        语义：含 `section_node_id` 自身、仅 `status='active'`、`ordinal` 升序（与
+        `get_doc_nodes` 一致）。章节节点**不存在或已软删** → `NotFoundError`
+        （`render_section` 据此映射 404）。
+        """
+        section_id = as_uuid(section_node_id)
+        async with self.db.session() as session:
+            root = (
+                await session.execute(
+                    select(nodes.c.ordinal, nodes.c.level, nodes.c.status).where(
+                        nodes.c.node_id == section_id, nodes.c.doc_id == doc_id
+                    )
+                )
+            ).first()
+            if root is None or root.status != "active":
+                raise NotFoundError(
+                    f"section node {section_node_id} not found in doc {doc_id} (or deleted)",
+                    entity="node",
+                    entity_id=section_node_id,
+                )
+            rows = (
+                await self._section_interval(session, doc_id, section_id, root.ordinal, root.level)
+                if root.level is not None
+                else None
+            )
+        if rows is None or not rows or rows[0].node_id != section_id:
+            return await self.get_subtree(section_id, doc_id=doc_id)
+        return [build_model(Node, row_to_dict(row)) for row in rows]
+
+    @staticmethod
+    async def _section_interval(
+        session: AsyncSession, doc_id: str, section_id: UUID, ordinal: int, level: int
+    ) -> list[Any] | None:
+        """区间扫；首行非根 → 返回 `None`（调用方回退 CTE）。"""
+        end = (
+            await session.execute(
+                select(func.min(nodes.c.ordinal)).where(
+                    nodes.c.doc_id == doc_id,
+                    nodes.c.ordinal > ordinal,
+                    nodes.c.level <= level,
+                )
+            )
+        ).scalar()
+        statement = select(*NODE_COLUMNS).where(
+            nodes.c.doc_id == doc_id, nodes.c.ordinal >= ordinal, nodes.c.status == "active"
+        )
+        if end is not None:
+            statement = statement.where(nodes.c.ordinal < end)
+        statement = statement.order_by(nodes.c.ordinal, nodes.c.node_id)
+        rows = (await session.execute(statement)).all()
+        if not rows or rows[0].node_id != section_id:
+            return None
+        return list(rows)
+
     async def upsert_node(
         self,
         node: NodeIn,
