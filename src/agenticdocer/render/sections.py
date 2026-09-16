@@ -123,7 +123,6 @@ def list_sections(nodes: Sequence[Node], *, max_level: int = 2) -> list[SectionI
     by_id = {node.node_id: node for node in nodes}
     # 子树规模：沿父链向上为每个祖先累计一次（O(n)，不做逐章节子树遍历）
     sizes: dict[UUID, int] = {}
-    # 子树规模：按父链向上累计（O(n)，不做逐章节遍历）
     for node in nodes:
         seen: set[UUID] = set()
         cursor: Node | None = node
@@ -131,6 +130,10 @@ def list_sections(nodes: Sequence[Node], *, max_level: int = 2) -> list[SectionI
             seen.add(cursor.node_id)
             sizes[cursor.node_id] = sizes.get(cursor.node_id, 0) + 1
             cursor = by_id.get(cursor.parent_node_id) if cursor.parent_node_id else None
+
+    sections: list[SectionInfo] = []
+    for node in sorted(nodes, key=_order_key):
+        level = node.level
         if level is None or level < 1 or level > max_level:
             continue
         sections.append(
@@ -141,7 +144,7 @@ def list_sections(nodes: Sequence[Node], *, max_level: int = 2) -> list[SectionI
                 title=heading_text(node),
                 level=level,
                 ordinal=node.ordinal,
-                node_count=sizes.get(node.node_id, counts.get(node.node_id, 0)),
+                node_count=sizes.get(node.node_id, 0),
             )
         )
     return sections
