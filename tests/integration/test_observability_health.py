@@ -94,6 +94,15 @@ def test_health_matches_independent_oracle_on_real_db(
     if expected_oldest is not None:
         assert report.partitions.oldest_event_ts.tzinfo is not None
 
+    # 4) 覆盖判定是「窗口内才有」的真实比较，而非恒真：离窗口足够远的月份必然未覆盖。
+    #    （与单测「仅建当月分区 → events_next_missing=True → fail」合起来，
+    #      即证明缺下月分区时 fail 分支会在真实驱动类型下触发。）
+    far_future = _next_month_start(dt.datetime.now(dt.timezone.utc)) + dt.timedelta(days=3650)
+    covered_far = any(
+        lower <= far_future and (upper is None or far_future < upper) for lower, upper in spans
+    )
+    assert covered_far is False
+
 
 def test_health_probe_reads_real_table_and_index_stats(
     database_urls: tuple[str, str], migrated_schema: str
