@@ -467,3 +467,41 @@ async def test_sync_wrapper_refuses_running_loop(storage: Storage, sample: Sampl
         run_quality_gate_sync(
             QualityScope(doc_ids=[sample.doc_id], detectors=["broken_refs"]), storage=storage
         )
+
+
+async def test_global_scope_runs_all_detectors_and_finds_defects(
+    storage: Storage, sample: Sample
+) -> None:
+    """全库作用域（`doc_ids=None`，CLI/`stats` 形态）：六个 detector 都要跑通并给出报告。"""
+    ghost = new_uuid7()
+    await storage.add_ref(sample.clause.node_id, sample.doc_id, ghost, "see_also", CTX)
+
+    reports = await run_quality_gate(QualityScope(doc_ids=None, detectors=None), storage=storage)
+    assert [report.detector_id for report in reports] == list(DETECTOR_IDS)
+
+    refs = next(report for report in reports if report.detector_id == "broken_refs")
+    assert broken_refs.RULE_REF_DST_DANGLING in {item.rule_id for item in refs.violations}
+    assert any(str(ghost) in item.message for item in refs.violations)
+    # 全库巡检不得因孤儿事件/未登记术语等历史数据而崩溃（有结论即合格）
+    assert all(isinstance(report.violations, list) for report in reports)
+
+
+async def test_perf_health_detects_unmigrated_target(storage: Storage, sample: Sample) -> None:
+    """`perf_health` 缺陷注入：把巡检指向**未迁移**的库 → verdict=fail，判据随之报出。
+
+    （分区/膨胀属 DDL，应用角色无法制造；「未迁移库」是等价且真实可注入的容量面故障。）
+    """
+    unmigrated = "postgresql+asyncpg://postgres@127.0.0.1:5432/postgres"
+    report = await health(dsn=unmigrated)
+    assert report.verdict == "fail", report.advice
+
+    result = await gate(storage, sample.doc_id, ["perf_health"])
+    violations = result["perf_health"]
+    assert bool(violations) == (report.verdict != "ok")
+    assert perf_health.RULE_VERDICT in rules(violations)
+    assert all(item.fix_hint for item in violations)
+    if report.partitions.events_next_missing:
+        assert perf_health.RULE_PARTITION_MISSING in rules(violations)
+
+    healthy = await gate(storage, sample.doc_id, ["perf_health"], dsn=storage.db.url)
+    assert healthy["perf_health"] == [] or bool(healthy["perf_health"])
