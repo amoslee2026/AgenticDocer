@@ -43,7 +43,6 @@ from agenticdocer.importer.parser import (
     parse_markdown,
 )
 from agenticdocer.importer.rules import MATCHERS, parse_numbering
-from agenticdocer.model import ATON_SCHEMAS if False else None  # noqa: F401  (占位：保持导入顺序)
 
 pytestmark = pytest.mark.filterwarnings("error::UserWarning")
 
