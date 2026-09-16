@@ -11,6 +11,7 @@ export function MarkdownView({ markdown }: { markdown: string }) {
   const html = useMemo(() => {
     const container = document.createElement("div");
     const raw = marked.parse(markdown, { async: false }) as string;
+    container.innerHTML = raw;
     for (const img of Array.from(container.querySelectorAll("img"))) {
       const src = img.getAttribute("src") ?? "";
       img.setAttribute("src", toAssetUrl(src));
