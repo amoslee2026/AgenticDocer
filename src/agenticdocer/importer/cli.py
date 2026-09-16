@@ -417,6 +417,15 @@ def selected_proposals(result: ParseResult, accepted: Iterable[str] | None = Non
     return [proposal for proposal in result.proposals if proposal.proposal_id in wanted]
 
 
+_VALIDATORS: dict[str, jsonschema.Draft202012Validator] = {}
+"""`atom_type` → 已编译的 schema validator（缓存：整档 1 万条提议时避免重复编译）。"""
+
+
+def _validator(atom_type: str) -> jsonschema.Draft202012Validator:
+    validator = _VALIDATORS.get(atom_type)
+    if validator is None:
+        validator = _VALIDATORS[atom_type] = jsonschema.Draft202012Validator(get_atom_schema(atom_type))
+    return validator
 def check_proposals(
     result: ParseResult,
     *,
