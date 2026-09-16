@@ -351,11 +351,15 @@ async def test_export_and_stream_need_no_external_network(
     """导出与拉流只碰 PG（loopback）+ 本地文件；外部网络一律判违规。"""
     await seed(storage, doc_ids)
     doc_a, doc_b = doc_ids
-    block_external_network(monkeypatch)
+    seen = block_external_network(monkeypatch)
 
     result = await export_package([doc_a, doc_b], tmp_path, storage=storage)
     drained = [event async for event in change_stream(storage=storage)]
 
     assert result.nodes == 5
     assert drained
+    # 守卫确实拦到了 PG 连接（否则「无外部网络」是空断言）
+    assert seen, "network guard was never exercised"
+    hosts = {address[0] for address in seen if isinstance(address, tuple)}
+    assert hosts and all(host.startswith("127.") or host == "localhost" for host in hosts)
     assert not [name for name in sys.modules if name.split(".")[0] == "lightrag"]
