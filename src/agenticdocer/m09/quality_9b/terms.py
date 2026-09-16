@@ -37,6 +37,7 @@ from typing import Any, Final
 
 import yaml
 from sqlalchemy import Select, select
+
 from agenticdocer.model import TermKind, Violation
 from agenticdocer.store import ValidationError
 from agenticdocer.store.schema import nodes, terms
