@@ -226,10 +226,12 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                 metric(f"render.section.{suffix}.assets_n_plus_one_p50_ms",
                        report["assets_n_plus_one"]["p50_ms"], unit="ms",
                        note=f"**历史实现**的资产取路径（N+1：逐 src `get_asset_path`，"
-                            f"{report['asset_refs']} 处引用）"),
+                            f"{report['asset_refs']} 处引用"
+                            f"{'；本次无资产引用 ⇒ n=0，值无意义' if not report['asset_refs'] else ''}）"),
                 metric(f"render.section.{suffix}.assets_batched_p50_ms",
                        report["assets_batched"]["p50_ms"], unit="ms",
-                       note=f"**当前实现**的资产取路径（`get_asset_paths` 单条 ANY，消 N+1）"),
+                       note=f"**当前实现**的资产取路径（`get_asset_paths` 单条 ANY，消 N+1）"
+                            f"{'；本次无资产引用 ⇒ n=0，值无意义' if not report['asset_refs'] else ''}"),
             )
         bench.add(
             metric("render.document.p50_ms", worst_doc_p50, unit="ms", target=TARGET_DOCUMENT_MS,

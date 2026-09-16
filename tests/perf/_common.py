@@ -233,7 +233,10 @@ def timing_stats(samples_us: Sequence[int]) -> dict[str, float]:
     from agenticdocer.observability.metrics import percentile
 
     if not samples_us:
-        return {"n": 0}
+        # **形状稳定**契约：空样本仍返回全部键（全 0，`n=0`）——调用方（如「无资产 ⇒ 无资产取路径
+        # 样本」）不必特判；但**不得**用 0.0 当作「达标」（须先看 `n`，故此类指标一律不设 target）。
+        return {"n": 0, "p50_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0, "mean_ms": 0.0,
+                "min_ms": 0.0, "max_ms": 0.0}
     return {
         "n": len(samples_us),
         "p50_ms": round(percentile(list(samples_us), 0.50) / 1000, 3),

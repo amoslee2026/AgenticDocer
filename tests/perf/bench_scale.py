@@ -322,7 +322,9 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                        note="**历史对照**整档读取（`get_doc_nodes`；非当前章节渲染成本）"),
                 metric("scale.render.section.assets_batched_p50_ms",
                        render["assets_batched"]["p50_ms"], unit="ms",
-                       note="**当前实现**资产批量取路径"),
+                       note="**当前实现**资产批量取路径"
+                            + (f"（{render['asset_refs']} 处引用）" if render["asset_refs"]
+                               else "；合成语料无图片引用 ⇒ n=0，值无意义（真实语料见 bench_render）")),
             )
 
         # ── 外推（10k 文档口径）──────────────────────────────────────────
