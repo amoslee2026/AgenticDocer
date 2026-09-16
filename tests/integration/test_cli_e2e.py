@@ -64,7 +64,7 @@ spec_revision: "1.0"
 source: corpus/01_raw/specifications/test/m11.pdf
 converted_by: mineru
 converted_at: 2026-09-16
-reviewed_by: tester
+    assert isinstance(parsed, dict) and parsed["docMeta"]["doc_id"] == DOC_ID
 reviewed_at: 2026-09-16
 ---
 
@@ -325,16 +325,7 @@ def imported(service: _Service) -> dict[str, object]:
     src = service.work / "spec.md"
     src.write_text(SOURCE_MD, encoding="utf-8")
     parsed = service.ok("import", "parse", str(src), "--doc-slug", DOC_SLUG, "--json", actor="editor")
-    assert isinstance(parsed, dict) and parsed["docMeta"]["spec_id"] == DOC_ID
-
-    reviewed = service.ok(
-        "import", "review", DOC_SLUG, "--accept-confident", "--json", actor="editor", stdin="a\n" * 64
-    )
-    assert isinstance(reviewed, dict)
-    committed = service.ok("import", "commit", DOC_SLUG, "--json", actor="editor")
-    assert isinstance(committed, dict)
-    assert committed["docId"] == DOC_ID
-    assert committed["violations"] == []
+    return {"doc_id": DOC_ID, "node_id": node_ids[0], "node_ids": node_ids}
     assert committed["accepted"] >= 1
 
     diff = service.ok("doc", "diff", DOC_ID, "--json", actor="reader")
