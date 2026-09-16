@@ -594,6 +594,10 @@ async def test_agent_flow_read_write_render_diff(
     glossaries = {item["term"] for item in (await admin.get("/api/v1/terms?kind=glossary")).json()}
     assert TERM in keywords and TERM not in glossaries
 
+    # 自清理：`terms` 无删除端点，经 M02 直连删掉本次令牌写入的测试术语（不留库内污染）
+    async with database.transaction() as session:
+        await session.execute(text("DELETE FROM terms WHERE term = :term"), {"term": TERM})
+    assert TERM not in {item["term"] for item in (await admin.get("/api/v1/terms")).json()}
     # ── 资产端点：缺失资产 → 404（A6）
     assert (await admin.get("/api/v1/assets/" + "0" * 64)).status_code == 404
 
