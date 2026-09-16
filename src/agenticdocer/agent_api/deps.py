@@ -103,7 +103,10 @@ class ValidationRejected(ValidationError):
             entity=entity,
             entity_id=entity_id,
         )
-        self.violations = violations
+
+log = get_logger("m06.deps")
+
+
 
 
 async def authorize_doc(
@@ -117,7 +120,8 @@ async def authorize_doc(
     """文档级授权（S5）：读 `docs` 行（不存在 → 404）后按角色 + grant 收窄判定。
 
     返回该 `Doc`，调用方复用它取 `doc_type`（避免二次点查）。
-    """
+    with log.timer("query", table="docs", doc_id=doc_id):
+        doc = await storage.get_doc(doc_id)
     doc = await storage.get_doc(doc_id)
     await authorize_user(
         context.user,

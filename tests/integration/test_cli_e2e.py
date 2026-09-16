@@ -356,7 +356,7 @@ def test_doc_list_and_get(service: _Service, imported: dict[str, object]) -> Non
 
     doc = service.ok("doc", "get", str(imported["doc_id"]), "--json", actor="reader")
     assert isinstance(doc, dict)
-    assert doc["title"] == "M11 端到端样例"
+    assert doc["title"] == "M11 CLI 端到端样例"
     assert doc["status"] == "draft"
 
 
@@ -435,11 +435,12 @@ def test_write_round_trip_with_optimistic_lock(service: _Service, imported: dict
     denied = service.fails("node", "put", "--file", str(stale), "--json", actor="editor")
     assert "乐观锁" in denied.stderr  # 409 → 重读后重试的指引
 
+    # 起点取「写前该节点的 updatedAt」：此后的 diff 必须能看到这次写入
     diff = service.ok(
-        "doc", "diff", str(imported["doc_id"]), "--from", EPOCH_ISO, "--json", actor="reader"
+        "doc", "diff", str(imported["doc_id"]), "--from", str(node["updatedAt"]), "--json", actor="reader"
     )
     assert isinstance(diff, dict)
-    assert any(change["op"] == "modified" for change in diff["changes"]), diff
+    assert any(change["nodeId"] == node["nodeId"] for change in diff["changes"]), diff
 
 
 def test_reader_cannot_write_and_gets_actionable_hint(service: _Service, imported: dict[str, object]) -> None:

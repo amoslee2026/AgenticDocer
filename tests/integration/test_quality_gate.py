@@ -488,19 +488,20 @@ async def test_global_scope_runs_all_detectors_and_finds_defects(
     assert all(isinstance(report.violations, list) for report in reports)
 
 
-async def test_perf_health_detects_unmigrated_target(storage: Storage, sample: Sample) -> None:
-    """`perf_health` 缺陷注入：把巡检指向**未迁移**的库 → verdict=fail，判据随之报出。
+async def test_perf_health_detects_failing_target(storage: Storage, sample: Sample) -> None:
+    """`perf_health` 缺陷注入：把巡检指向**不可达库** → `verdict=fail` 必须变成违规。
 
-    （分区/膨胀属 DDL，应用角色无法制造；「未迁移库」是等价且真实可注入的容量面故障。）
+    容量面的真缺陷（分区缺失/膨胀）属 DDL，应用角色无法制造；但「巡检目标不可达/未迁移」是
+    等价且可注入的容量故障，且判据完全来自 M12 `health()`（本 detector 不做二次解读）。
+    关键语义：`fail` **绝不静默通过**——这正是质量门接入容量巡检的意义（ADR-010）。
     """
-    unmigrated = "postgresql+asyncpg://postgres@127.0.0.1:5432/postgres"
-    report = await health(dsn=unmigrated)
+    absent = "postgresql+asyncpg://agenticdocer_app:agenticdocer_app_dev@127.0.0.1:5432/agenticdocer_m09_absent_test"
+    report = await health(dsn=absent)
     assert report.verdict == "fail", report.advice
 
-    result = await gate(storage, sample.doc_id, ["perf_health"])
-    violations = result["perf_health"]
+    violations = (await gate(storage, sample.doc_id, ["perf_health"], dsn=absent))["perf_health"]
     assert bool(violations) == (report.verdict != "ok")
     assert perf_health.RULE_VERDICT in rules(violations)
+    assert rules(violations) <= set(perf_health.RULES_PERF_HEALTH)
     assert all(item.fix_hint for item in violations)
-    if report.partitions.events_next_missing:
-        assert perf_health.RULE_PARTITION_MISSING in rules(violations)
+    assert "失败" in violations[0].fix_hint  # 建议原样来自 M12 的 advice
