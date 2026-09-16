@@ -393,6 +393,11 @@ KIND_RULES: dict[RefKind, tuple[Literal["up","down","both"], bool, int]] = {   #
     "traces_to": ("up", True, 2), "composes_from": ("down", True, 1),
     "see_also": ("both", True, 1), "source_ref": ("up", False, 0),
 }
+# 方向语义（权威定义；与 idea/design_doc §6.4 一致）：
+#   up   = dst→src（反向：从被引用者出发，找「谁引用了它」）——需求追溯主链
+#   down = src→dst（正向：从引用者出发，找「它引用了谁」）——文法/组合关系
+#   例：A traces_to B 时，从 B 出发 2 跳可找到 A（「B 服务于哪些需求」）
+#   结果不含起点自身（hops≥1）
 def traverse(node_id: UUID7, hops: int = 1) -> list[TraversalHit]:
     """hops 按各 kind 的 max_hops 截断（hops=2 仅扩 traces_to）；去重保留最短路径；环截断；
     排序：跳数 → doc 序 → ordinal；默认过滤 status='deleted' 节点（L5）。"""

@@ -73,9 +73,6 @@ __all__ = [
     "validate_proposal",
     "validate_write",
 ]
-
-log = get_logger("m09.engine9a")
-
 # ── 规则 id（唯一登记处；调用方按 id 聚合修复任务，勿在别处再写字面量）────────
 
 RULE_ATOM_UNKNOWN: Final = "M09A.atom.unknown"
