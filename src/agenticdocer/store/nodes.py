@@ -115,6 +115,45 @@ class NodeRepository(Repository):
             rows = (await session.execute(statement)).all()
         return [build_model(Node, row_to_dict(row)) for row in rows]
 
+    async def get_subtree(
+        self,
+        root_node_id: UUID | str,
+        *,
+        doc_id: str | None = None,
+        include_deleted: bool = False,
+    ) -> list[Node]:
+        """取 `root_node_id` 及其**全部后代**（`ordinal` 序；默认只 `status='active'`）。
+
+        实现：沿 `parent_node_id` 的递归 CTE（`idx_nodes_parent`）。与 `get_doc_nodes`
+        的排序/过滤语义**逐字一致**（P5 口径唯一）——故 `render_section` 可用它替代
+        「取全档再内存过滤」，使章节渲染从 O(全文) 回到 O(章节)。
+
+        `doc_id` 可选：`nodes` 按 `doc_id` HASH 分区，给出即可把整棵子树的递归裁剪到
+        单一分区（ADR-009 V16 的同一思路）。
+
+        语义约定（与 `get_doc_nodes` 对齐，非「按祖先状态剪枝」）：递归**遍历完整父子链**，
+        `status` 过滤只作用于**结果集**。因此软删的中间节点不会砍掉其下仍 active 的后代；
+        反之若 `root` 本身已软删，默认结果不含它、但含其 active 后代（`include_deleted=True`
+        则一并返回）。理由：`get_doc_nodes` 也只按 status 过滤、不看祖先状态，两处口径必须一致。
+        """
+        root_id = as_uuid(root_node_id)
+        seed = select(nodes.c.node_id, nodes.c.parent_node_id).where(nodes.c.node_id == root_id)
+        if doc_id is not None:
+            seed = seed.where(nodes.c.doc_id == doc_id)
+        subtree = seed.cte("subtree", recursive=True)
+        subtree = subtree.union_all(
+            select(nodes.c.node_id, nodes.c.parent_node_id)
+            .join(subtree, nodes.c.parent_node_id == subtree.c.node_id)
+            .where(nodes.c.doc_id == doc_id if doc_id is not None else true())
+        )
+        statement = select(*NODE_COLUMNS).where(nodes.c.node_id.in_(select(subtree.c.node_id)))
+        if not include_deleted:
+            statement = statement.where(nodes.c.status == "active")
+        statement = statement.order_by(nodes.c.ordinal, nodes.c.node_id)
+        async with self.db.session() as session:
+            rows = (await session.execute(statement)).all()
+        return [build_model(Node, row_to_dict(row)) for row in rows]
+
     async def upsert_node(
         self,
         node: NodeIn,

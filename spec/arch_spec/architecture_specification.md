@@ -142,9 +142,10 @@ section_meta: "@meta"
 
 | 指标 | 目标 | 测量口径 |
 
-| 规模（文档） | **≥10,000 份文档**（新增）；单库节点 ≈13.4M（条款级粒度，按 1,343 原子/文档实测校准） | 库内计数（`SELECT count(*)`）；超 20M 节点触发再评估（分区/归档） |
+| 规模（文档） | **≥10,000 份文档**；单库节点 ≈13.4M（条款级粒度，按 1,343 原子/文档实测校准）。**验收方式（PerfBench 实测口径）**：实跑 **100 文档 / 134,500 节点 = 目标 1.00%** + 按实测节点/文档线性外推（外推值 1.345e7 与目标一致）；全量验收需**专用宿主 + ~40h**（导入吞吐 57–106 节点/s，见下「已知瓶颈」） | 库内计数（`SELECT count(*)`）；超 20M 节点触发再评估（分区/归档） |
 | 规模（身份） | **≥10,000 个已注册 agent 身份**；并发写入者 ≤50（按用户澄清口径） | `users` 表计数；并发以 PG `pg_stat_activity` 活跃写事务峰值度量 |
-| 存储 | ≈20–54GB（13.4M 节点 × 0.5–4KB/节点） | `pg_total_relation_size` 汇总 |
+| 存储（**nodes 内容口径**） | ≈20–54GB（13.4M 节点 × 0.5–4KB/节点） | `pg_total_relation_size` 汇总 |
+| 存储（**库内总占有口径**，修正） | **≈62–70GB**（实测 5.0–5.2KB/节点 × 13.4M）——含索引/TOAST、`events` 1:1（P2 事件+实体同事务的必然结果，占 58.5%）、64 分区固定开销 | 按叶子关系（`relkind='r'`）求和 + `pg_database_size` 对账；**必须扣除 schema 固定开销**后按净密度外推（PerfBench 实测口径） |
 | 点查延迟 | PG 查询 **P95 <200ms**（分区后维持） | 基准脚本 `tests/perf/`：语料全量入库后固定查询集（≥100 次）取 P95，本机 PG 16.15 |
 | 渲染（分章节） | **单章节 <1s**（新增，替代原「单文档 <3s」）；整档 <3s 保留为上限 | 同基准脚本；章节 = 单个 level-1/2 子树，按 M04 `render_section()` 计时（最大文档 CXL 3.59MB） |
 | 鉴权开销 | 验签 + 会话校验 P95 **<10ms**（新增） | M10 单测基准（Ed25519 验签 + PG 会话查） |
@@ -945,6 +946,14 @@ systemd --user: agenticdocer-api.service
 | 配置 | 环境变量（§5 清单）；默认值指向仓库 `data/`、`build/`（gitignore） |
 
 **frontmatter → docs 映射（A22，C5 十七字段，含 spec 专属 4 项）**：`title→title`；`spec_id→doc_id`；`spec_type→doc_type`；`spec_org`/`spec_revision`/`source`/`converted_*`/`reviewed_*`/`ingested_at`/`status`（approved→approved 等）→ `meta` JSONB 全量保真 + `source_ref→source`；`type/purpose/audience/direction/version/section_meta` → `meta`。必填校验：C5 十七字段（title/type/purpose/audience/direction/status/version/section_meta/spec_id/spec_type/spec_org/spec_revision/source/converted_by/converted_at/reviewed_by/reviewed_at）。
+
+## 6.2 已知瓶颈（PerfBench 实测发现，待 it.mas 裁决）
+
+| # | 瓶颈 | 实测证据 | 影响 | 建议 |
+|---|---|---|---|---|
+| **B-1** | **导入吞吐**：M03 逐节点事务（每节点 1 次 `upsert_node` 事务 + 1 次事件插入 + nodes 的 13 个索引含 FTS GIN 维护） | **57–106 节点/s** → 13.4M 节点需 **35–40 小时** | 10k 文档导入**无工程可行性** | ADR-009 §3 已裁决「`COPY` + 每 5k 行一批」但**未实现** → 派 M03 落地 `--bulk` 路径 |
+| **B-2** | **`render_section` 是 O(全文) 而非 O(章节)**：内部执行 `get_doc_nodes(整档)` + 每次重新解析/导出图片资产 | `get_doc_nodes` 占章节渲染 **30–87%**（PCIe 77ms/258ms；CXL 99ms/114ms） | 指标仍达标（<1s），但章节耗时会随**文档**增大而劣化（非随章节） | M04 增「按子树/父链」的 M02 读接口（`idx_nodes_parent` 已存在），或渲染前缓存节点树 |
+| **B-3** | **鉴权余量依赖宿主负载** | 安静窗口 P95 3.87–4.31ms；与并发集成套件同 PG 实例时 8.04/4.97ms；纯 Ed25519 仅 0.119ms → 成本在 2 次 PG 查表 + nonce 事务提交 + 日志落盘 | 并发场景余量降低 | 若需更多余量：nonce 落库改批量/异步（需权衡 S7 防重放语义） |
 
 ## 6.1 已知限制（实现阶段发现，待 it.mas 裁决）
 

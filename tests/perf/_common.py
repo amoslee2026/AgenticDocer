@@ -559,10 +559,10 @@ async def _reachable(dsn: str, timeout: float) -> bool:
 
 
 def open_storage(dsn: str | None = None) -> Any:
-    """构造 `Storage`（显式 DSN，不依赖进程单例）。"""
+    """构造 `Storage`（显式 DSN；不依赖进程单例，也不覆盖已配置的 DSN）。"""
     from agenticdocer.store import Database, Storage
 
-    return Storage(Database(configure_dsn(dsn)))
+    return Storage(Database(resolve_dsn(dsn)))
 
 
 async def scalar(db: Any, sql: str, **params: Any) -> Any:
@@ -1093,6 +1093,7 @@ __all__ = [
     "previous_run",
     "print_report",
     "reachable",
+    "resolve_dsn",
     "render_table",
     "sample_points",
     "schema_floor",
