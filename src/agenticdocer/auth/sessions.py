@@ -141,10 +141,16 @@ def _db(db: Database | None) -> Database:
 
 _rate_hits: dict[str, deque[float]] = {}
 _rate_lock = threading.Lock()
+"""**进程内**滑动窗口（与 ``users._failure_buckets`` 同理）。
+
+部署约束（SecAudit AUD-5）：本项目 §5 形态是**单进程** uvicorn（``--workers 1``，systemd
+每实例一进程）。多 worker/多实例时各进程独立计数，限流上限会被放大 N 倍、失败聚合也会
+重复落事件；届时须把计数外置（PG 的 ``INSERT ... ON CONFLICT`` 或 Redis），本模块接口不变。
+"""
 
 
 def check_rate_limit(ip: str | None, *, limit: int | None = None) -> None:
-    """滑动窗口限流（进程内；``limit<=0`` 关闭）。超限 → :class:`RateLimitError`（429）。"""
+    """滑动窗口限流（**进程内**；``limit<=0`` 关闭）。超限 → :class:`RateLimitError`（429）。"""
     maximum = rate_limit_per_min() if limit is None else limit
     if maximum <= 0:
         return
