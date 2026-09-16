@@ -18,7 +18,7 @@ from typing import Final
 from sqlalchemy import cast, desc, func, literal, select
 from sqlalchemy.dialects.postgresql import REGCONFIG
 
-from agenticdocer.model import SearchHit
+from sqlalchemy import cast, desc, func, literal, select, true
 from agenticdocer.observability import get_logger, slow_query_ms
 from agenticdocer.store import Storage, ValidationError, get_storage
 from agenticdocer.store.schema import nodes
