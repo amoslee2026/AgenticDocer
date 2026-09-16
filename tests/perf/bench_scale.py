@@ -293,12 +293,13 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             "nodes_per_doc": round(nodes_per_doc, 1),
             "ingest": ingest,
             "pg": info,
-            "partition_rows": dict(parts),
+            "partition_rows": rows_by_part,
             "events_partition_rows": dict(events_parts),
             "query_set": len(points),
             "atoms_per_doc_requested": args.atoms_per_doc,
             "docs_requested": args.docs,
             "fresh": bool(args.fresh),
+            "real_density_baseline": baseline,
         })
         projected_nodes = nodes_per_doc * TARGET_DOCS
         projected_bytes = bytes_per_node * projected_nodes
@@ -324,11 +325,37 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             )
         bench.note(
             f"灌入吞吐 {ingest['nodes_per_s']:.0f} 节点/s（{ingest['ingest_ms'] / 1000:.1f}s / "
-            f"{syn_docs} 份）。按此吞吐，10k 文档 ≈{projected_hours(ingest, nodes_per_doc)}，"
-            "这是**逐节点事务**（M02「事件+实体同事务」）的必然代价；"
-            "ADR-009 §3 规定批量导入走 `COPY` + 每 5k 行一批，本基准刻意不启用该旁路"
-            "（in-process 与 M11 `import commit` 同一路径）"
+            f"{syn_docs} 份）。按此吞吐灌满 §1.4 口径（{TARGET_NODES:,} 节点）≈"
+            f"{projected_hours(ingest, TARGET_NODES_PER_DOC)}，这是**逐节点事务**"
+            "（M02「事件+实体同事务」）的必然代价；ADR-009 §3 规定批量导入走 `COPY` + "
+            "每 5k 行一批，本基准刻意不启用该旁路（in-process 与 M11 `import commit` 同一路径）"
         )
+        if baseline and baseline["bytes_per_node"]:
+            real_projected = baseline["bytes_per_node"] * TARGET_NODES
+            bench.counters["storage_cross_check"] = {
+                "real_bytes_per_node": round(baseline["bytes_per_node"], 1),
+                "real_projected_gib_at_13_4M_nodes": round(real_projected / 1024**3, 2),
+            }
+            bench.add(
+                metric("scale.real_density_bytes_per_node", round(baseline["bytes_per_node"], 1),
+                       unit="B",
+                       note=f"真实语料密度基线（{baseline['docs']} 份 / {baseline['nodes']} 节点，"
+                            "清库前测得）"),
+                metric("scale.projected_storage_gib_at_target_real_density",
+                       round(real_projected / 1024**3, 2), unit="GiB",
+                       note=f"按**真实语料密度**外推 13.4M 节点（§1.4 预期 20–54GB）"),
+            )
+            bench.note(
+                f"**存储口径交叉校验**：合成语料 {bytes_per_node:.0f}B/节点（内容偏小），"
+                f"真实语料 {baseline['bytes_per_node']:.0f}B/节点；按真实密度外推 13.4M 节点 ≈"
+                f"{real_projected / 1024**3:.1f}GiB，落在 §1.4「20–54GB」下沿附近——"
+                "说明 §1.4 的区间按真实内容密度给出，合成语料不得用于存储达标判定"
+            )
+        else:
+            bench.note(
+                "未取得真实语料密度基线（清库前库内无节点）⇒ 存储外推仅反映合成语料密度，"
+                "**不得**据此判定 §1.4 的 20–54GB"
+            )
         bench.note(
             "合成语料结构为「标题 clause（段落并入 fragment）+ 表格」，与真实语料同构；"
             "解析走真实 `parse_text`（非直接造 NodeIn），故计数器是实测值"
