@@ -427,7 +427,7 @@ def privilege_statements(
         text("SELECT 1 FROM pg_roles WHERE rolname = :role"), {"role": app_role}
     ).first()
     if rows is None:
-        notes.append(f"role {app_role!r} absent: grants skipped (owner creates roles per §4.3)")
+        notes.append(f"role {app_role} absent: grants skipped (owner creates roles per §4.3)")
         return [], notes
 
     database = connection.execute(text("SELECT current_database()")).scalar_one()
