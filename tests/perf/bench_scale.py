@@ -104,12 +104,21 @@ async def truncate_entities(db) -> None:
         )
 
 
-async def partition_rows(db) -> list[tuple[str, int]]:
-    """各 `nodes` 分区行数（单次 Append 扫描，比逐分区 count 快得多）。"""
+async def partition_rows(db) -> dict[str, int]:
+    """`nodes` 各分区行数（单次 Append 扫描，比逐分区 count 快得多；仅含**非空**分区）。"""
     rows = await all_rows(
-        db, "SELECT tableoid::regclass::text AS part, count(*) AS rows FROM nodes GROUP BY 1 ORDER BY 1"
+        db, "SELECT tableoid::regclass::text AS part, count(*) AS rows FROM nodes GROUP BY 1"
     )
-    return [(str(name), int(count)) for name, count in rows]
+    return {str(name): int(count) for name, count in rows}
+
+
+async def partition_leaf_names(db) -> list[str]:
+    """`nodes` 全部分区名（含空分区）——分区**数**须由目录（`pg_partition_tree`）决定，而非行分布。"""
+    rows = await all_rows(
+        db, "SELECT relid::regclass::text AS part FROM pg_partition_tree('nodes') "
+            "WHERE isleaf ORDER BY 1"
+    )
+    return [str(name) for (name,) in rows]
 
 
 async def events_partition_rows(db) -> list[tuple[str, int]]:
