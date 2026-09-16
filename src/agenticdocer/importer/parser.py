@@ -598,12 +598,23 @@ def _absorbed_by_heading(
     return absorbed, preamble
 
 
+def _join_blocks(items: Sequence[Block]) -> str:
+    """按**源文档实际间隔**拼接块原文（P4 零改写：结果恒为源文本的逐字节片段）。
+
+    用块间真实空行数（`next.start - prev.end`）而非固定 `\\n\\n`——语料存在连续空行，
+    固定连接会把 `\\n\\n\\n` 压成 `\\n\\n`，fragment 便不再是源文本的子串。
+    """
+    parts: list[str] = []
+    previous: Block | None = None
+    for item in items:
+        if previous is not None:
+            parts.append("\n" * max(1, item.start - previous.end))
+        parts.append(item.text)
+        previous = item
+    return "".join(parts)
+
+
 def _term_of(section: Section) -> str:
-    """词条名：标题去编号后的余下文本（无编号标题即标题本身）。"""
-    numbered = rules.parse_numbering(section.raw_title)
-    if numbered is not None and numbered[1]:
-        return numbered[1]
-    return section.title or section.raw_title
 
 
 def _clause_pending(
