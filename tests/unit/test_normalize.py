@@ -151,10 +151,10 @@ def test_read_source_rejects_other_types() -> None:
     with pytest.raises(TypeError):
         read_source(123)  # type: ignore[arg-type]
 
-
 def test_unterminated_fence_still_captures_body() -> None:
+    # 未闭合围栏：其后全文即代码块内容（逐字节，含行尾换行）
     form = extract_features("```py\nprint(1)\n")
-    assert form.code_blocks == ["print(1)"]
+    assert form.code_blocks == ["print(1)\n"]
 
 
 def test_html_table_without_rows_is_ignored() -> None:
