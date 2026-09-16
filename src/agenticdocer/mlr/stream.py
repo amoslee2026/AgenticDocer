@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import AsyncIterator
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Final
@@ -121,9 +121,12 @@ async def change_stream(
     emitted = 0
     while True:
         # 追尾模式的空轮询不计指标：空闲期会按 poll_interval 每秒写一行日志
-        with nullcontext() if follow else log.timer(
-            "change_stream_batch", module="mlr.stream", limit=batch_size
-        ):
+        timer = (
+            nullcontext()
+            if follow
+            else log.timer("change_stream_batch", module="mlr.stream", limit=batch_size)
+        )
+        with timer:
             batch = await store.changes_since(
                 since_ts=cursor.ts,
                 since_event_id=cursor.event_id,
