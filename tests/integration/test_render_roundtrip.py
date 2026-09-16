@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from pathlib import Path
+import time
 
 import pytest
 import yaml
