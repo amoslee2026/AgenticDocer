@@ -101,9 +101,8 @@ def database_urls() -> tuple[str, str]:
     app = _app_url()
     database = make_url(app).database or ""
     if not database.endswith("_test"):
-        raise pytest.UsageError(
-            f"集成测试会 DROP SCHEMA public，仅允许 *_test 库；当前库为 {database!r}（{_masked(app)}）"
-        )
+            "集成测试只允许 *_test 库（开启重建时会 DROP SCHEMA public）；"
+            f"当前库为 {database!r}（{_masked(app)}）"
     owner = _owner_url(app)
     for label, url in (("migration/owner", owner), ("application", app)):
         error = asyncio.run(_probe(url))
@@ -114,9 +113,14 @@ def database_urls() -> tuple[str, str]:
 
 @pytest.fixture(scope="session")
 def migrated_schema(database_urls: tuple[str, str]) -> str:
-    """重建 public schema 并 `alembic upgrade head`（会话一次）。"""
+    """确保 schema 存在且为 head（会话一次）。
+
+    默认只跑幂等的 `alembic upgrade head`（不 drop）；`AGENTICDOCER_TEST_DROP_SCHEMA=1`
+    时先 drop/recreate 再 upgrade —— 两种模式的取舍与「何时该开」见模块文档。
+    """
     owner, _ = database_urls
-    asyncio.run(_drop_and_recreate_public_schema(owner))
+    if _drop_schema_requested():
+        asyncio.run(_drop_and_recreate_public_schema(owner))
     config = Config(str(ROOT / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", owner)
     command.upgrade(config, "head")
