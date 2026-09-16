@@ -1,5 +1,4 @@
 import { useState } from "react";
-import type { MetricsSnapshotDTO } from "../api/types";
 import { adminApi } from "../api/endpoints";
 import { useFetch } from "../api/useFetch";
 
