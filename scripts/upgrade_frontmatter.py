@@ -7,10 +7,12 @@
 - **已有 frontmatter**：只追加缺失字段，绝不改写已有行（既有 7 份语料恒 `[skip]`）；
 - **无 frontmatter**：**新建**一个完整 frontmatter 块置顶，原正文逐字节保留在其后
   （`title` 取首个 `# ` 标题；登记表 `title` 优先）。
+- 见 `[skip]` / `[new]` / `[ok]` / `[skip-nonmd]` / `[skip-license]` / `[err]` 行逐文件汇报。
 - **非 markdown 语料**（`.n` nroff / `.rst` / `.hjson` / `.adoc` / …）：跳过并提示需前置转换——
   方案 C 的 47 份真实语料里只有 `safety/*.md` 与 `lang/opensta-commands.md` 是 markdown；
   其余**不得当 markdown 处理**，须先转换为 markdown 再跑本脚本。
   UCIS `.xml` 走 `agenticdocer.importer.vplan`（UCIS 解析器），不经本脚本。
+- **许可文件**（`LICENSE`/`*-LICENSE.*`，含 `tcl-license.terms`）：非文档语料，跳过不登记。
 
 `status` 判定（假设 A13）: 追加后已有 `reviewed_by` -> `approved`，否则 `review`。
 `spec_type` 取值域（单源 `agenticdocer/model/doc_types.py`；本脚本零依赖故镜像）:
@@ -19,7 +21,8 @@
 新文档接入: 在 `REGISTRY` 登记 `spec_id`/`spec_org`/`spec_revision`/`spec_type`，**外加**该
 doc_type 的必填 meta（见 `DOC_TYPE_REQUIRED_META`；来自 `spec/arch_spec/doc_type_mapping.md` §3）
 与溯源五项（`source` 逐文件给，`_DOWNLOADED` 供同批复用）。登记不全 / `spec_type` 非法 /
-已有 `spec_type` 与登记冲突 -> **报错退出，不猜测**。
+已有 `spec_type` 与登记冲突 -> 该文件 `[err]` **不改写、不猜测**；单个文件失败不阻断其余，
+退出码 `1` 汇总（`0` = 全部处理/跳过成功，`2` = 无参数）。
 
 `REGISTRY` 的值按 YAML 字面量书写（含 `: `/`#`/空格/中文等标量的自行加引号）；脚本原样写入。
 漂移守卫: `DOC_TYPE_REQUIRED_META` 与 `DOC_TYPE_RULES[*].required_meta_fields` 的对照由
