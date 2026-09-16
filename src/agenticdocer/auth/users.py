@@ -51,8 +51,9 @@ from agenticdocer.store import (
     now,
     translate_integrity_error,
 )
-from agenticdocer.store.rows import row_to_dict, as_uuid
+from agenticdocer.store.rows import as_uuid, row_to_dict
 from agenticdocer.store.schema import grants, ssh_keys, users
+
 from .errors import SignatureFormatError
 from .rbac import ROLE_PERMISSIONS, authorize, validate_grant
 from .signing import normalize_key_id
