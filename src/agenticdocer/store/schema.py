@@ -441,7 +441,8 @@ def privilege_statements(
     relations = connection.execute(
         text(
             "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-            "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') ORDER BY c.relname"
+            "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') "
+            "AND c.relname <> 'alembic_version' ORDER BY c.relname"
         )
     ).scalars()
     for relname in relations:
