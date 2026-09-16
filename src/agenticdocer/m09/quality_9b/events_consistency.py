@@ -19,10 +19,9 @@
 """
 
 from __future__ import annotations
-from typing import Any, Final
+
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
-from uuid import UUID
 
 from sqlalchemy import Select, select
 
@@ -37,10 +36,10 @@ __all__ = [
     "DETECTOR_ID",
     "MAX_ORPHAN_REPORTS",
     "RULES_EVENTS_CONSISTENCY",
+    "detect",
     "judge_docs",
     "judge_nodes",
     "judge_orphans",
-    "judge_nodes",
 ]
 
 DETECTOR_ID: Final = "events_consistency"
