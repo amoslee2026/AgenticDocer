@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
