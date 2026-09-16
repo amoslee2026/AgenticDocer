@@ -59,25 +59,43 @@ CXL = CORPUS_ROOT / "cxl" / "CXL_Specification_rev3p2_ver1p0.md"
 AMBA_DOC = "SPEC-STD-AMBA-APB"
 CXL_DOC = "SPEC-CXL-3P2-WINDOW"
 
+_SEQ = itertools.count(1)
+
 
 def _require(path: Path) -> None:
     if not path.is_file():
         pytest.skip(f"语料缺失：{path}（设 AGENTICDOCER_CORPUS 指向语料根）")
 
 
-def _html_table_fragments(nodes) -> list[str]:
+def _table_fragments(nodes) -> list[str]:
+    """含 ``<table>`` 的节点片段（语料中表格常与 OCR 残句同块，故按「包含」而非「起始」判定）。"""
     return [
         str(node.content["fragment"])
         for node in nodes
-        if node.format == "html" and str(node.atom_type).startswith("table")
+        if node.content.get("fragment") and "<table" in str(node.content["fragment"])
     ]
 
 
-@pytest.mark.asyncio
-async def test_real_corpus_two_way_roundtrip(storage: Storage, tmp_path: Path) -> None:
-    """真实语料整档：判据 (a) 解析保真 + (b) 渲染保真。"""
+@pytest.fixture
+async def amba(storage: Storage) -> tuple[str, str]:
+    """整档入库 AMBA APB（每次用唯一 doc_id，避免跨测试锚唯一约束冲突）。"""
     _require(AMBA)
-    doc_id, source = await ingest_markdown(storage, AMBA, AMBA_DOC)
+    return await ingest_markdown(storage, AMBA, f"{AMBA_DOC}-{next(_SEQ)}")
+
+
+@pytest.fixture
+async def cxl_window(storage: Storage) -> tuple[str, str]:
+    """CXL 含 ``<img>`` 表格的窗口入库（真实片段 + 真实引用）。"""
+    _require(CXL)
+    _, body = split_frontmatter(CXL.read_text(encoding="utf-8"))
+    window = window_with_images(split_blocks(body))
+    return await ingest_markdown(storage, CXL, f"{CXL_DOC}-{next(_SEQ)}", window=window)
+
+
+@pytest.mark.asyncio
+async def test_real_corpus_two_way_roundtrip(amba: tuple[str, str], storage: Storage, tmp_path: Path) -> None:
+    """真实语料整档：判据 (a) 解析保真 + (b) 渲染保真。"""
+    doc_id, source = amba
     source_form = normalize_markdown(source)
 
     # (a) 解析保真——不经渲染
@@ -98,15 +116,16 @@ async def test_real_corpus_two_way_roundtrip(storage: Storage, tmp_path: Path) -
 
 
 @pytest.mark.asyncio
-async def test_html_table_fragments_are_byte_identical(storage: Storage, tmp_path: Path) -> None:
+async def test_html_table_fragments_are_byte_identical(
+    amba: tuple[str, str], storage: Storage, tmp_path: Path
+) -> None:
     """P4 硬证据：真实语料的 HTML ``<table>`` 片段在产物中逐字节出现。"""
-    _require(AMBA)
-    doc_id, source = await ingest_markdown(storage, AMBA, AMBA_DOC)
+    doc_id, source = amba
     result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
     text = Path(result.out_path).read_text(encoding="utf-8")
 
     nodes = await storage.get_doc_nodes(doc_id)
-    fragments = _html_table_fragments(nodes)
+    fragments = _table_fragments(nodes)
     assert len(fragments) == 7
     for fragment in fragments:
         assert fragment in text, f"HTML 片段被改写：{fragment[:120]!r}"
