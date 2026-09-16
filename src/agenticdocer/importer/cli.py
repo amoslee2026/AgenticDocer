@@ -441,7 +441,8 @@ def check_proposals(
        单点定于 `doc_meta.fallback`），故按**提交期同一构造**生成 `note` content 后走
        `validate_proposal`；
     ② 追加 M03 独有的**结构**判据：锚同档唯一（DB 约束 `UNIQUE (doc_id, anchor)` 的前置）、
-       兜底提议的锚登记、`doc_type` 组合规则的必备原子（`clause`）。
+       兜底提议的锚登记、`doc_type` 组合规则的必备原子（`required_atom_types` 全量，含变体名
+       如 `safety` 的 `table.failure_mode`——变体是类型专属结构化表示，非基底可替代）。
     """
     doc_type = str(result.doc_meta.get("doc_type") or "")
     known_doc_type = doc_type in DOC_TYPE_RULES
@@ -449,7 +450,7 @@ def check_proposals(
     violations: list[Violation] = []
     fallbacks = fallback_anchors(result)
     seen_anchors: dict[str, str] = {}
-    clause_seen = False
+    seen_atom_types: set[str] = set()
     for proposal in proposals:
         atom = proposal.atom
         if isinstance(atom, RawFallback):
@@ -465,8 +466,7 @@ def check_proposals(
                     )
                 )
             continue
-        if atom.atom_type.split(".", 1)[0] == "clause":
-            clause_seen = True
+        seen_atom_types.add(atom.atom_type)
         violations.extend(
             _prefixed(validate_write(atom, doc_type=doc_type if known_doc_type else None), str(atom.anchor))
         )
@@ -486,13 +486,18 @@ def check_proposals(
         else:
             seen_anchors[atom.anchor] = proposal.proposal_id
     required = get_doc_type_rule(doc_type).required_atom_types if known_doc_type else ()
-    if "clause" in required and not clause_seen:
+    missing_atoms = [atom_type for atom_type in required if atom_type not in seen_atom_types]
+    for atom_type in missing_atoms:
         violations.append(
             Violation(
                 rule_id="M01.doc_type.required",
                 path=str(result.doc_meta.get("doc_id")),
-                message="缺少必备原子 clause（doc_type 组合规则）",
-                fix_hint="检查标题规则是否命中（R01.heading.clause）",
+                message=f"缺少必备原子 {atom_type}（doc_type={doc_type} 的组合规则）",
+                fix_hint=(
+                    "检查标题规则是否命中（R01.heading.clause）"
+                    if atom_type == "clause"
+                    else f"该 doc_type 的必备结构化表示：{atom_type}（schema 见 model.atoms.ATOM_SCHEMAS）"
+                ),
             )
         )
     return violations
