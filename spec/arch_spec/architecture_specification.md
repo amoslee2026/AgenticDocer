@@ -376,6 +376,21 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 
 ### M06 Agent 接口（HTTP）
 
+**可编辑表格模式（B6/V8 修复）**：`EditableTableMode` 为 M04 渲染期的判定结果类型：
+
+```python
+class EditableTableMode(BaseModel):
+    editable: bool                      # True → table 原子渲染为可编辑控件
+    reason: Literal["flag_on", "doc_type_whitelist", "role_insufficient", "flag_off", "html_fragment"]
+    # 判定：editable = (doc.meta.editable_tables is True OR doc.doc_type ∈ EDITABLE_DOC_TYPES)
+    #                 AND caller.role ∈ {admin, editor} AND node.format != 'html'
+    # html 形态（<table> 片段，含 80 处 <img>）恒为 editable=False（P4 零改写直通）
+EDITABLE_DOC_TYPES: frozenset[str] = frozenset()   # 默认空；由配置扩展
+def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: ...
+```
+
+**回写端点（V8 修复，统一口径）**：编辑提交**一律**走 **`PATCH /api/v1/nodes/{node_id}/table`**（新端点，body = 行列 JSON + `expectedVersion`），由服务端转 `content` 并写 `node` 事件——**不是**「走既有节点写端点」（原表述有误，已修正）；校验用 **`expectedVersion` 乐观锁**（`nodes.version`，原「epoch 校验」为术语误用，已修正）。
+
 | 方法/路径 | 语义 | 关键错误 |
 |---|---|---|
 | `GET /api/v1/nodes/{node_id}` | 节点读（含 version） | 404 |
@@ -542,6 +557,27 @@ def bootstrap_admin(public_key_path: Path) -> User:
 
 **grant 语义（S5 修复）**：`scope ∈ {doc_type, doc}` **二选一**（`repo` 已删除——docs/nodes 无 repo 字段，属悬空概念）；`GrantTarget = DocTypeTarget(value) | DocTarget(doc_id)`（类型已补入 §3.0）。grant 为**收窄器**：角色决定「能做什么」，grant 决定「在哪些文档上」。
 
+
+### M11 CLI 工具族与 Skill（新增；批注 B3/B11）
+
+```python
+# agenticdocer/cli.py（Typer/argparse 装配；每命令自动签名，auth bootstrap 除外）
+class SigningClient:
+    """从 ~/.ssh/ 或 AGENTICDOCER_SSH_KEY 读私钥，按 §3 M06 载荷规范生成 SSHSIG 头。"""
+    def request(self, method: str, path: str, body: bytes | None = None) -> Response: ...
+
+# 命令 → 服务：CLI 不直连 DB（除 auth bootstrap），一律经 M06/M07 HTTP 端点，
+# 因此 CLI 与 WebUI 享有同一鉴权/授权/RBAC 判定（P5 口径唯一）。
+def cmd_import_parse(path: Path) -> ProposalBatch: ...
+def cmd_import_review(slug: str, interactive: bool = True) -> ReviewResult: ...
+def cmd_doc_diff(doc_id: str, from_: str | None, to: str | None) -> DiffResult: ...   # 复用 M07 REQ-M07-F06
+def cmd_auth_sign(challenge: str | None = None, host: str | None = None) -> str: ...  # 登录用签名（V9/V10）
+def cmd_logs(subcommand: str, **opts) -> None: ...   # 薄封装 agentic-logger CLI（ADR-010）
+```
+
+**依赖关系**：M11 → M06/M07（HTTP 契约）+ M10（签名）。**分层归属（V7）**：L4 接口层（与 M06/M07 同层，属对外交付面）。
+
+**Skill 定义**（`skills/`，6 项）：`docer-import`/`docer-read`/`docer-write`/`docer-render`/`docer-diff`/`docer-annotations`——每项含 `name`/`description`/前置角色/底层命令四字段（可 JSON Schema 校验，V17 判据），供**外部** coding agent 消费（非运行期依赖，P6）。
 **速率限制（S7 修复）**：`/auth/challenge` 与 `/auth/login` 按 IP 限流（默认 10 次/分钟，`AUTH_RATE_LIMIT_PER_MIN` 可配）；**验签失败的请求不写 nonces 表**（nonce 仅在验签通过后消费）；`auth` 失败事件按 `(ip, 5min)` 聚合计数（避免审计淹没）。
 
 ### M-LR LightRAG 边界（暂缓联调，C7）
@@ -762,7 +798,7 @@ CREATE TABLE nonces (                          -- 签名重放防护（B2/S3/S7�
 );
 CREATE INDEX idx_nonces_seen ON nonces (seen_at);   -- S3：清理 TTL = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s) ≥ 时间窗
 -- S7：nonce 仅在**验签通过后**INSERT（未认证请求不写库）
-```
+### 4.2 分区策略（ADR-009，批注 B9）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、FK 降级）
 
 ### 4.4 分区策略（ADR-009，批注 A8）——**须先读本节**：`nodes`/`events` 的实际 DDL 受此约束（PK 含分区键、外键降级）
 
@@ -779,7 +815,7 @@ END $$;
 CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
 -- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
 -- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底）
-```
+### 4.3 DB 角色与权限（A15）
 
 ### 4.1 DB 角色与权限（A15）
 
@@ -812,7 +848,9 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 - CSRF 立场：依赖 `SameSite=Lax` + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
 
 
-```
+  ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
+             # 对外部署：改 --host 0.0.0.0，**前提＝已自举 admin 且经 TLS 反代**（ADR-007 S6）；二者缺一不可
+             # （V13 修复：原「ExecStart 绑 127.0.0.1」与「监听 0.0.0.0」两行矛盾，现统一为一处权威）
 systemd --user: agenticdocer-api.service
   ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787
   Environment: DATABASE_URL=postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer
