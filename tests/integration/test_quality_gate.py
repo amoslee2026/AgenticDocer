@@ -471,6 +471,27 @@ async def test_sync_wrapper_refuses_running_loop(storage: Storage, sample: Sampl
         )
 
 
+def test_sync_entry_is_repeatable_in_process(
+    database_urls: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同一进程内**多次**调用同步入口都必须成功（回归：进程级单例池绑定旧事件循环）。
+
+    每次 `asyncio.run` 新建循环，故同步入口必须**自建自弃**连接池；依赖 `database_urls`
+    以沿用 conftest 的「无 PG 即整体 skip」语义。
+    """
+    _, app_url = database_urls
+    monkeypatch.setenv("DATABASE_URL", app_url)
+    scope = QualityScope(doc_ids=[], detectors=["broken_refs", "terms"])
+
+    first = run_quality_gate_sync(scope)
+    second = run_quality_gate_sync(scope)
+
+    assert [report.detector_id for report in first] == ["broken_refs", "terms"]
+    assert [report.detector_id for report in second] == ["broken_refs", "terms"]
+    # 生产态：M06 lifespin 已把 TERMS_SEED 载入 → terms 面应为零违规
+    assert second[1].violations == []
+
+
 async def test_global_scope_runs_all_detectors_and_finds_defects(
     storage: Storage, sample: Sample
 ) -> None:
