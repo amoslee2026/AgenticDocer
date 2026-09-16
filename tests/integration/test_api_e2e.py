@@ -13,9 +13,10 @@
 """
 
 from __future__ import annotations
-
-import json
-from collections.abc import AsyncIterator
+**库协调**：本模块经 `tests/integration/conftest.py` 的 `migrated_schema` 夹具。该夹具默认只跑
+幂等的 `alembic upgrade head`（不清库）；本模块需要**确定性起点**（唯一 doc_id/用户名不得复用），
+故以 `AGENTICDOCER_TEST_DROP_SCHEMA=1` 跑（先 `DROP SCHEMA public CASCADE` 再 upgrade），
+**运行前须广播申请独占** `agenticdocer_test`，跑完广播释放。
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any

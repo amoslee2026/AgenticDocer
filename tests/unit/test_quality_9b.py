@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-import datetime as dt
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -306,7 +306,10 @@ def test_judge_seed_reports_missing_and_kind_drift() -> None:
     drift = terms.judge_seed(seeded, [term_row("MUST", definition_node_id=None, kind="glossary")])
     assert [item.rule_id for item in drift] == [terms.RULE_TERMS_KIND]
 
-    assert terms.judge_seed(seeded, [term_row("MUST", definition_node_id=None)]) == []
+    assert (
+        terms.judge_seed(seeded, [term_row("MUST", definition_node_id=None, kind="normative-keyword")])
+        == []
+    )
 
 
 def test_terms_rules_are_all_reachable() -> None:
@@ -343,11 +346,9 @@ def test_judge_refs_source_side() -> None:
             broken_refs.RULE_REF_DST_DELETED,
         ),
         (
-            {
-                "dst_node_id": new_uuid7(),
                 "dst_found": new_uuid7(),
+                "dst_status": "active",
                 "dst_node_doc_id": "SPEC-OTHER",
-            },
             broken_refs.RULE_REF_DST_DOC_MISMATCH,
         ),
         ({"dst_doc_found": None, "dst_doc_id": "SPEC-MISSING"}, broken_refs.RULE_REF_DST_DOC_MISSING),
@@ -361,7 +362,9 @@ def test_judge_refs_target_side(row: dict, expected: str) -> None:
 
 def test_judge_refs_accepts_external_leaf_and_internal_doc() -> None:
     external = ref_row(dst_doc_id="EXT:https://example.com/spec", dst_doc_found=None)
-    internal = ref_row(dst_node_id=new_uuid7(), dst_found=new_uuid7(), dst_node_doc_id=DOC_ID)
+    internal = ref_row(
+        dst_node_id=new_uuid7(), dst_found=new_uuid7(), dst_status="active", dst_node_doc_id=DOC_ID
+    )
     assert broken_refs.judge_refs([external, internal]) == []
 
 
@@ -435,7 +438,12 @@ def test_broken_refs_rules_are_all_reachable() -> None:
         ref_row(dst_node_id=new_uuid7(), dst_found=None),
         ref_row(dst_node_id=new_uuid7(), dst_found=new_uuid7(), dst_status="deleted"),
         ref_row(dst_doc_found=None),
-        ref_row(dst_node_id=new_uuid7(), dst_found=new_uuid7(), dst_node_doc_id="SPEC-OTHER"),
+        ref_row(
+            dst_node_id=new_uuid7(),
+            dst_found=new_uuid7(),
+            dst_status="active",
+            dst_node_doc_id="SPEC-OTHER",
+        ),
     ]
     detected = {item.rule_id for item in broken_refs.judge_refs(rows)}
     detected |= {
@@ -794,4 +802,3 @@ def test_no_llm_or_network_imports_in_m09() -> None:
     for module in (engine, gate):
         source = Path(module.__file__).read_text(encoding="utf-8")  # type: ignore[arg-type]
         assert not any(f"import {name}" in source for name in banned)
-    _ = dt.datetime
