@@ -381,6 +381,8 @@ def _mask_asset_refs(text: str) -> str:
     return _ASSET_REF.sub("@@ASSET@@", text)
 
 
+
+@pytest.mark.asyncio
 async def test_render_missing_targets_raise_not_found(
     amba: tuple[str, str], storage: Storage, tmp_path: Path
 ) -> None:
