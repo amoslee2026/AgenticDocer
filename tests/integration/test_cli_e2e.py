@@ -176,9 +176,14 @@ class _Service:
 
     env: dict[str, str]
     work: Path
+    api_url: str
     keys: dict[str, Path] = field(default_factory=dict)
     fingerprints: dict[str, str] = field(default_factory=dict)
     usernames: dict[str, str] = field(default_factory=dict)
+
+    def user(self, actor: str) -> str:
+        """actor 键 → 本次运行的唯一用户名（命令里用的 ``--username``）。"""
+        return self.usernames[actor]
 
     def cli(
         self, *args: str, actor: str = "admin", stdin: str | None = None
