@@ -26,7 +26,6 @@ section_meta: "@meta"
 | `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `traceability/requirements_matrix.arch.csv` | **54 REQ** ↔ 架构章节追溯 | ✅ |
 | `clarifications.md` | 架构级输入确认与假设（AB1–AB5；**B6/B10 已作废替换**） | ✅ |
-| `traceability/requirements_matrix.arch.csv` | **48 REQ** ↔ 架构章节追溯 | ✅ |
 | `.review/issues.md` | 对抗评审 A1–A25 清单与闭环记录 + **v1.3 批注评审** | ✅ |
 
 ## 2. 关键决策汇总
