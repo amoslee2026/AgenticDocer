@@ -32,7 +32,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Awaitable, Callable, Iterable, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -584,7 +584,8 @@ async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> 
         records.append({
             "file": str(path.relative_to(ROOT)),
             "doc_slug": path.stem,
-            "bytes": len(text.encode("utf-8")),
+            "proposals": len(result.proposals),
+            "rule_covered": result.stats.rule_covered,
             "blocks": result.stats.total_blocks,
             "proposals": len(result.proposals),
             "fallback": result.stats.fallback,
