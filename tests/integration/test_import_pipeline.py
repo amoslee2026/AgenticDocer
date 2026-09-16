@@ -467,7 +467,7 @@ async def test_bulk_path_is_semantically_equivalent(storage: Storage, database, 
     以及事件（`(entity, op)` 计数 + node create 事件的锚集合）。node_id 为 uuid7 随机，
     不参与比较（两路都是新分配）。
     """
-    text = (CORPUS / "jedec" / "JEDEC_JESD270-4A_HBM4_2025.md").read_text(encoding="utf-8")
+    text = (CORPUS / "amba" / "IHI0024_AMBA_APB_spec.md").read_text(encoding="utf-8")
     seq_doc, bulk_doc = "SPEC-STD-EQ-SEQ", "SPEC-STD-EQ-BULK"
     seq_src, bulk_src = tmp_path / "seq.md", tmp_path / "bulk.md"
     seq_src.write_text(_reslug(text, seq_doc), encoding="utf-8")
@@ -476,7 +476,7 @@ async def test_bulk_path_is_semantically_equivalent(storage: Storage, database, 
     bulk_result = parse_markdown(bulk_src)
 
     seq_out = await commit_document(seq_result, CTX, storage=storage)
-    bulk_out = await commit_document_bulk(bulk_result, CTX, storage=storage)
+    bulk_out = await commit_document_bulk(bulk_result, CTX, storage=storage, batch_size=25)  # 强制多批
     assert seq_out.nodes_created == bulk_out.nodes_created == len(seq_result.proposals)
     assert seq_out.stats == bulk_out.stats
 
@@ -489,21 +489,21 @@ async def test_bulk_path_is_semantically_equivalent(storage: Storage, database, 
     # 幂等（批量路径）：二次提交不新建节点、不写事件
     nodes_before = await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=bulk_doc)
     events_before = await count(database, "SELECT count(*) FROM events")
-    again = await commit_document_bulk(bulk_result, CTX, storage=storage)
+    again = await commit_document_bulk(bulk_result, CTX, storage=storage, batch_size=25)
     assert again.nodes_created == 0
     assert await count(database, "SELECT count(*) FROM nodes WHERE doc_id = :d", d=bulk_doc) == nodes_before
     assert await count(database, "SELECT count(*) FROM events") == events_before
 
     # initial_load 仅限空文档（Main 要求的显式区分）
     with pytest.raises(ValidationError, match="initial_load"):
-        await commit_document_bulk(bulk_result, CTX, storage=storage, bulk_mode="initial_load")
+        await commit_document_bulk(bulk_result, CTX, storage=storage, bulk_mode="initial_load", batch_size=25)
     # 空文档可用 initial_load
-    empty_result = parse_markdown(tmp_path / "bulk.md") if False else bulk_result
     live = await commit_document_bulk(
         parse_markdown(_write_variant(tmp_path, text, "SPEC-STD-EQ-INIT")),
         CTX,
         storage=storage,
         bulk_mode="initial_load",
+        batch_size=25,
     )
     assert live.nodes_created == len(bulk_result.proposals)
 

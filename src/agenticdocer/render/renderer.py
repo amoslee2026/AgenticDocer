@@ -47,7 +47,7 @@ from agenticdocer.store import (
 )
 
 from .editable import REGISTER_FIELD_COLUMNS, TableGrid, build_table_fragment
-from .sections import section_subtree
+
 
 
 __all__ = [
