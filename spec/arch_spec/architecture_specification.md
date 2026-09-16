@@ -774,7 +774,8 @@ END $$;
 
 CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_partman 或自研定时任务
 -- 注：UNIQUE/PK 必须包含分区键 ⇒ events PK 改 (event_id, ts)；nodes 需 (node_id, doc_id)
-
+-- 外键：refs→nodes 降级为应用层校验（M09B broken_refs 巡检兜底）
+```
 
 ### 4.1 DB 角色与权限（A15）
 
@@ -799,6 +800,11 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 
 **残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticdocer_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 身份四表启用 PG RLS；② 用户管理 API 走独立最小权限连接角色。**触发升级条件**：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
 
+
+**TLS 与 CSRF（S6 修复）**：
+- **对外监听（非 `127.0.0.1`）必须经 TLS 反向代理终止**，此时会话 Cookie 强制 `Secure`；
+- **无 TLS 时仅允许 loopback 绑定**（明文 HTTP 下会话 Cookie 可被嗅探劫持，最长 8h）；
+- CSRF 立场：依赖 `SameSite=Lax` + **状态变更端点仅接受 `application/json`**（拒绝表单编码跨站提交）。
 ## 5. 部署与运行（AB1/AB2/B15）
 
 ```
