@@ -193,10 +193,10 @@ class NodeRepository(Repository):
             deltas = field_deltas(existing, record)
             values = {field: record[field] for field in content_deltas}
             try:
-            values = {field: record[field] for field in deltas}
+                await session.execute(
                     update(nodes)
                     .where(nodes.c.node_id == existing["node_id"], nodes.c.doc_id == existing["doc_id"])
-                    .values(**values)
+                    .values({field: record[field] for field in deltas})
                 )
             except IntegrityError as exc:
                 raise translate_integrity_error(exc, entity="node", entity_id=node_id) from exc
