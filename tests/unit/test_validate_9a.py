@@ -275,12 +275,85 @@ def test_cross_ref_external_without_node_is_clean() -> None:
 
 
 def test_variant_atom_schema_is_loaded_from_m01() -> None:
-    """变体与基底共用 M01 schema 表；缺 `fields` 即报 schema 违规。"""
+    """变体与基底共用 M01 schema 表；缺 `fields` 时**逐字段**报出（路径与建议都指到该字段）。"""
     payload = content("table.register_field")
     payload.pop("fields")
     violations = validate_proposal("table.register_field", payload)
-    assert [item.rule_id for item in violations] == [RULE_ATOM_SCHEMA]
-    assert violations[0].path == "content"
+    assert {item.rule_id for item in violations} == {RULE_ATOM_SCHEMA}
+    hit = next(item for item in violations if item.path == "content.fields")
+    assert "content.fields" in hit.fix_hint
+    assert all(item.fix_hint for item in violations)
+
+
+# ── `fix_hint` 粒度（REQ-M06-F02：agent 依建议自修复重试）──────────────────
+
+_HINT_CASES: list[tuple[str, str, dict, str, str]] = [
+    # (标签, atom_type, content, 期望 path, 期望 hint 片段)
+    ("required-单字段", "table", {"fragment": TABLE_HTML, "text": "a"}, "content.meta", "`content.meta`"),
+    (
+        "required-多字段",
+        "table.register_field",
+        {"text": "x"},
+        "content.fields",
+        "`content.fields`",
+    ),
+    (
+        "type",
+        "table",
+        {"fragment": 123, "text": "a", "meta": META},
+        "content.fragment",
+        "类型应为 string，实际 int",
+    ),
+    (
+        "enum",
+        "cross_ref",
+        {"text": "See x", "ref_kind": "nope", "target_doc_id": DOC_ID},
+        "content.ref_kind",
+        "取值应为 `traces_to`、`see_also`、`composes_from`、`source_ref` 之一",
+    ),
+    (
+        "additionalProperties-单字段",
+        "clause",
+        {"text": "x", "bogus": 1},
+        "content.bogus",
+        "移除未声明字段：`content.bogus`",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("label", "atom_type", "payload", "expected_path", "hint_fragment"),
+    _HINT_CASES,
+    ids=[case[0] for case in _HINT_CASES],
+)
+def test_schema_hint_is_field_level(
+    label: str,
+    atom_type: str,
+    payload: dict,
+    expected_path: str,
+    hint_fragment: str,
+) -> None:
+    """四类 validator 的 `fix_hint` 必须指到**具体字段/取值**（而非规则级文案）。"""
+    violations = validate_proposal(atom_type, payload)
+    hits = [item for item in violations if item.path == expected_path]
+    assert hits, f"{label}: 未报出 {expected_path}，实际 {[item.path for item in violations]}"
+    assert hint_fragment in hits[0].fix_hint
+    assert hits[0].message
+
+
+def test_required_hint_is_deduplicated_per_field() -> None:
+    """jsonschema 对多个缺失字段会重复整份 `required` 清单 → 本实现按字段展开且不重复。"""
+    violations = validate_proposal("table.register_field", {"text": "x"})
+    paths = [item.path for item in violations]
+    assert paths == ["content.fields", "content.fragment", "content.meta", "content.register"]
+    assert len(paths) == len(set(paths))
+
+
+def test_unregistered_validator_falls_back_to_rule_level_hint() -> None:
+    """未细分文案的校验器（`pattern`）回落规则级文案，但路径仍精确到字段。"""
+    violations = validate_proposal("figure", {"text": "f", "asset_ref": "NOT-HEX"})
+    assert [item.path for item in violations] == ["content.asset_ref"]
+    assert "ATOM_SCHEMAS['figure']" in violations[0].fix_hint
 
 
 def test_anchor_rule_uses_doc_id_prefix() -> None:
