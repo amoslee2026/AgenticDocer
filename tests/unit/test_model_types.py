@@ -519,8 +519,6 @@ SPEC_FIELDS: dict[type, set[str]] = {
     QualityReport: {"detector_id", "violations"},
     ExportResult: {"out_path", "docs", "nodes"},
     Violation: {"rule_id", "path", "message", "fix_hint"},
-    # 类型决策（Main 裁决）：user 标识统一 UUID7（User/SshKey/Grant/Session.user_id、Grant.granted_by），
-    # 对齐 DDL uuid 列；WriteContext.actor 仍为 str（审计字符串，由 M10 显式 str(user_id) 转换）。
     DocIn: {"doc_id", "doc_type", "title", "meta", "source_ref"},
     Doc: {"doc_id", "doc_type", "title", "meta", "source_ref", "status", "version", "created_at", "updated_at"},
     AssetSyncReport: {"fetched", "missing", "total_refs"},
@@ -533,6 +531,8 @@ SPEC_FIELDS: dict[type, set[str]] = {
     Session: {"session_id", "user_id", "token_hash", "created_at", "expires_at", "last_seen_at"},
 
     # §3 M10 + §4 DDL 补列（Main 裁决：M10/M02 回读三表全列）
+    # 类型决策（Main 裁决）：user 标识统一 UUID7（User/SshKey/Grant/Session.user_id、Grant.granted_by），
+    # 对齐 DDL uuid 列；WriteContext.actor 仍为 str（审计字符串，由 M10 显式 str(user_id) 转换）。
     User: {"user_id", "username", "role", "status", "created_at", "updated_at"},
     SshKey: {"key_id", "fingerprint", "user_id", "public_key", "key_type", "added_at", "revoked_at"},
     Grant: {"grant_id", "user_id", "scope", "value", "permission", "granted_by", "granted_at"},
