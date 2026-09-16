@@ -27,6 +27,8 @@ __all__ = ["COMMENT_COLUMNS", "CommentRepository", "fetch_comment", "orphan_comm
 COMMENT_COLUMNS: Final = tuple(comments.c)
 
 _STATES: Final = ("open", "resolved", "orphaned")
+_SYSTEM_CTX: Final = WriteContext(actor="system", source="system")
+"""孤立化由节点删除驱动、无调用方身份：`actor`/`source` 记为 `system`（§6 A3 取值规则）。"""
 
 
 async def fetch_comment(session: AsyncSession, comment_id: UUID | str) -> dict[str, Any] | None:
