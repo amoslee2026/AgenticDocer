@@ -145,6 +145,10 @@ REGISTRY = {
         ),
     },
     "protective-stop-FMEDA.md": {
+    # 注：其余 18 份 Tcl man pages（array/if/for/while/list/string/puts/open/close/read/
+    # format/regexp/regsub/switch/catch/error/source/dict.n）暂不登记——转换进 markdown 后按同一
+    # 规则补登（`SPEC-LANG-TCL-<CMD>` + 该 `lang` 必填 meta），届时扫目录不再有 `[err]`。
+
         "spec_id": "SPEC-SAFE-PROTECTIVE-STOP-FMEDA",
         "spec_org": "polymathrobotics/protective-stop",
         "spec_revision": "main",
