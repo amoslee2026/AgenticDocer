@@ -32,19 +32,31 @@ grant        可满足的请求
 * ``doc_type``：值为 doc_type（``standard``/``lang``/``tool-manual``/``product``/``safety``）；
 * ``doc``：值为 ``doc_id``。
 
-:class:`~agenticdocer.model.DocTarget` 只带 ``doc_id``，故调用方若已解析出文档类型，
-应经 ``doc_type=`` 形参传入——否则 ``doc_type`` 范围的 grant 无法命中该目标（fail-closed）。
-"""
-
-from __future__ import annotations
-
-from collections.abc import Iterable, Sequence
-from typing import Final
-
 from agenticdocer.model import (
-    DocTarget,
-    DocTypeTarget,
     Grant,
+    GrantPermission,
+    GrantTarget,
+    RoleName,
+    User,
+)
+from agenticdocer.store import ForbiddenError, ValidationError
+
+__all__ = [
+    "GRANT_PERMISSIONS",
+    "GRANT_SCOPES",
+    "MANAGE_USERS",
+    "PERMISSIONS",
+    "PERMISSION_IMPLIES",
+    "ROLE_PERMISSIONS",
+    "applicable_grants",
+    "authorize",
+    "grant_matches",
+    "grant_target_matches",
+    "permission_implies",
+    "role_permits",
+    "validate_grant",
+    "validate_permission",
+]
     GrantPermission,
     GrantScope,
     GrantTarget,
@@ -173,24 +185,14 @@ def authorize(
     doc_type: str | None = None,
 ) -> None:
     """判定式（S5）：违规抛 :class:`~agenticdocer.store.ForbiddenError`（403）。
-
+    candidates = applicable_grants(grants, perm)
+    return any(grant_target_matches(g, target, doc_type=doc_type) for g in candidates)
     纯函数、无 I/O——需要读取 grant 与落审计事件的调用方用
     :func:`agenticdocer.auth.users.authorize_user`。
     """
     validate_permission(perm)
-    if not role_permits(user.role, perm):
-        raise ForbiddenError(
-            f"role {user.role!r} does not permit {perm!r}（角色是硬上限，grant 不可提权）",
-            entity="auth",
-            entity_id=str(user.user_id),
-        )
-    if target is None:
-        return
-    narrowing = applicable_grants(grants, perm)
-    if not narrowing:
-        return
-    if any(grant_target_matches(g, target, doc_type=doc_type) for g in narrowing):
-        return
+
+
     raise ForbiddenError(
         f"{perm!r} on {target.kind}:{target.value} is outside the granted scope of user "
         f"{user.user_id}（grant 收窄：{[(g.scope, g.value, g.permission) for g in narrowing]}）",
