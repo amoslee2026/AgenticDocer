@@ -571,6 +571,7 @@ def health() -> HealthReport: ...            # `agenticdocer stats --health` 与
 |---|---|
 | `GET /api/v1/admin/metrics?since=&window=` | 指标快照（`MetricsSnapshot`） |
 | `GET /api/v1/admin/health` | 健康巡检（`HealthReport`） |
+
 ## 4. 数据库 DDL（PostgreSQL 16，database `agenticdocer`；v1.3）
 
 ```sql
