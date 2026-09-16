@@ -1,8 +1,12 @@
 """SSHSIG 签名生成与密钥/指纹工具（S11：客户端侧，M11 CLI 与登录页共用）。
 
 与 :mod:`agenticdocer.auth.sshsig` 构成一对：**同一帧格式、同一 namespace、同一验签器**。
-签名侧固定用 PSS（S11 明文），验签侧额外接受 PKCS#1 v1.5（本机 OpenSSH 互操作，
-见 ``sshsig`` 模块文档）。
+签名侧固定用 PSS（S11 明文），验签侧先试 PSS 再回落 PKCS#1 v1.5（见 ``sshsig`` 模块文档）。
+
+**RSA 反向互操作边界（SecAudit AUD-3，部署提示）**：旧版 OpenSSH（< 8.1 一档，实测 8.0p1）的
+``ssh-keygen -Y verify`` 只认 PKCS#1 v1.5，**无法校验本模块默认产出的 RSA-PSS 签名**（ed25519
+双向无此问题）。若外部流程必须用系统 ``ssh-keygen`` 校验 M10 产出的 RSA 签名，请升级 OpenSSH；
+或让该流程改用 ``ssh-keygen -Y sign`` 自签（其产物本服务端照收）。
 
 **请求载荷（S2 修复，字节级精确）**——本模块是载荷公式的**唯一定义点**：
 
@@ -11,9 +15,12 @@
     payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n"
               + TIMESTAMP + "\n" + NONCE
 
-``RAW_PATH`` = 请求行中路径 + ``?`` + query 的**原样字节**（不百分号解码、不去点段、
-不增删尾部斜杠）；**query 参与签名**。服务端必须用**收到的原始头文本**拼载荷
-（不可把 ``X-Timestamp`` 重新格式化，否则与客户端不一致）。
+``RAW_PATH`` = 请求行中**目标串的原样字节**（路径 + ``?`` + query；**不百分号解码**、不去点段、
+不增删尾部斜杠）；**query 参与签名**。客户端契约有两处易错点：
+
+1. 签的是**请求行里那个（percent-encoded）目标串**——先 ``unquote`` 再签会 401（服务端按 ASGI
+   ``raw_path`` 的原样字节拼载荷；SecAudit AUD-2 已把该耦合显式化）；
+2. 服务端用**收到的原始头文本**拼载荷，不可把 ``X-Timestamp`` 重新格式化（否则与客户端不一致）。
 """
 
 from __future__ import annotations
