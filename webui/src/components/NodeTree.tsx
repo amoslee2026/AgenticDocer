@@ -52,6 +52,7 @@ function TreeView({
     <ul className="tree">
       {items.map((item) => (
         <li key={item.node.nodeId}>
+          <div
             className={`node-row${item.node.nodeId === selectedId ? " current" : ""}`}
             onClick={() => onSelect(item.node)}
           >
@@ -71,5 +72,5 @@ function TreeView({
 /** 节点树浏览：按 parentNodeId 组树、ordinal 排序。 */
 export function NodeTree({ nodes, selectedId, onSelect }: Props) {
   const tree = useMemo(() => buildTree(nodes), [nodes]);
-  return <TreeView items={tree} nodes={nodes} selectedId={selectedId} onSelect={onSelect} depth={0} />;
+  return <TreeView items={tree} selectedId={selectedId} onSelect={onSelect} depth={0} />;
 }
