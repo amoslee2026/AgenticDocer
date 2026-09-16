@@ -157,7 +157,10 @@ class NodeRepository(Repository):
         return [build_model(Node, row_to_dict(row)) for row in rows]
 
     async def get_section_nodes(self, doc_id: str, section_node_id: UUID | str) -> list[Node]:
-        """章节子树（PerfBench B-2 的 **O(子树)** 读路径），与 `get_subtree` **逐元素等价**。
+        """章节子树（PerfBench B-2 的 **O(子树)** 读路径），与 `get_subtree` **等价——前提是
+        大纲契约成立**（`ordinal` 序即大纲序：每个节点位于其父之后、下一个 `level <= 根 level`
+        之前）；契约被破坏时的残余风险见下「安全网」。需要**契约无关的语义权威**时用
+        `get_subtree`（递归 CTE，永远正确、代价 O(分区扫描)）。
 
         快路径（利用 `idx_nodes_doc_ordinal`，吃分区裁剪）：
         ① 点查根 `(ordinal, level)`；② 求右边界 `min(ordinal) WHERE doc_id=:d AND ordinal > :root
