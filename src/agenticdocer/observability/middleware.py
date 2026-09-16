@@ -34,12 +34,20 @@ _AUTH_STATUS = frozenset({401, 403})
 
 DEFAULT_MODULE = "m12.middleware"
 
+#: 未匹配到路由时的 `route` 占位值。
+#:
+#: **中间件层拒答发生在路由匹配之前**（如 M10 的签名验证 401），此时 `scope["route"]`
+#: 尚未写入。若回落原始路径，每个被拒路径都会成为独立指标桶（`/docs/SPEC-1`、
+#: `/docs/SPEC-2`…）→ 基数爆炸且每桶计数为 1，`authFailures` 与错误率失去意义。
+#: 故统一归入该桶；原始路径仍完整保留在 ctx 的 `path` 字段供下钻。
+UNROUTED = "<unrouted>"
+
 
 def _route_of(request: Request) -> str:
-    """路由模板（如 `/api/v1/docs/{doc_id}`）；未匹配到路由时回落原始路径。"""
+    """路由模板（如 `/api/v1/docs/{doc_id}`）；未匹配时返回 :data:`UNROUTED`。"""
     route = request.scope.get("route")
     path = getattr(route, "path", None)
-    return path if isinstance(path, str) and path else request.url.path
+    return path if isinstance(path, str) and path else UNROUTED
 
 
 class ObservabilityMiddleware(BaseHTTPMiddleware):
