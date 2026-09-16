@@ -176,6 +176,30 @@ section_meta: "@meta"
 > **处置（B10）**：已落地。(1) 新增 M04 `render_section(doc_id, section_node_id) -> RenderResult`，按 level-1/2 子树渲染，指标 **单章节 <1s**；(2) M07 新增 `GET /api/v1/docs/{id}/sections`（章节清单）与 `GET /api/v1/docs/{id}/render?section=`（章节渲染）；(3) M08 WebUI 改为**按需分章节加载**（进入文档先取章节清单，滚动/点击时按章节拉取渲染结果），替代一次性整档渲染；(4) 整档渲染 <3s 保留为上限指标（导出/CLI 场景）。
 
 
+## 1.5 文档类型与行业标准对齐（方案 C，2026-09-17）
+
+> **背景**：用户质问「不同类型的文档要参考相应的行业标准或成熟模板，设立不同的 schema，这一点是否有遵守？」→ 核实为**主体未落实**（仅 5 个粗粒度 `doc_type` 且四条规则与 `standard` 完全相同），用户选定**方案 C** 全量落实。
+
+**权威依据**：**`doc_type_mapping.md`**（本目录）——含完整映射表（idea.md 30+ 类型 → 5 个 doc_type）、五类差异化规则表、UCIS/vPlan 对齐方案、**验证边界声明**。
+
+**三条硬约束**：
+
+| # | 约束 | 理由 |
+|---|---|---|
+| 1 | **`doc_type` 保持 5 值**（`standard`/`lang`/`tool-manual`/`product`/`safety`）；`product` 的细分靠 **`meta.doc_subtype`** | 收敛原则：多数 idea.md 类型的**内容原子组合相同**，差异只在业务元数据；仅当原子组合确实不同才新增 `doc_type` |
+| 2 | **五类规则必须实质不同** | 防退回「空壳差异化」——须有测试断言五类的 `allowed_atom_types`/`required_meta_fields` **彼此不全等** |
+| 3 | **验证边界如实标注** | 仅 `standard` 有真实语料（7 份）可端到端验证；其余四类与 UCIS/vPlan **只有合成样例**，**不得声称端到端验证** |
+
+**行业标准对齐落点**：
+
+| idea.md 参考标准 | 落点 |
+|---|---|
+| DocBook `RefEntry`（§4.1） | `lang`/`tool-manual` 的必填 `command_name`/`syntax`/`tool_context` |
+| NISO STS（§4.2） | `standard` 的 clause + 规范性关键词 + `table.register_field` + `figure.state_machine`（已交付） |
+| UCIS / vPlan（§4.3） | 新变体 `table.coverage_matrix` + `importer/vplan.py`（导入器 + 合成样例验证） |
+| 需求追溯（§4.5） | `product` 必填 `traces_to` + `refs.traces_to`（已交付机制） |
+| FMEA/FTA（§4.5） | 新变体 `table.failure_mode`（`safety` 专属） |
+
 ## 2. 代码结构与模块映射
 
 ```
