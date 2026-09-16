@@ -261,7 +261,7 @@ def test_document_frontmatter_maps_c5_fields_and_preserves_extras() -> None:
     assert data["source"] == "corpus/x.md"
     assert data["status"] == "approved"
     assert data["extra_field"] == "keep-me"
-    assert "purpose" not in data
+    assert data["type"] == "composite"
 
 
 def test_frontmatter_text_is_valid_yaml_and_ordered() -> None:
