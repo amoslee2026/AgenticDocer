@@ -420,18 +420,19 @@ async def render_section(
     """章节渲染（B10）：``section_node_id`` 及其后代（``ordinal`` 序、``status='active'``）→ Markdown。
 
     产物 ``<out_dir>/sections/<anchor>.md``（**不带 frontmatter**；图片规则与整档一致）。
-    仅遍历该章节子树（不渲染其余节点），指标：单章节 <1s（§1.4）。
+    **读路径 O(子树)**（PERF B-2）：``get_section_nodes`` 单次取回子树（含区间快路径 + 递归 CTE
+    安全网），不再「取全档 + 内存过滤」——章节耗时因此不随文档增大而线性劣化。
+    指标：单章节 <1s（§1.4）。
 
-    :raises NotFoundError: 章节节点不在该文档的 active 节点中（404）。
+    :raises NotFoundError: 章节节点不存在或已软删（404）。
     """
     store = storage or get_storage()
     target = render_out_dir(out_dir)
     scoped = log.child(doc_id=doc_id, section=str(section_node_id))
-    # 404 在计时之外（逻辑同上）；此处用点查做存在性校验，节点全量读取仍计入渲染耗时
+    # 404 在计时之外（404 不是一次渲染，不该进渲染指标）；`get_section_nodes` 内部亦有同语义根校验
     await store.get_node(section_node_id, doc_id=doc_id)
     with scoped.timer("render_section"):
-        nodes = await store.get_doc_nodes(doc_id)
-        subtree = section_subtree(nodes, section_node_id)
+        subtree = await store.get_section_nodes(doc_id, section_node_id)
         blocks = [node_block_text(node) for node in subtree]
         mapping, exported, unresolved = await _resolve_and_export(
             store, collect_image_srcs(blocks), target
