@@ -89,7 +89,8 @@ from agenticdocer.store import (
     apply_events,
     build_model,
     now,
-    row_to_dict,
+)
+from agenticdocer.store.rows import row_to_dict
 )
 # `EVENT_COLUMNS`/`COMMENT_COLUMNS` 未列入 `store.__all__`（它们服务于 M02 内部查询）；
 # M07 的事件/批注聚合视图直取列清单，口径仍由 M02 单点定义（P5）

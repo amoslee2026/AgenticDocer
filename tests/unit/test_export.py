@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -27,15 +27,8 @@ from agenticdocer.mlr.export import (
     node_record,
 )
 from agenticdocer.mlr.stream import _parse_cursor, change_stream, cursor_token
-from agenticdocer.model import (
-    Doc,
-    Event,
-    Node,
-    NotFoundError,
-    TraversalHit,
-    new_uuid7,
-)
-from agenticdocer.store import ValidationError
+from agenticdocer.model import Doc, Event, Node, TraversalHit, new_uuid7, uuid7_timestamp_ms
+from agenticdocer.store import NotFoundError, ValidationError
 
 TS = datetime(2026, 9, 16, 10, 0, 0, tzinfo=timezone.utc)
 DOC_A = "SPEC-A"
