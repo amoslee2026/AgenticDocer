@@ -358,7 +358,7 @@ async def test_table_edit_roundtrip_writes_content_and_events(
     assert grid.rows == [["位域", "访问"], ["D0", "rw"], ["D1", "ro"]]
     assert updated.content["meta"]["rows"] == 3
 
-    events = await storage.fetch_events(entity="node", entity_id=node.node_id)
+    events = await storage.replay("node", node.node_id)
     assert [event.op for event in events] == ["create", "update"]
-    with pytest.raises(Exception):
+    with pytest.raises(ConflictError):
         await write_table_edit(node, edit, CTX, storage=storage)  # 版本过期 → 409
