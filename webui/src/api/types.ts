@@ -229,3 +229,13 @@ export const ROLE_AT_LEAST: Record<RoleName, number> = {
   admin: 3,
 };
 
+/** ssh_keys 行（keyId = SHA256 指纹，与 ssh-keygen -lf 一致） */
+export interface SshKeyDTO {
+  keyId: string;
+  userId: string;
+  keyType: string;
+  publicKey: string;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
