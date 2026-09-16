@@ -332,6 +332,8 @@ def test_schema_def_asset_and_term():
 
 
 def test_user_sshkey_grant_and_session():
+    owner = uuid4()
+    admin = uuid4()
     user = User(
         user_id=owner, username="alice", role="admin", status="active", created_at=NOW, updated_at=NOW
     )
