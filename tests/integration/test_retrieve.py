@@ -226,7 +226,7 @@ async def test_traverse_filters_deleted_and_can_include_them(
 
 
 async def test_traverse_skips_doc_level_and_dangling_refs(
-    storage: Storage, tmp_path: pathlib.Path
+    storage: Storage, database, tmp_path: pathlib.Path
 ) -> None:
     """文档级引用（`dst_node_id IS NULL`）与悬空目标不产生命中，也不报错（M09B 口径）。"""
     doc_id, nodes = await import_synthetic(storage, tmp_path, "SPEC-STD-TRAV-DOCLVL")
@@ -235,7 +235,7 @@ async def test_traverse_skips_doc_level_and_dangling_refs(
     await storage.add_ref(src.node_id, doc_id, new_uuid7(), "see_also", CTX)  # 悬空目标
     await link(storage, src, peer, "composes_from")
 
-    assert await count(database_of(storage), "SELECT count(*) FROM refs") == 3
+    assert await count(database, "SELECT count(*) FROM refs") == 3
     hits = await traverse(src.node_id, 2, doc_id=doc_id, storage=storage)
     assert [hit.node_id for hit in hits] == [peer.node_id], "只有落到存活节点的那条边产生命中"
 
