@@ -620,6 +620,8 @@ def _term_of(section: Section) -> str:
     if numbered is not None and numbered[1]:
         return numbered[1]
     return section.title or section.raw_title
+
+
 def _clause_pending(
     section: Section | None,
     block: Block,
