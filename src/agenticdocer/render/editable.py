@@ -37,7 +37,7 @@ from agenticdocer.model import (
     html_to_text,
     normalize_body,
 )
-from agenticdocer.store import ConflictError, NotFoundError, Storage, ValidationError
+from agenticdocer.store import Storage, ValidationError
 
 __all__ = [
     "REGISTER_FIELD_COLUMNS",
@@ -59,8 +59,6 @@ REGISTER_FIELD_COLUMNS: Final = ("field", "bits", "access", "reset", "descriptio
 _ROW_RE: Final = re.compile(r"<tr\b[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
 _CELL_RE: Final = re.compile(r"<t([dh])\b[^>]*>(.*?)</t\1>", re.IGNORECASE | re.DOTALL)
 _TH_RE: Final = re.compile(r"<th\b", re.IGNORECASE)
-
-_JSON_DIALECT: Final = "https://json-schema.org/draft/2020-12/schema"
 
 
 class TableGrid(Model):
