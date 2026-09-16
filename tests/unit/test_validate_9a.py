@@ -24,8 +24,8 @@ from agenticdocer.model import (
     derive_text,
     new_uuid7,
 )
-from agenticdocer.store.schema import docs
 from agenticdocer.model.doc_types import DocTypeRule
+from agenticdocer.store.schema import docs
 from agenticdocer.m09 import (
     RULES_9A,
     RULE_ANCHOR_DOC_ID,
@@ -459,7 +459,9 @@ def test_variant_whitelist_rejects_standard_variant_in_safety() -> None:
         for item in validate_write(register_field, doc_type="safety")
         if item.rule_id == RULE_DOC_TYPE_VARIANT
     ]
-    assert hits and hits[0].fix_hint
+    # 建议里必须列出该类**允许的**变体（`safety` → `table.failure_mode`）：agent 依此改写重试
+    assert hits and "table.failure_mode" in hits[0].message
+    assert "table.failure_mode" in hits[0].fix_hint
 
 
 def test_base_atom_exclusion_outranks_variant_rule() -> None:
@@ -480,14 +482,6 @@ def test_ucis_coverage_matrix_is_product_only() -> None:
     assert hits and hits[0].fix_hint
 
 
-def test_variant_rule_message_lists_allowed_variants() -> None:
-    """`fix_hint` 可自修复：报出该 doc_type 允许的变体（M06 agent 依此改写后重试）。"""
-    hits = [
-        item
-        for item in validate_write(node("table.failure_mode", format="html"), doc_type="lang")
-        if item.rule_id == RULE_DOC_TYPE_VARIANT
-    ]
-    assert not hits, "基底 `table` 未被 `lang` 放行 → 应归 atom 规则"
 
 
 # ── DDL 取值域一致性（模型层 ↔ §4 DDL）────────────────────────────────────
