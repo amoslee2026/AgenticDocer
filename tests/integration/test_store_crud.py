@@ -608,3 +608,98 @@ async def test_changes_since_cursor_scan(storage: Storage) -> None:
         await storage.changes_since(limit=0)
     with pytest.raises(ValidationError):
         await storage.changes_since(entity="asset")
+
+
+# ------------------------------------------------- PERF B-2：子树读 / 批量资产路径
+
+
+async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
+    """`get_section_nodes`（区间快路径）与 `get_subtree`（递归 CTE）、以及 M04 的内存 oracle
+    `section_subtree(get_doc_nodes(doc), id)` **逐元素等价**（P5：章节子树口径唯一）。"""
+    from agenticdocer.render.sections import section_subtree
+
+    doc_id = unique_doc("SUBTREE")
+    await storage.upsert_doc(doc_in(doc_id), None, CTX)
+    root = await storage.upsert_node(
+        node_in(doc_id, ordinal=1, level=1, anchor=f"{doc_id}#1"), None, CTX
+    )
+    child_a = await storage.upsert_node(
+        node_in(doc_id, ordinal=2, level=2, parent=root.node_id, anchor=f"{doc_id}#1.1"), None, CTX
+    )
+    child_b = await storage.upsert_node(
+        node_in(doc_id, ordinal=3, level=2, parent=root.node_id, anchor=f"{doc_id}#1.2"), None, CTX
+    )
+    grandchild = await storage.upsert_node(
+        node_in(doc_id, ordinal=4, level=3, parent=child_a.node_id, anchor=f"{doc_id}#1.1.1"),
+        None,
+        CTX,
+    )
+    # 同级另一棵树：必须被区间右边界排除
+    sibling_root = await storage.upsert_node(
+        node_in(doc_id, ordinal=5, level=1, anchor=f"{doc_id}#2"), None, CTX
+    )
+    sibling_child = await storage.upsert_node(
+        node_in(doc_id, ordinal=6, level=2, parent=sibling_root.node_id, anchor=f"{doc_id}#2.1"),
+        None,
+        CTX,
+    )
+
+    expected = [root.node_id, child_a.node_id, child_b.node_id, grandchild.node_id]
+    by_cte = await storage.get_subtree(root.node_id, doc_id=doc_id)
+    assert [n.node_id for n in by_cte] == expected  # 不多不少、ordinal 序、含根
+    assert [n.ordinal for n in by_cte] == [1, 2, 3, 4]
+    assert sibling_root.node_id not in {n.node_id for n in by_cte}
+    assert sibling_child.node_id not in {n.node_id for n in by_cte}
+
+    by_interval = await storage.get_section_nodes(doc_id, root.node_id)
+    assert [n.node_id for n in by_interval] == expected
+    assert by_interval == by_cte  # Node 模型逐字段相等
+
+    doc_nodes = await storage.get_doc_nodes(doc_id)
+    assert by_interval == section_subtree(doc_nodes, root.node_id)
+
+    # 不带 doc_id（无分区裁剪）结果一致；叶子章节只有自身
+    assert [n.node_id for n in await storage.get_subtree(root.node_id)] == expected
+    assert [n.node_id for n in await storage.get_section_nodes(doc_id, grandchild.node_id)] == [
+        grandchild.node_id
+    ]
+    assert [n.node_id for n in await storage.get_section_nodes(doc_id, child_b.node_id)] == [
+        child_b.node_id
+    ]
+
+    # 软删只过滤结果集，不剪枝其下仍 active 的后代（与 get_doc_nodes 同口径）
+    await storage.delete_node(grandchild.node_id, grandchild.version, CTX)
+    assert [n.node_id for n in await storage.get_section_nodes(doc_id, root.node_id)] == [
+        root.node_id,
+        child_a.node_id,
+        child_b.node_id,
+    ]
+    with_deleted = await storage.get_subtree(root.node_id, doc_id=doc_id, include_deleted=True)
+    assert [n.node_id for n in with_deleted] == expected
+
+    # 章节不存在 / 已软删 → NotFoundError（render_section 据此映射 404）
+    with pytest.raises(NotFoundError):
+        await storage.get_section_nodes(doc_id, new_uuid7())
+    with pytest.raises(NotFoundError):
+        await storage.get_section_nodes(doc_id, grandchild.node_id)
+    await storage.delete_node(child_b.node_id, child_b.version, CTX)
+    with pytest.raises(NotFoundError):
+        await storage.get_section_nodes(doc_id, child_b.node_id)
+
+
+async def test_get_asset_paths_batch(storage: Storage) -> None:
+    """批量资产路径：单查、去重、缺失项不出现（消 M04 的 N+1）。"""
+    first = await storage.put_asset(b"one", "image/png", "seed-a")
+    second = await storage.put_asset(b"two", "image/jpeg", "seed-b")
+
+    paths = await storage.get_asset_paths([first, second, first, "f" * 64, ""])
+    assert set(paths) == {first, second}  # 去重 + 未知 id 不出现
+    assert paths[first].read_bytes() == b"one"
+    assert paths[second].read_bytes() == b"two"
+    assert await storage.get_asset_paths([]) == {}
+
+    # 元数据行在但字节缺失 → 该 id 不出现在结果里（调用方按 P4 直通处置）
+    paths[second].unlink()
+    assert set(await storage.get_asset_paths([first, second])) == {first}
+    with pytest.raises(NotFoundError):
+        await storage.get_asset_path(second)
