@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 import sys
+
 import pytest
 import yaml
 
@@ -110,7 +111,6 @@ def test_legacy_corpus_files_are_complete_readonly():
 
     不执行脚本（避免测试写坏真实语料）；这是「跑脚本必 `[skip]`」的前置条件。
     """
-    import yaml
 
     files = sorted(
         p
