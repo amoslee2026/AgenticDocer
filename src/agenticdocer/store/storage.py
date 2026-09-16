@@ -32,7 +32,6 @@ class Storage(
     def __init__(self, db: Database | None = None, *, store_dir: Path | str | None = None) -> None:
         Repository.__init__(self, db)
         self.store_dir = Path(store_dir) if store_dir is not None else asset_store_dir()
-        self.store_dir = Path(asset_store_dir) if asset_store_dir is not None else asset_store_dir()
 
 
 def get_storage() -> Storage:
