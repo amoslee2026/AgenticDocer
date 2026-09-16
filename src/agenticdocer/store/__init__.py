@@ -3,8 +3,7 @@
 - `Storage`：节点/文档/引用/批注/资产/事件的完整读写面；
 - 写路径统一要求 `WriteContext`，并在单事务内落「事件 + 实体」（P2）；
 - `events` append-only（无 update/delete 方法，库层授权兜底）；
-- 模型类型经 `_compat` 绑定 M01（`agenticdocer.model`），M01 未就绪时用契约等价的
-  最小实现——**M01 落地后 `_compat` 的 fallback 分支即死代码**。
+- 模型类型来自 M01（`agenticdocer.model`），存储层不重复定义领域类型；
 """
 
 from __future__ import annotations
@@ -18,7 +17,6 @@ from agenticdocer.model import (
     DocIn,
     DocStatus,
     Event,
-    MODEL_LAYER_READY,
     Node,
     NodeIn,
     NodeSnapshot,
