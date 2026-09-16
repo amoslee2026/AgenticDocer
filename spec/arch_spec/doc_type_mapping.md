@@ -41,7 +41,7 @@ section_meta: "@meta"
 
 ## 2. 映射表（修缺陷 2）
 
-idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（扩展后 6 值）：
+idea.md §4.5 的 30+ 类型 → 本系统 `doc_type`（仍为 5 值：细分只加 `meta.doc_subtype`）：
 
 | idea.md 文档类型（§4.5） | 本系统 `doc_type` | 专属字段（来自 idea.md） | 首版状态 |
 |---|---|---|---|
