@@ -81,7 +81,6 @@ export function DocPage() {
     }
   }, [currentSection, loadSection]);
 
-  const rendered = currentSection === null ? null : (renderCache.get(currentSection) ?? renderCache.get("<full>") ?? null);
 
   const nodesById = useMemo(() => {
     const map = new Map<string, NodeDTO>();
@@ -135,6 +134,9 @@ export function DocPage() {
   const canReview = roleAtLeast(sessionRole, "reviewer");
   const canWrite = roleAtLeast(sessionRole, "editor");
   const nextStatus = NEXT_STATUS[doc.status];
+  if (!session) {
+    return null;
+  }
 
   return (
     <div className="page">
@@ -157,13 +159,6 @@ export function DocPage() {
             </button>
           ) : null}
         </div>
-  const sessionRole = session?.role ?? "reader";
-  const canReview = roleAtLeast(sessionRole, "reviewer");
-  const canWrite = roleAtLeast(sessionRole, "editor");
-  const nextStatus = NEXT_STATUS[doc.status];
-  if (!session) {
-    return null;
-  }
         <div className="card">
           <div className="card-head">
             <div className="tabs" style={{ margin: 0, borderBottom: "none" }}>
