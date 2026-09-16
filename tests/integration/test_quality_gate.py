@@ -83,12 +83,18 @@ class Sample:
 
 @pytest.fixture
 async def seeded_terms(storage: Storage) -> int:
-    """把 `TERMS_SEED` 载入 `terms` 表（模拟 §5「种子随 migrate 载入」的写入路径）。"""
+    """把 `TERMS_SEED` 载入 `terms` 表（模拟 §5「种子随 migrate 载入」的写入路径），
+    并清掉**本测试自己**在上一轮运行留下的 `Ghost-Term*` 残行。
+
+    `terms` 数据面无 doc 维度（判据恒定全表），故「干净样本」断言要求本测试拥有自己的
+    命名空间：`Ghost-Term*` 只由本文件写入。
+    """
     rows = [
         {"term": item.term, "definition_node_id": None, "kind": item.kind}
         for item in terms.load_seed()
     ]
     async with storage.db.transaction() as session:
+        await session.execute(delete(terms_table).where(terms_table.c.term.like("Ghost-Term%")))
         await session.execute(
             pg_insert(terms_table).values(rows).on_conflict_do_nothing(index_elements=["term"])
         )
