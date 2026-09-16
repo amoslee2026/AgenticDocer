@@ -363,33 +363,15 @@ class NormalForm(BaseModel):
 
 ```python
 KIND_RULES: dict[RefKind, tuple[Literal["up","down","both"], bool, int]] = {   # (方向, 参与多跳, 最大跳数) A19
-**鉴权（B2/B3）**：**默认所有端点（含读）需 M10 鉴权**；**唯一豁免白名单**（S4 修复）如下——
-
-| 豁免端点 | 理由 | 仍受约束 |
-|---|---|---|
-| `POST /api/v1/auth/challenge` | 登录流程起点，此时无任何凭据 | 速率限制（按 IP，见 §3 M10） |
-| `POST /api/v1/auth/login` | 同上（提交签名换取会话） | 同上 + nonce 一次性 |
-| `GET /` 及 `/assets/**`（登录页静态资源） | 登录页自身加载所需 | 仅限登录页白名单文件，不含业务数据 |
-| `GET /healthz` | 进程存活探针（**不返回任何业务/版本信息**） | 无 |
-
-**明确不豁免**（S4）：`/docs`、`/openapi.json`、`/redoc` 在非开发模式下 **禁用**（`docs_url=None`）；开发模式经 `DEV_MODE=1` 显式开启且仅允许 loopback 访问。**豁免清单外端点无凭据必 401**（REQ-M10-F01 验收项 (g) 扩展）。
-
-**agent 路径**（每请求签名）：
-- 请求头：`X-SSH-Signature`（base64）、`X-SSH-Key-Id`（公钥指纹）、`X-Timestamp`（ISO 8601，UTC，秒级）、`X-Nonce`（≥128 位随机，base64）。
-- **签名载荷（S2 修复，字节级精确定义）**：
-  ```
-  payload = METHOD + "\n"
-          + RAW_PATH + "\n"          # 原始路径，含 query string（"?" 及其后原样字节）
-          + SHA256(body).hexdigest() + "\n"
-          + TIMESTAMP + "\n"         # X-Timestamp 原样字符串（不做时区/格式转换）
-          + NONCE
-  ```
-  **规范化规则（双方不得另行规范化）**：`RAW_PATH` = 请求行中 `?` 之前与之后全部**原样字节**（不做百分号解码、不去点段、不补/去尾部斜杠）；**query string 参与签名**——`DELETE /nodes/{id}?expected_version=3` 中的 `expected_version` 受签名保护，篡改 query 任一参数 → 401。
-- **签名编码（S11 修复）**：统一采用 **SSHSIG 格式**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 使用 `rsa-sha2-512` + **PSS padding**。CLI 与登录页两条路径使用**同一验签器**。
-- 校验顺序（S3/S7 修复）：① `X-Timestamp` 偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]（**未来偏移容忍收紧至 30s**）→ ② `X-SSH-Key-Id` 查 `ssh_keys`（active）→ ③ **验签** → ④ nonce 唯一性 INSERT（**验签通过后才消费 nonce**，避免未认证写入）。
-- 失败：401（无/坏凭据）、403（公钥未注册或角色不足）。
     排序：跳数 → doc 序 → ordinal；默认过滤 status='deleted' 节点（L5）。"""
 def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-005），返回含 score；默认过滤 deleted（L5）
+```
+
+### M06 Agent 接口（HTTP）
+
+| 方法/路径 | 语义 | 关键错误 |
+|---|---|---|
+@authblk
 ```
 
 ### M06 Agent 接口（HTTP）
@@ -412,8 +394,7 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | `PATCH /api/v1/nodes/{node_id}/table` | 表格编辑回写（B6 可编辑表格；body 为行列 JSON，服务端转 content，epoch 校验） |
 | `GET /api/v1/admin/metrics` | 指标快照（admin 专属；ADR-010） |
 | `GET /api/v1/admin/health` | 健康巡检（admin 专属；ADR-010） |
-- **WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。
-- 缺失任何凭据 → 401；`X-Actor` 与验签身份不一致 → 403。写入时 `WriteContext(actor=<user_id>, source="agent"|"webui")`。
+**WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖任何客户端自述字段**（S14 修复：**删除 `X-Actor` 头**，身份一律以验签结果为准）。
 
 ### M07 WebUI API
 
