@@ -135,12 +135,12 @@ def _register_grid(content: Mapping[str, Any]) -> TableGrid:
     rows = [
         [str(item.get(name) or "") for name in REGISTER_FIELD_COLUMNS] for item in fields
     ]
-    register = content.get("register")
+    register_name = content.get("register")
     return TableGrid(
         rows=rows,
         header=True,
         header_names=list(REGISTER_FIELD_COLUMNS),
-        register=str(register) if register else None,
+        register_name=str(register_name) if register_name else None,
     )
 
 
