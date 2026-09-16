@@ -127,11 +127,13 @@ async def events_partition_rows(db) -> list[tuple[str, int]]:
         "SELECT tableoid::regclass::text AS part, count(*) AS rows FROM events GROUP BY 1 ORDER BY 1",
     )
     return [(str(name), int(count)) for name, count in rows]
+
+
 async def run_bench(args: argparse.Namespace) -> Bench:
     storage = open_storage(args.dsn)
     db = storage.db
     bench = Bench(name=NAME, title=TITLE, environment=environment())
-        baseline = None
+    baseline: dict[str, Any] | None = None
     try:
         if args.fresh:
             # `--fresh` 会清空实体表：先把**真实语料**的密度基线（存储/节点）留下来，
