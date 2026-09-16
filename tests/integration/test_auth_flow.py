@@ -654,7 +654,7 @@ async def test_rate_limit_on_challenge(
 async def test_purge_expired_removes_sessions_and_nonces(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
-    """**S15**：过期会话与非ce 同一任务清理。"""
+    """**S15**：过期会话与非ce 同一任务清理（清理后该会话立即 401）。"""
     await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
     _, token = await _login_with_ssh_key(client, database, key_material["editor_ed25519"])
     stale_seconds = sessions.nonce_ttl_seconds() + 5
@@ -667,12 +667,14 @@ async def test_purge_expired_removes_sessions_and_nonces(
             text("INSERT INTO nonces (nonce, user_id, seen_at) VALUES ('stale-nonce', NULL, :ts)"),
             {"ts": datetime.now(timezone.utc) - timedelta(seconds=stale_seconds)},
         )
-    assert (await client.get("/api/v1/auth/me", cookies={sessions.SESSION_COOKIE_NAME: token})).status_code == 401
 
     report = await sessions.purge_expired(db=database)
-    assert report.sessions >= 1 and report.nonces >= 1
+    assert report.sessions == 1 and report.nonces >= 1
     assert await _scalar(database, "SELECT count(*) FROM sessions") == 0
     assert await _scalar(database, "SELECT count(*) FROM nonces WHERE nonce = 'stale-nonce'") == 0
+    assert (
+        await client.get("/api/v1/auth/me", cookies={sessions.SESSION_COOKIE_NAME: token})
+    ).status_code == 401
 
 
 def test_cookie_secure_follows_deployment(monkeypatch) -> None:
