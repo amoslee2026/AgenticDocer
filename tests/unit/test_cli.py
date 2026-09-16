@@ -85,12 +85,10 @@ class _Call:
 def _server_view(request: httpx.Request) -> tuple[str, bytes]:
     """复现 M10 ``middleware.raw_path`` + ``signing.request_payload``。
 
-    ASGI 给的是**解码后**的 path（``scope["path"]``）与原样 query（``scope["query_string"]``）；
-    CLI 侧的编码只影响线上的字节，不影响签名载荷。
+    服务端取 ASGI ``scope["raw_path"]``（**未百分号解码**的原样字节）+ 原样 query
+    （SecAudit AUD-2 后的口径）——即客户端的「发送形态」。
     """
-    path = urllib.parse.unquote(request.url.path)
-    query = request.url.query.decode("latin-1")
-    raw_path = f"{path}?{query}" if query else path
+    raw_path = request.url.raw_path.decode("latin-1")
     body = request.content or b""
     payload = signing.request_payload(
         request.method,
@@ -262,13 +260,15 @@ def _json(text: str) -> dict[str, Any]:
 # ----------------------------------------------------------------------
 
 
-def test_encode_target_encodes_wire_bytes_but_signs_decoded_path() -> None:
-    url, raw = cli.encode_target("/api/v1/nodes/SPEC-X#3.2·transfer", {"doc_id": "SPEC-X"})
-    assert url == "/api/v1/nodes/SPEC-X%233.2%C2%B7transfer?doc_id=SPEC-X"
-    assert raw == "/api/v1/nodes/SPEC-X#3.2·transfer?doc_id=SPEC-X"
+def test_encode_target_is_the_encoded_request_line() -> None:
+    """发送即签名：编码形态的请求行目标（query 原样参与）。"""
+    assert cli.encode_target("/api/v1/nodes/SPEC-X#3.2·transfer", {"doc_id": "SPEC-X"}) == (
+        "/api/v1/nodes/SPEC-X%233.2%C2%B7transfer?doc_id=SPEC-X"
+    )
+    assert cli.encode_target("docs/SPEC-X") == "/docs/SPEC-X"  # 补前导斜杠
 
 
-def test_encode_target_keeps_query_out_of_the_url_only(
+def test_encode_target_participates_in_signature(
     monkeypatch: pytest.MonkeyPatch, key_pair: tuple[Path, str]
 ) -> None:
     """query 原样参与签名（S2：改任一参数即 401）。"""
