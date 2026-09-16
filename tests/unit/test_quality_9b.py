@@ -936,3 +936,58 @@ def test_section_range_rules_are_declared_uniquely() -> None:
     assert section_range_consistency.RULES_SECTION_RANGE == (
         section_range_consistency.RULE_SECTION_RANGE_MISMATCH,
     )
+
+
+# ── doc_type_schema_conformance：组合规则的历史数据兜底 ────────────────────
+
+
+def test_doc_type_conformance_clean_when_meta_is_complete() -> None:
+    """`standard` 的必填口径 = C5 十七字段；齐备 → 零违规。
+
+    **合成样例，非真实语料**：`standard` 以外的 doc_type 无语料（`doc_type_mapping.md` §5），
+    本节的 `safety`/`product` 一律用合成 `Doc` 构造，**不构成端到端验证**。
+    """
+    doc = make_doc(meta={field: "x" for field in C5_META_FIELDS})
+    assert doc_type_conformance.judge_docs([doc]) == []
+
+
+def test_doc_type_conformance_reports_each_missing_field() -> None:
+    """缺字段 → **逐字段**一条违规（与 M09A `fix_hint` 粒度一致），`path` 指到文档 + 字段。"""
+    present = {"title": "x", "type": "composite"}
+    violations = doc_type_conformance.judge_docs([make_doc(meta=present)])
+    assert {item.rule_id for item in violations} == {doc_type_conformance.RULE_META_MISSING}
+    assert [item.path for item in violations] == [
+        f"{DOC_ID}:meta.{field}" for field in C5_META_FIELDS if field not in present
+    ]
+    assert all(item.fix_hint and item.message for item in violations)
+
+
+def test_doc_type_conformance_flags_unknown_doc_type_without_raising() -> None:
+    """取值域漂移（DDL 放宽而模型未同步）→ 一条 `unknown`，**不抛 `KeyError`** 拖垮整轮质量门。"""
+    violations = doc_type_conformance.judge_docs([make_doc(doc_type="register-map", meta={})])
+    assert [item.rule_id for item in violations] == [doc_type_conformance.RULE_DOC_TYPE_UNKNOWN]
+    assert violations[0].path == f"{DOC_ID}:doc_type"
+    assert violations[0].fix_hint
+
+
+def test_doc_type_conformance_is_sorted_by_doc_id() -> None:
+    """定序稳定（`doc_id` → 字段名）：同一批文档两次判定逐字段一致（质量门快照依赖）。"""
+    docs = [
+        make_doc(doc_id="SPEC-B", meta={}),
+        make_doc(doc_id="SPEC-A", meta={}),
+    ]
+    first = doc_type_conformance.judge_docs(docs)
+    assert [item.path for item in first] == [item.path for item in doc_type_conformance.judge_docs(docs[::-1])]
+    assert first[0].path.startswith("SPEC-A:")
+
+
+def test_doc_type_conformance_rules_are_all_reachable() -> None:
+    """死规则检测：`RULES_DOC_TYPE_CONFORMANCE` 每条都被上面的用例命中。"""
+    detected = {
+        item.rule_id
+        for item in [
+            *doc_type_conformance.judge_docs([make_doc(meta={})]),
+            *doc_type_conformance.judge_docs([make_doc(doc_type="nope", meta={})]),
+        ]
+    }
+    assert detected == set(doc_type_conformance.RULES_DOC_TYPE_CONFORMANCE)
