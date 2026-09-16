@@ -16,8 +16,7 @@ data/
 !data/admin_keys/
 data/admin_keys/*
 !data/admin_keys/.gitkeep
-***
-!data/admin_keys/.gitkeep
+
 logs/
 build/
 rendered/
