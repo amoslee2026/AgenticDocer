@@ -121,6 +121,7 @@ async def export_package(
     if hops < 1:
         raise ValidationError(f"hops must be >= 1, got {hops}", entity="node")
     store = storage if storage is not None else Storage()
+    target = Path(out_dir)
     # 去重保序：重复项会让 `docs` 计数与包内容不符
     ordered = list(dict.fromkeys(doc_ids))
     # 文档先取（404 在计时之外：失败不是一次导出，不该进导出指标）
