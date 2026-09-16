@@ -134,21 +134,15 @@ async def test_html_table_fragments_are_byte_identical(
 
 @pytest.mark.asyncio
 async def test_html_img_rewrite_is_the_only_fragment_change(
-    storage: Storage, tmp_path: Path
+    cxl_window: tuple[str, str], storage: Storage, tmp_path: Path
 ) -> None:
-    """P4 唯一例外：含 ``<img>`` 的 HTML 片段重写后仅 ``src`` 变化（真实 CXL 片段 + 真实 CAS 资产）。"""
-    _require(CXL)
-    raw = CXL.read_text(encoding="utf-8")
-    _, body = split_frontmatter(raw)
-    blocks = split_blocks(body)
-    start, end = window_with_images(blocks)
-    doc_id, _ = await ingest_markdown(storage, CXL, CXL_DOC, window=(start, end))
-
+    """P4 唯一例外：含 ``<img>`` 的片段重写后仅 ``src`` 变化（真实 CXL 片段 + 真实 CAS 资产）。"""
+    doc_id, _ = cxl_window
     nodes = await storage.get_doc_nodes(doc_id)
-    with_img = [f for f in _html_table_fragments(nodes) if "<img" in f]
+    with_img = [fragment for fragment in _table_fragments(nodes) if "<img" in fragment]
     assert with_img, "窗口内应至少有一个含 <img> 的 HTML 表格片段"
 
-    # 语料图片字节不在本机 → 先断言「不可解析即原样直通」（P4 直通分支）
+    # 语料图片字节不在本机（引用解析不到资产行）→ 先断言「不可解析即原样直通」（P4 直通分支）
     result = await render_document(doc_id, tmp_path / "rendered", storage=storage)
     text = Path(result.out_path).read_text(encoding="utf-8")
     for fragment in with_img:
@@ -159,7 +153,7 @@ async def test_html_img_rewrite_is_the_only_fragment_change(
     payload = b"\x89PNG\r\n\x1a\nM04-render-fixture"
     asset_id = await storage.put_asset(payload, "image/png", origin="test://m04")
     patched = _retarget_first_img(sample, asset_id)
-    doc2 = "SPEC-CXL-IMG-REWRITE"
+    doc2 = f"SPEC-CXL-IMG-REWRITE-{next(_SEQ)}"
     await _store_single_table_doc(storage, doc2, patched)
 
     result2 = await render_document(doc2, tmp_path / "rendered2", storage=storage)
