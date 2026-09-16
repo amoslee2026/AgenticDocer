@@ -286,6 +286,13 @@ async def test_agent_flow_read_write_render_diff(
     assert unknown.status_code == 422
     assert unknown.json()["violations"][0]["ruleId"] == "M09A.atom.unknown"
 
+    # 判据归属（P5）：锚形态由 M09A `M09A.anchor.doc_id` 负责——本模块不再自带第二套判定
+    bad_anchor = _node_body(doc_id, "1 Bad", ordinal=3, content={"text": "x"})
+    bad_anchor["anchor"] = "1 Bad"  # 缺 `<doc_id>#` 前缀
+    rejected = await admin.post("/api/v1/nodes", bad_anchor)
+    assert rejected.status_code == 422, rejected.text
+    assert rejected.json()["violations"][0]["ruleId"] == "M09A.anchor.doc_id"
+
     # ── 点查（doc_id 可选 → 分区裁剪；ADR-009 V16）与乐观锁
     node_id = chapter_node["nodeId"]
     fetched = await admin.get(f"/api/v1/nodes/{node_id}?doc_id={doc_id}")
