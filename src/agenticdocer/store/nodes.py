@@ -232,17 +232,25 @@ class NodeRepository(Repository):
                     entity_id=node_id,
                 )
             timestamp = now()
+            deleted = {
+                **before,
+                "status": "deleted",
+                "version": before["version"] + 1,
+                "updated_at": timestamp,
+            }
             await session.execute(
                 update(nodes)
                 .where(nodes.c.node_id == before["node_id"], nodes.c.doc_id == before["doc_id"])
-                .values(status="deleted", version=before["version"] + 1, updated_at=timestamp)
+                .values(status="deleted", version=deleted["version"], updated_at=timestamp)
             )
+            # §3.5「delete 含 before 全量」：逐字段给出 before；after 为删除后的行值，
+            # 使重放与当前行一致（内容字段 after == before，等价于 before 全量）。
             await append_event(
                 session,
                 entity="node",
                 entity_id=before["node_id"],
                 op="delete",
-                payload=field_deltas(before, {}, include_unchanged=True),
+                payload=field_deltas(before, deleted, include_unchanged=True),
                 actor=ctx.actor,
                 ts=timestamp,
             )
