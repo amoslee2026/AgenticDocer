@@ -48,6 +48,7 @@ DOC_RBAC_PRD = f"SPEC-E2E-RBAC-PRD-{_TOKEN}"
 DOC_SESSION = f"SPEC-E2E-SESSION-{_TOKEN}"
 DOC_EDGES = f"SPEC-E2E-EDGES-{_TOKEN}"
 DOC_MISSING = f"SPEC-MISSING-{_TOKEN}"
+ADMIN_USERNAME = f"e2e-admin-{_TOKEN}"
 USER_READER = f"e2e-reader-{_TOKEN}"
 USER_EDITOR = f"e2e-editor-{_TOKEN}"
 TERM = f"APB-{_TOKEN}"
@@ -127,13 +128,32 @@ class Signer:
 
 
 @pytest.fixture
-def admin(client: AsyncClient, keys: dict[str, Path]) -> Signer:
-    """admin 签名客户端（生命周期自举已创建 admin 与其公钥）。"""
+async def admin_id(database: Database, keys: dict[str, Path]) -> UUID:
+    """本模块**自己的** admin 用户（唯一用户名）+ 公钥，幂等登记。
+
+    不复用 M10 的 `bootstrap_admin`：那条路径以「是否存在 active admin」为幂等条件
+    （REQ-M10-F05/S9），遇到其它模块/先前运行留下的 admin 就会跳过，从而**无法**登记本次
+    运行的随机测试密钥。自带唯一 admin 用户则与任何既有数据共存、且可重复运行。
+    """
+    user = await auth_users.find_user_by_username(ADMIN_USERNAME, db=database)
+    if user is None:
+        user = await auth_users.create_user(ADMIN_USERNAME, "admin", actor="system", db=database)
+    fingerprint = signing.fingerprint(keys["admin"].with_suffix(".pub").read_text())
+    registered = {key.key_id for key in await auth_users.list_ssh_keys(user.user_id, db=database)}
+    if fingerprint not in registered:
+        await auth_users.add_ssh_key(
+            user.user_id,
+            keys["admin"].with_suffix(".pub").read_text().strip(),
+            actor="system",
+            db=database,
+        )
+    return user.user_id
+
+
+@pytest.fixture
+def admin(client: AsyncClient, keys: dict[str, Path], admin_id: UUID) -> Signer:
+    """以本模块自有 admin 身份签名的客户端。"""
     return Signer(client, keys["admin"])
-
-
-async def _admin_user(database: Database) -> Any:
-    return await auth_users.find_user_by_username("admin", db=database)
 
 
 async def _seed_doc(
