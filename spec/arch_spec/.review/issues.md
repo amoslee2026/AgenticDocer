@@ -229,6 +229,107 @@ section_meta: "@meta"
 - **一致性抽查通过项**：34 条 REQ 与 traceability CSV 34 行一一对应 ✓；DDL 8 表与 A-D2 清单一致 ✓；`format`/`docs.status`/`events.entity`/`refs.kind`/`comments.state` 枚举在 DDL、DTO、REQ 三处一致 ✓；REQ-M09-F02「五类 detector」与 §3 M09 描述一致 ✓；ADR-001/002/003/004/005/006 的 Decision 与正文及 REQ 无相互否定 ✓；P1–P5 与 idea v1.1 的 E1–E20 修订方向一致（E1 直通、E2 资产、E3 事件、E5 事务、E6 批注、E7 锚的策略均已进入 arch 层，但落实度见 A1/A4/A5/A6/A7）✓。
 - **Mermaid 渲染未验证**：本机无渲染器（`mmdc`/`mermaid` 均不存在，外网受限无法安装），未做渲染级校验；已人工核对 5 个文件的全部 12 个图块（含 `A & B --> C` 合并边、`-. "label" .->` 虚线带标签、`stateDiagram-v2`、sequence 自消息与括注），**未发现可判定的语法错误**。语义层面一处轻微不一致：`data_flow_diagrams.md` DF-2 中「事务开始」由 M09A 发起，而 §3 的事务归属是 M02，建议按 M02 开事务重画（非阻塞）。
 
+## 复核结论（v1.2，2026-09-16；逐项重读核对）
+
+复核方式：重读 v1.2 全部产物（architecture_specification.md 487 行、functional_specification.md、user_manual.md、research_report.md、data_flow_diagrams.md、ADR-006、summary_report.md）并回查 idea design_doc §5.2/§5.4 回写；对语料/环境数字再次实测复算。
+
+### 已闭环（15 项）
+
+| 项 | 核实点 |
+|---|---|
+| A1 | `make_anchor(doc_id, chapter_path, title, occurrence_index, body_digest)`（arch L161-168）+ 消歧优先级「正文摘要 sha256[:8] → 同级序号」；ADR-006 §Decision 2、functional REQ-M01-F02 L67-69、idea design_doc §5.4 L171-172 同步（219×Test Steps 可互异） |
+| A2 | nodes.status CHECK('active','deleted')（L366）、软删 delete_node 语义（L187-189）、M06 DELETE（L273）、读路径默认过滤（L176-177）、REQ-M02-F05 已改软删口径 |
+| A3 | WriteContext（L104-106）贯穿 M02 全部写方法（L176-208）、§6 取值规则（L467）、M06 空 actor→422（L279-280） |
+| A4 | comments.version（L408）、update_comment_state(expected_version)（L201-202）、M07 PATCH {state,expectedVersion}（L291） |
+| A6 | 资产字节落 ASSET_STORE_DIR CAS（L210/455）、get_asset_path（L205）、M06/M07 增 GET /assets/{id}（L278/L293）、M03 fetch_assets（L225）、assets.path NOT NULL（L427） |
+| A11 | §6 序列化口径 alias_generator=to_camel（L468）与 TS camelCase 契约一致 |
+| A13 | 提议持久化 data/import_work/<doc_slug>/{proposals.json,review_state.json} + doc_slug 定义（L219-222） |
+| A15 | §4.1 角色与 GRANT/REVOKE（L437-447）+ §5 连接串改用 agenticdocer_app（L454） |
+| A16（schema 部分） | register_schema(...)（L158）+ DB 映射与 DOC_TYPES 取值域 CHECK（L155/L346） |
+| A18 | §3.5 事件载荷与折叠规范表（L331-339）+ apply_events（L197） |
+| A19 | KIND_RULES 三元组含 max_hops（L256-259）、traverse 按 kind 截断、M06 拆 /search 与 /nodes/{id}/traverse（L275-277） |
+| A20 | functional REQ-M05-F02 goldenset ≥30 条/命中率 ≥90% + tests/perf 口径；REQ-M08 零手写=e2e |
+| A21 | summary_report.md 已补（产物清单/决策/风险/自检/下一步） |
+| A23 | P3 改指 design_doc §12（L26）、REQ-M04-F01 改指 §3 M04 + design §10 |
+| A24 | user_manual §1 路径改为 spec/standards/amba/… + 「在仓库根目录执行」（L27） |
+| A25 | §1.2 Agent Context、§1.3 分层与依赖矩阵、§1.4 非功能量化（L30-72） |
+
+### 阻塞残留（10 项，R1–R10）
+
+#### R1（HIGH，原 A5 未完全闭环）refs 主键含可空列，文档级/外部叶引用不可写、SET NULL 永不触发
+
+- **位置**：`architecture_specification.md` L379-389（L382 `dst_node_id uuid REFERENCES nodes(node_id) ON DELETE SET NULL`；L384 `CONSTRAINT refs_pk PRIMARY KEY (src_node_id, dst_doc_id, dst_node_id, kind)`；L386-387 `UNIQUE NULLS NOT DISTINCT` 同列集）
+- **问题**：PRIMARY KEY 对其全部列隐含 NOT NULL，因此 L382 声明的可空列 `dst_node_id` 实际被强制非空：(a) 文档级引用（只指目标文档、不指具体节点）与被引用节点后续删除时想保留的「文档级」形态全部写不进去；(b) L389 约定的外部叶引用 `dst_doc_id='EXT:<uri>'`（kind=source_ref，无对应节点）同样无法落库；(c) `ON DELETE SET NULL` 作用在 PK 列上永远不可能成功执行——删除被引用节点会直接报错，而非按声明置空；(d) L386-387 的 UNIQUE 与主键列集完全相同，是冗余约束（主键已更强）。
+- **修复建议**：去掉该主键，改为代理主键 `ref_id uuid PRIMARY KEY`（应用侧 UUIDv7）+ `CONSTRAINT refs_unique UNIQUE NULLS NOT DISTINCT (src_node_id, dst_doc_id, dst_node_id, kind)`；`remove_ref` 已按 (src,dst_doc,dst_node,kind) 对称删除，无需再改。若坚持用业务列做主键，则必须把 `dst_node_id` 改为 NOT NULL 并为文档级引用规定哨兵值（不推荐，破坏 SET NULL 语义）。
+
+#### R2（MEDIUM，原 A9 未闭环）往返断言仍不可执行：normalize 无「源 markdown」入口
+
+- **位置**：`architecture_specification.md` L241（`def normalize(doc_id: str) -> NormalForm`）、L237-242（render 入口）、`functional_specification.md` L147（`normalize(render(store(parse(src)))) == normalize(src)`，判定口径指向 §3 M04）
+- **问题**：v1.2 补了 `RenderResult`/`NormalForm` 定义，但仍只有 `normalize(doc_id)`：断言右端的 `src` 是 markdown 源（Path/文本），左端 `render(...)` 返回 `RenderResult` 而非 doc_id，且 normalize 只读库内 content（不读渲染产物），因此该断言既写不出来、也验不到渲染层。REQ-M04-F01（P0）与 P4 的往返判据仍不可机械执行。
+- **修复建议**：新增 `normalize_markdown(source: str | Path) -> NormalForm`（与 `normalize_doc(doc_id)` 并存），或在 §3 M04 写明 `normalize` 接受「源文本/路径/文档 ID」三形态；REQ-M04-F01 写明精确调用式（如 `normalize_markdown(render_path(r)) == normalize_markdown(src)`）。
+
+#### R3（MEDIUM，原 A7 未完全闭环）P4「HTML 片段零改写」与 M04「片段内 img src 重写」并存，未声明例外
+
+- **位置**：`architecture_specification.md` L27（P4）与 L238-240（M04 docstring：`format=html 片段零改写直通` + `图片（含 HTML 片段内 <img src>，A7）重写为 assets/<sha256>.<ext>`）
+- **问题**：同一实现对象上并存两条互斥要求（E1 的零改写 vs 图片路径重写），规格未声明哪一条优先、也未说明重写是否只发生在产物层。it.tdd 无法判定表内 `<img>`（实测 80 处，全部位于 `<table>` 片段内）该不该改。
+- **修复建议**：在 P4 与 M04 写明唯一例外：「HTML 片段零改写；唯一例外=片段内图片 `src` 在渲染产物中重写为 `assets/<sha256>.<ext>`（重写仅发生于产物层，库内 content 不变；normalize 的 images 集合以重写前的 asset_id/哈希路径集合比较——L248 已如此定义，补齐 P4 侧即可）」。
+
+#### R4（MEDIUM，原 A14 未完全闭环）仍有 7 个被引用但未定义的类型
+
+- **位置**：`architecture_specification.md` L146/L159（`Violation`）、L178/L180/L181（`Doc`/`DocIn`/`DocStatus`）、L201（`CommentState`）、L210/L225（`AssetSyncReport`）、L317（`QualityScope`）
+- **问题**：§3.0 类型块补齐了多数类型，但上述 7 个仍是「只出现、未定义」（`Violation` 在 v1.1 的 M01 块中曾定义，v1.2 重写后丢失）。这些正是 it.mas/it.tdd 需要字段级契约的返回/参数类型。
+- **修复建议**：在 §3.0 补：`Violation{rule_id,path,message,fix_hint|None}`、`DocIn{doc_id?,doc_type,title,meta,source_ref?}`、`Doc`（docs 行全集+version/status）、`DocStatus=Literal['draft','reviewed','approved']`、`CommentState=Literal['open','resolved','orphaned']`、`QualityScope{kind:Literal['all','doc','node'],doc_id?}`、`AssetSyncReport{imported:int,deduped:int,missing:list[str]}`。
+
+#### R5（MEDIUM，原 A10 未完全闭环）`content.text 必填` 只在 DDL 注释；HTML 原子如何产出 text 未定义
+
+- **位置**：`architecture_specification.md` L365（`content jsonb NOT NULL, -- 约定：content.text 必填（检索源，A10）`）、L375-377（生成列 `to_tsvector('english', coalesce(content->>'text',''))`）、`ADR/ADR-005-关键词检索实现.md` §Risks；对照 idea §5.1（table 原子 `content.fragment`+`content.meta`）
+- **问题**：必填约定未落到 M01 的 schema/校验契约（L150-159 无该规则，v1.2 全文未出现 `fragment`），也未定义 HTML 原子（table/figure）的 text 生成方式。语料表格 100% 为 HTML（2,440 块），若解析器不给这类原子写 `content.text`，FTS 生成列对其为空，REQ-M05-F02 的 goldenset（表格关键词查询）会失败。
+- **修复建议**：M01 写明「所有原子 `content.text` 必填（检索源）；HTML 原子由剥离标签后的纯文本生成」，并让 `table`/`figure` 的 JSON Schema 含 `text`（与 E1 的 `fragment`+`meta` 并存，不改直通策略）。
+
+#### R6（MEDIUM，原 A12 未完全闭环）functional_spec 仍写旧 CLI；render 的 doc_slug/doc_id 口径不一
+
+- **位置**：`functional_specification.md` L121（`python -m agenticdocer.import review <doc>`）、`user_manual.md` L30（`uv run agenticdocer-render IHI0024_AMBA_APB_spec`）与 `architecture_specification.md` L242（`agenticdocer-render <doc_id>`）、L227（`agenticdocer-import`/`-m agenticdocer.importer`）
+- **问题**：A12 的统一只落在 arch 规范与 user_manual 的 import 命令上：functional REQ-M03-F02 仍规定关键字模块名 `agenticdocer.import`（正是 A12 判定为不可用的形式）；且 `agenticdocer-render` 在手册里收 `doc_slug`（IHI0024_AMBA_APB_spec）而在 M04 契约里收 `doc_id`（SPEC-*），实现者需自行猜测。
+- **修复建议**：functional L121 改为 `agenticdocer-import review <doc_slug>`（并注明 doc_slug 定义）；在 §3 M04 或 user_manual 明确 render 接受 `doc_slug` 还是 `doc_id`（建议按 M03 的 doc_slug 统一，或两者都接受）。
+
+#### R7（MEDIUM，原 A17 未完全闭环）M07 有文档列表端点，M02 无 list_docs
+
+- **位置**：`architecture_specification.md` L286（`GET /api/v1/docs` 文档列表）与 M02 方法集 L174-208（有 get_doc/create_doc/update_doc_status，无 list_docs）
+- **问题**：按本规范的分层（M07 仅依赖 M01/M02/M04，M02 是唯一 DB 访问层），文档列表没有实现面；REQ-M07-F01 的「文档列表」无法按契约落地。
+- **修复建议**：M02 增 `list_docs(status: DocStatus | None = None) -> list[Doc]`（可附分页参数），或在 M07 表注明该端点由 M02 不承担、改由何处提供（不建议绕过分层）。
+
+#### R8（MEDIUM，原 A8 未完全闭环）`/api/v1/nodes` 在 M06 与 M07 重复声明；新 schema 端点无 TS 契约
+
+- **位置**：`architecture_specification.md` L270/L272（M06 表）与 L287（M07 表，注明「与 M06 同契约；A8 归属 M07」）；TS 契约 L299-311 无 `SchemaDTO`（对照 L288 `GET /api/v1/schemas/{atom_type}`）
+- **问题**：同一条路径同时出现在两个模块的端点表里且分属两个 router（`agent_api/router.py`、`webui_api/router.py`），归属自相矛盾（表内声称归 M07，M06 表仍保留注册项），实现期易出现重复路由/OpenAPI 重复 path；同时 M08 的「唯一接口面」TS 契约没有 schema 响应类型，表单引擎取到 JSON 后的字段名（camelCase）只能靠猜。
+- **修复建议**：§3 M06 行改为引用式（如「节点读写端点定义见 M07；M06 复用同 handler」）或明确由 `app.py` 只注册一次；在 TS 契约块补 `export interface SchemaDTO { typeName: string; jsonSchema: Record<string, unknown>; version: number }`。
+
+#### R9（MEDIUM，新引入）悬空引用「§3.4」（映射实际在 §6）
+
+- **位置**：`architecture_specification.md` L345（`-- SPEC-*（映射见 §3.4 A22）`）、L471（`（A22 见 §3.4）`）、L239（`frontmatter 按 §3.4 映射回写`）；实际映射在 L475（§6 横切关注点）——§3 只有 `3.0` 与 `3.5`，无 §3.4
+- **问题**：A22 的修复文档在同一修订轮内引入了新的悬空章节引用（与 A23 同类缺陷），三处引用均指向不存在的章节，读者/实现者无法定位映射表；`§3` 的编号也出现 3.0→3.5 的空档。
+- **修复建议**：把 L475 的映射块移到 §3 内并编为 `### 3.4 frontmatter → docs 映射（A22）`（同时消掉编号空档），或把 L345/L471/L239 的引用统一改为 `§6`。
+
+#### R10（MEDIUM，原 A16 未完全闭环）terms 无写入路径；doc_type 组合规则载体仍缺
+
+- **位置**：`architecture_specification.md` L16（v1.2 修订声称「schema/terms 写入路径（A16）」）、L430-433（terms DDL）、L318（M09B terms detector）；`functional_specification.md` L205（REQ-M09-F02 术语校验数据源 = `terms` 表）
+- **问题**：schema 的写入路径已落（L158 `register_schema`），但 `terms` 仍只有建表语句与 detector 引用：没有导入规则、没有 API/CLI、没有种子数据，M09B 的术语校验无数据可查（REQ-M09-F02，P2/阶段 3）；`doc_type → 允许原子类型/必填字段` 的规则模型同样只有取值域（L155 `DOC_TYPES`）而无载体（summary L43 的 Q6 延后登记可接受，但 L16 的「已补」表述与实际不符）。
+- **修复建议**：补 terms 写入路径（M03 `glossary`/`normative-keyword` 解析规则 + `POST /api/v1/terms` 或 CLI `agenticdocer-import terms <file>`，或明确「随 M09B 由人工 SQL 种子」）；把 L16 的修订措辞改为「terms 载体=DDL，写入路径随 M09B 阶段定义」，doc_type 规则注明 Q6 延后。
+
+### 非阻塞残留（L1–L9）
+
+| ID | 位置 | 说明 |
+|---|---|---|
+| L1 | functional_specification.md L8 / user_manual.md L8 / research_report.md L8 / ADR-006 L8 / data_flow_diagrams.md L8 | 版本号未随 v1.2 同步（arch 与 summary 已 1.2.0，其余仍 1.1.0，尽管其中多数文件本轮被修订） |
+| L2 | summary_report.md L22 vs L36 | 「DDL 9 表」与「8 业务表」自相矛盾（实际 8 表：docs/nodes/refs/events/comments/schemas/assets/terms） |
+| L3 | architecture_specification.md L475 | 「17 字段 + spec 专有四字段必填」重复计数——实测语料 frontmatter 共 17 字段且已含 `spec_id/spec_type/spec_org/spec_revision` |
+| L4 | architecture_specification.md L440-447 | 属主角色 `agenticdocer` 只在注释中出现、无 `CREATE ROLE`；缺 `ALTER DEFAULT PRIVILEGES`（后续迁移新建表将无 app 角色授权） |
+| L5 | architecture_specification.md L256-263 | M05 未声明过滤 `status='deleted'`（软删后遍历/检索仍可能命中已删节点） |
+| L6 | functional_specification.md L139 / L86 | REQ-M03-F05 未同步「md + HTML `<img>` 两语法」；REQ-M02-F02 的 ref payload 写作 `{op, src, dst, kind}` 与 §3.5 `{src, dst_doc, dst_node, kind}` 字段名不一致 |
+| L7 | architecture_specification.md L197 | `apply_events` 仅产出 `NodeSnapshot`，doc/ref/comment/schema 的折叠规则（§3.5）无对应入口 |
+| L8 | user_manual.md L43 | 锚示例 `SPEC-STD-AMBA-APB#3.2.1` 未含新格式的 `·slug(title)` 段 |
+| L9 | data_flow_diagrams.md L48-49 | DF-2 中渲染结果仍由 M04 直达 Agent（未经过 M06 返回）；事务归属已按 M02 修订 |
+
 ## 结论
 
-存在 22 个阻塞问题（A1–A22）。
+存在 10 个阻塞残留（R1–R10），非阻塞残留 9 项（L1–L9）。

@@ -24,7 +24,7 @@ section_meta: "@meta"
 | P1 | 结构化库为唯一权威源；人类可读格式均为渲染产物 | 无代码路径从渲染产物反向写库 |
 | P2 | 一切写入 = 事件 + 实体同事务；events 仅追加 | 事务注入测试；角色 REVOKE 审计（§5.2） |
 | P3 | 依赖单向：模块仅依赖已交付模块；**交付序见 `../idea/design_doc.md` §12（B14）** | import 方向 lint 规则（§1.3 矩阵） |
-| P4 | HTML 片段与内联标记原样直通（零改写） | 往返测试（normalize 等价，§3 M04） |
+| P4 | HTML 片段与内联标记原样直通（零改写）；**唯一例外**：产物层图片 `src` 重写（含片段内 `<img>`，A7）——normalize.images 以重写前哈希路径集合为口径 | 往返测试（normalize 等价，§3 M04） |
 | P5 | 口径唯一：normalize()、rule_id、anchor 各为单一判定口径 | 各自单测固定 |
 
 ### 1.2 Agent Context
@@ -145,6 +145,13 @@ class RenderResult(BaseModel):  doc_id: str; out_path: str; assets_exported: int
 class CommitResult(BaseModel):  doc_id: str; nodes_created: int; refs_created: int; stats: ParseStats
 class QualityReport(BaseModel): detector_id: str; violations: list[Violation]
 class ExportResult(BaseModel):  out_path: str; docs: int; nodes: int
+class Violation(BaseModel):     rule_id: str; path: str; message: str; fix_hint: str | None
+class DocIn(BaseModel):         doc_id: str; doc_type: str; title: str; meta: dict; source_ref: str | None
+class Doc(DocIn):               status: "DocStatus"; version: int; created_at: datetime; updated_at: datetime
+DocStatus = Literal["draft","reviewed","approved"]
+CommentState = Literal["open","resolved","orphaned"]
+class AssetSyncReport(BaseModel): fetched: int; missing: list[str]; total_refs: int
+class QualityScope(BaseModel):  doc_ids: list[str] | None; detectors: list[str] | None
 ```
 
 ### M01 内容模型
@@ -157,6 +164,11 @@ DOC_TYPES = ("standard","lang","tool-manual","product","safety")     # A22 取�
 def get_json_schema(atom_type: str) -> dict: ...                     # schemas 表缓存加载
 def register_schema(atom_type: str, schema: dict, version: int, ctx: WriteContext) -> None: ...  # A16 写入路径
 def validate(atom_type: str, content: dict) -> list[Violation]: ...  # 委托 M09A
+def derive_text(atom_type: str, content: dict) -> str: ...           # A10/R5：生成 content.text（必填）
+    """HTML 片段 → 纯文本（去标签；表格按行列序拼接单元格文本）；md/文本类原样。
+       约束：M01 保证一切节点 content.text 非空（FTS 生成列与检索依赖）。"""
+def upsert_term(term: str, definition_node_id: UUID7 | None, kind: Literal["glossary","normative-keyword"],
+                ctx: WriteContext) -> None: ...                      # R10：terms 写入路径（M03 导入 definition 原子、M07 API、种子文件 data/terms_seed.yaml）
 
 def make_anchor(doc_id: str, chapter_path: list[str], title: str,
                 occurrence_index: int, body_digest: str) -> str:     # A1 修订
@@ -177,7 +189,7 @@ class Storage:
     async def get_doc_nodes(self, doc_id: str, include_deleted: bool = False) -> list[Node]: ...
     async def get_doc(self, doc_id: str) -> Doc: ...
     # 文档级写（A17）
-    async def create_doc(self, doc: DocIn, ctx: WriteContext) -> Doc: ...
+    async def list_docs(self, status: DocStatus | None = None) -> list[Doc]: ...   # R7
     async def update_doc_status(self, doc_id: str, status: DocStatus,
                                 expected_version: int, ctx: WriteContext) -> Doc: ...  # 409
     # 节点写
@@ -194,7 +206,7 @@ class Storage:
                          kind: RefKind, ctx: WriteContext) -> None: ...  # 对称参数
     # 事件（A18）
     async def replay(self, entity: str, entity_id: str, upto: datetime | None = None) -> list[Event]: ...
-    def apply_events(self, events: list[Event]) -> NodeSnapshot: ...  # 折叠（规则见 §3.5）
+    def apply_events(self, entity: str, events: list[Event]) -> NodeSnapshot | dict: ...  # L7：node→NodeSnapshot；doc/comment→dict；ref/schema→行集重建（规则见 §3.5）
     # 批注（A4 乐观锁）
     async def create_comment(self, node_id: UUID7, body: str,
                              expected_version: int | None, ctx: WriteContext) -> Comment: ...
@@ -238,8 +250,10 @@ def render_document(doc_id: str, out_dir: Path) -> RenderResult:
     """节点树（status='active'，按 ordinal）→ Markdown：format=html 片段零改写直通；
     frontmatter 按 §3.4 映射回写；图片（含 HTML 片段内 <img src>，A7）重写为
     assets/<sha256>.<ext> 相对路径，并从资产存储导出至 out_dir/assets/。"""
-def normalize(doc_id: str) -> NormalForm: ...
-# 渲染入口：`agenticdocer-render <doc_id>` 或 `python -m agenticdocer.render`
+def normalize(doc_id: str) -> NormalForm: ...                  # 库侧（节点树）
+def normalize_markdown(source: str | Path) -> NormalForm: ...  # 源侧（markdown 文本）
+# 往返断言调用式（REQ-M04-F01）：normalize(doc_id) == normalize_markdown(src)
+# 渲染入口：`agenticdocer-render <doc_id>` 或 `python -m agenticdocer.render`（入参为 doc_id=spec_id）
 
 class NormalForm(BaseModel):
     headings: list[tuple[int, str]]          # (level, text)
@@ -259,8 +273,8 @@ KIND_RULES: dict[RefKind, tuple[Literal["up","down","both"], bool, int]] = {   #
 }
 def traverse(node_id: UUID7, hops: int = 1) -> list[TraversalHit]:
     """hops 按各 kind 的 max_hops 截断（hops=2 仅扩 traces_to）；去重保留最短路径；环截断；
-    排序：跳数 → doc 序 → ordinal。"""
-def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-005），返回含 score
+    排序：跳数 → doc 序 → ordinal；默认过滤 status='deleted' 节点（L5）。"""
+def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-005），返回含 score；默认过滤 deleted（L5）
 ```
 
 ### M06 Agent 接口（HTTP）
@@ -284,7 +298,7 @@ def search_text(q: str, limit: int = 50) -> list[SearchHit]: ...   # FTS（ADR-0
 | 方法/路径 | 语义 |
 |---|---|
 | `GET /api/v1/docs` / `GET /api/v1/docs/{id}` | 文档列表/详情（含 version/status） |
-| `GET /api/v1/nodes/{id}` / `POST /api/v1/nodes` | 表单读写（与 M06 同契约，source="webui"；A8 归属 M07） |
+| `GET/POST /api/v1/nodes` 等 | **复用 M06 端点**（同一实现集；source="webui" 由 X-Actor 决定；表单与 agent 共用契约，R8） |
 | `GET /api/v1/schemas/{atom_type}` | **schema 端点**（表单引擎数据源；A8） |
 | `GET /api/v1/events?entity=&entity_id=&since=` | 结构化 diff 数据源 |
 | `GET /api/v1/events/replay?node_id=&upto=` | 版本历史（apply_events 折叠） |
@@ -305,6 +319,7 @@ export interface EventDTO { eventId: string; entity: "doc"|"node"|"ref"|"comment
   entityId: string; op: string; payload: Record<string, unknown>; actor: string; ts: string; }
 export interface CommentDTO { commentId: string; nodeId: string; targetEventId: string | null;
   body: string; state: "open"|"resolved"|"orphaned"; author: string; version: number; ts: string; }
+export interface SchemaDTO { typeName: string; version: number; jsonSchema: Record<string, unknown>; }
 ```
 
 ### M09 校验
@@ -376,17 +391,17 @@ ALTER TABLE nodes ADD COLUMN text_fts tsvector
   GENERATED ALWAYS AS (to_tsvector('english', coalesce(content->>'text',''))) STORED;   -- A10
 CREATE INDEX idx_nodes_fts ON nodes USING gin (text_fts);
 
-CREATE TABLE refs (                              -- A5 修订主键
+CREATE TABLE refs (                              -- A5/R1 修订：代理主键 + NULL 参与唯一
+  ref_id      uuid PRIMARY KEY,
   src_node_id uuid NOT NULL REFERENCES nodes(node_id) ON DELETE CASCADE,
   dst_doc_id  text NOT NULL,
   dst_node_id uuid REFERENCES nodes(node_id) ON DELETE SET NULL,
-  kind        text NOT NULL CHECK (kind IN ('traces_to','see_also','composes_from','source_ref')),
-  CONSTRAINT refs_pk PRIMARY KEY (src_node_id, dst_doc_id, dst_node_id, kind)
+  kind        text NOT NULL CHECK (kind IN ('traces_to','see_also','composes_from','source_ref'))
 );
-ALTER TABLE refs ADD CONSTRAINT refs_pk_unique UNIQUE NULLS NOT DISTINCT
-  (src_node_id, dst_doc_id, dst_node_id, kind);  -- PG15+：NULL 参与唯一性
+ALTER TABLE refs ADD CONSTRAINT refs_unique UNIQUE NULLS NOT DISTINCT
+  (src_node_id, dst_doc_id, dst_node_id, kind);  -- PG15+：NULL 参与唯一性（文档级引用 dst_node_id IS NULL 合法）
 CREATE INDEX idx_refs_dst ON refs (dst_doc_id, dst_node_id);
--- 外部叶引用：dst_doc_id 约定 'EXT:<uri>'（kind=source_ref），写入 DDL 注释与 M03 校验
+-- 外部叶引用：dst_doc_id 约定 'EXT:<uri>'（kind=source_ref）
 
 CREATE TABLE events (                            -- append-only
   event_id  uuid PRIMARY KEY,
