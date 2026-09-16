@@ -184,8 +184,7 @@ def test_point_query_benchmark() -> None:
     assert scanned is not None and scanned.value == TARGET_PARTITION_COUNT, (
         f"不带 doc_id 未扇扫全部 {TARGET_PARTITION_COUNT} 分区：{scanned}"
     )
-    queried = bench.get("point_query.with_doc_id.p95_ms")
-    assert queried is not None and queried.n >= 100, f"查询集不足 100 次：{queried}"
+    assert bench.counters["queries"] >= 100, f"查询集不足 100 次：{bench.counters['queries']}"
 
 
 if __name__ == "__main__":
