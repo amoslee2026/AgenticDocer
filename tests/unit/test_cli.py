@@ -288,9 +288,8 @@ def test_client_signature_verifies_against_server_reconstruction(
     result = run("node", "get", "SPEC-STD-AMBA-APB#3.2.1·transfer", "--json", env_key=key_pair[0])
     assert result.exit_code == 0, result.output
     call = calls[0]
-    assert call.raw_path == "/api/v1/nodes/SPEC-STD-AMBA-APB#3.2.1·transfer"
-    assert call.url.endswith("%233.2.1%C2%B7transfer")
-    assert b"SPEC-STD-AMBA-APB#3.2.1" in call.payload  # 载荷用解码形态
+    assert call.raw_path == "/api/v1/nodes/SPEC-STD-AMBA-APB%233.2.1%C2%B7transfer"
+    assert call.payload.endswith(b"SPEC-STD-AMBA-APB%233.2.1%C2%B7transfer")
 
 
 def test_signature_check_has_teeth(key_pair: tuple[Path, str]) -> None:
