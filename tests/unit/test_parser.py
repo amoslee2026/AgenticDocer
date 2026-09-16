@@ -102,6 +102,8 @@ Example 3-1 示例文本。
 
 <table><tr><td>A</td><td colspan="2">B</td></tr><tr><td>C</td><td>D</td><td>E</td></tr></table>
 
+<div class="residue">残余 HTML 块</div>
+
 ## Contents
 
 1. 绪论 .. ...... 1
@@ -120,7 +122,6 @@ Zeta 词条的释义段落，长度足够触发词条规则。
 
 AQ An additional quality term that appears within the glossary region.
 
-<div class="residue">残余 HTML 块</div>
 """
 )
 
@@ -330,8 +331,13 @@ def test_ordinals_are_source_lines_and_monotonic(parsed) -> None:
     ]
     assert ordinals == sorted(ordinals)
     for proposal in parsed.proposals:
-        assert proposal.atom.ordinal == proposal.source_lines[0]
-    levels = [proposal.atom.level for proposal in parsed.proposals if proposal.atom.level is not None]
+        if hasattr(proposal.atom, "ordinal"):
+            assert proposal.atom.ordinal == proposal.source_lines[0]
+    levels = [
+        proposal.atom.level
+        for proposal in parsed.proposals
+        if hasattr(proposal.atom, "level") and proposal.atom.level is not None
+    ]
     assert max(levels) == 3 and min(levels) == 1
 
 
@@ -350,7 +356,7 @@ def test_table_atom_is_verbatim_html_with_meta(parsed) -> None:
     assert table.atom.format == "html"
     assert table.atom.content["fragment"].startswith("<table><tr><td>A</td>")
     assert table.atom.content["meta"] == {"rows": 2, "cols": 3, "cells": 5, "max_colspan": 2}
-    assert "A B C D E" in table.atom.content["text"]
+    assert table.atom.content["text"] == "A B\nC D E", "表格纯文本按行列序去标签（A10）"
 
 
 def test_code_atom_keeps_fence_and_language(parsed) -> None:

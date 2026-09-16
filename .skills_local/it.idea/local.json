@@ -1,8 +1,0 @@
-{
-  "schema": "adaptive-config-v1",
-  "skill": "it.idea",
-  "project": {
-    "name": "AgenticDocer"
-  },
-  "overrides": {}
-}
