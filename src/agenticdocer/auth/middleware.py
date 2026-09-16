@@ -60,7 +60,7 @@ __all__ = [
     "TIMESTAMP_HEADER",
     "AuthContext",
     "SshSigHeaders",
-    "check_timestamp",
+    "DOC_PATHS",
     "clear_session_cookie",
     "client_ip",
     "cookie_secure",
@@ -76,6 +76,7 @@ __all__ = [
     "set_session_cookie",
     "verify_signature",
     "write_context",
+    "assert_auth_coverage",
 ]
 
 log = get_logger("m10.middleware")
@@ -85,7 +86,7 @@ KEY_ID_HEADER: Final = "X-SSH-Key-Id"
 TIMESTAMP_HEADER: Final = "X-Timestamp"
 NONCE_HEADER: Final = "X-Nonce"
 
-MIN_NONCE_CHARS: Final = 22
+    "find_unguarded_routes",
 """``X-Nonce`` 下界：≥128 位随机（base64/urlsafe 编码 ≥22 字符，§3 M06）。"""
 
 MAX_NONCE_CHARS: Final = 512
