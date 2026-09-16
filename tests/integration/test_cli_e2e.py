@@ -523,14 +523,17 @@ def test_admin_user_and_grant_lifecycle(service: _Service, imported: dict[str, o
 
 
 def test_key_revocation_is_effective(service: _Service) -> None:
-    """公钥吊销走请求体（指纹含 `/`、`+`，不能进路径）。"""
+    """公钥吊销走请求体（指纹含 `/`、`+`，不能进路径）；吊销后该密钥立即失效。"""
     revoked = service.ok(
-        "user", "key", "revoke", "--username", "reviewer", "--fingerprint", service.fingerprints["editor"], "--json"
+        "user", "key", "revoke", "--username", "editor", "--fingerprint", service.fingerprints["editor"], "--json"
     )
     assert isinstance(revoked, dict) and revoked["revoked"] is True
-    # editor 的密钥被吊销后其请求必须失败（对照组：reviewer 自己仍可用）
-    assert service.fails("doc", "list", "--json", actor="editor").returncode != 0
-    assert isinstance(service.ok("doc", "list", "--json", actor="reviewer"), list)
+    assert service.fails("doc", "list", "--json", actor="editor").returncode != 0  # 该密钥不再可用
+    assert isinstance(service.ok("doc", "list", "--json", actor="reviewer"), list)  # 同用户/他人不受影响
+
+    # 复原：重新登记 editor 的公钥，供后续用例继续以 editor 身份写入
+    service.ok("user", "key", "add", "--username", "editor", "--key", str(service.work / "editor_ed25519.pub"), "--json")
+    assert isinstance(service.ok("doc", "list", "--json", actor="editor"), list)
 
 
 def test_non_admin_cannot_manage_users(service: _Service) -> None:
