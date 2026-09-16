@@ -13,6 +13,7 @@ from typing import Any, Final
 
 import pytest
 from fastapi.routing import APIRoute
+from httpx import ASGITransport, AsyncClient
 
 from agenticdocer.app import create_app, dev_mode
 from agenticdocer.auth.middleware import EXEMPT_PATHS, is_exempt
