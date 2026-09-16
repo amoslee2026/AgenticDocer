@@ -24,9 +24,12 @@ section_meta: "@meta"
 ## 功能列表
 
 > [!TODO] 应该提供文档版本管理，获取文档diff
-
-
+>
+> **处置（B11）**：已落地为 REQ-M07-F06（文档版本 diff API）+ REQ-M11-F02（CLI/skill 层 diff）。版本管理本体由 `events` append-only + `apply_events` 重放支持（REQ-M02-F03/F04 已覆盖），本次补充**面向使用者的 diff 呈现**。
+>
 > [!TODO] 应该提供skill和CLI 为提供文档导入，删除，修改和读取，另外专用skill调取人类用户的标注；
+>
+> **处置（B3/B11）**：已落地为 REQ-M11-F01..F04（CLI 工具族）、REQ-M11-F05..F07（skill 清单，含 `docer-annotations` 专用标注调取 skill）。详见架构规范 §9。
 
 
 | REQ_ID | 功能 | 模块 | 优先级 | 阶段 |
@@ -35,14 +38,11 @@ section_meta: "@meta"
 | REQ-M01-F02 | 节点结构与锚规则约束 | M01 | P0 | 1 |
 | REQ-M01-F03 | doc_type 组合规则 | M01 | P2 | 3（随首个非 standard 类型） |
 | REQ-M02-F01 | 节点 CRUD + 乐观锁 | M02 | P0 | 1 |
-> [!TODO] 应该提供文档版本管理，获取文档diff
->
-> **处置（B11）**：已落地为 REQ-M07-F06（文档版本 diff API）+ REQ-M11-F02（CLI/skill 层 diff）。版本管理本体由 `events` append-only + `apply_events` 重放支持（REQ-M02-F03/F04 已覆盖），本次补充**面向使用者的 diff 呈现**。
+| REQ-M02-F01 | 节点 CRUD + 乐观锁 | M02 | P0 | 1 |
 | REQ-M02-F03 | 事件日志 append-only + 重放 | M02 | P0 | 1 |
 | REQ-M02-F04 | 事务一致性（事件+实体同事务） | M02 | P0 | 1 |
-> [!TODO] 应该提供skill和CLI 为提供文档导入，删除，修改和读取，另外专用skill调取人类用户的标注；
->
-> **处置（B3/B11）**：已落地为 REQ-M11-F01..F04（CLI 工具族）、REQ-M11-F05..F07（skill 清单，含 `docer-annotations` 专用标注调取 skill）。详见架构规范 §9。
+| REQ-M02-F05 | 批注 CRUD（open/resolved/orphaned） | M02 | P1 | 2 |
+| REQ-M02-F06 | 资产表读写（sha256 寻址） | M02 | P1 | 2 |
 | REQ-M02-F06 | 资产表读写（sha256 寻址） | M02 | P1 | 2 |
 | REQ-M03-F01 | markdown 解析器（规则库+提议） | M03 | P0 | 1 |
 | REQ-M03-F02 | CLI 审核器 | M03 | P0 | 1 |
@@ -52,8 +52,8 @@ section_meta: "@meta"
 | REQ-M04-F01 | 文档渲染（HTML 片段直通） | M04 | P0 | 1 |
 | REQ-M04-F02 | normalize() 规范化表示 | M04 | P0 | 1 |
 | REQ-M04-F03 | 渲染产物落盘（build/rendered/） | M04 | P1 | 2 |
-| REQ-M05-F01 | refs 多跳检索（CTE） | M05 | P2 | 3 |
-| REQ-M05-F02 | 关键词检索 | M05 | P2 | 3 |
+| REQ-M05-F01 | refs 多跳检索（**内部实现**，供 M-LR；B5） | M05 | P2 | 3 |
+| REQ-M05-F02 | 关键词检索（**内部实现**，供质量门/导出；B5） | M05 | P2 | 3 |
 | REQ-M06-F01 | 结构化读写 API | M06 | P1 | 2 |
 | REQ-M06-F02 | lint 自修复闭环 | M06 | P1 | 2 |
 | REQ-M07-F01 | 表单数据 API | M07 | P1 | 2 |
@@ -64,11 +64,24 @@ section_meta: "@meta"
 | REQ-M08-F01 | schema 驱动表单引擎 | M08 | P1 | 2 |
 | REQ-M08-F02 | 结构化 diff 视图 | M08 | P1 | 2 |
 | REQ-M08-F03 | 批注面板（含 orphaned） | M08 | P1 | 2 |
-| REQ-M05-F01 | refs 多跳检索（**内部实现**，供 M-LR） | M05 | P2 | 3 |
-| REQ-M05-F02 | 关键词检索（**内部实现**，供质量门/导出） | M05 | P2 | 3 |
+| REQ-M08-F04 | 追溯与历史视图 | M08 | P1 | 2 |
+| REQ-M08-F05 | 可编辑表格视图（B6） | M08 | P2 | 3 |
 | REQ-M09-F02 | M09B 质量门 | M09 | P2 | 3 |
 | REQ-MLR-F01 | LightRAG 导出包（渲染文本+node_id） | M-LR | P2 | 3 |
 | REQ-MLR-F02 | 增量事件流接口 | M-LR | P2 | 3 |
+| REQ-M07-F06 | 文档版本 diff API（B11） | M07 | P1 | 2 |
+| REQ-M10-F01 | SSH 公钥签名鉴权（全端点，B2） | M10 | P0 | 1 |
+| REQ-M10-F02 | WebUI 会话登录（挑战-响应，B2） | M10 | P0 | 1 |
+| REQ-M10-F03 | 用户与 SSH 公钥管理（admin，A1/B3） | M10 | P0 | 1 |
+| REQ-M10-F04 | RBAC 四角色 + 文档集级授权（B3） | M10 | P0 | 1 |
+| REQ-M10-F05 | 管理员自举与鉴权审计（B2） | M10 | P0 | 1 |
+| REQ-M11-F01 | CLI：导入/删除/修改/读取工具族（B3/B11） | M11 | P1 | 2 |
+| REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
+| REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P0 | 1 |
+| REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
+| REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
+| REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
+| REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
 
 ## 功能详细说明
 
@@ -82,20 +95,8 @@ section_meta: "@meta"
 
 节点字段（`format` ∈ {md,html,text}、`parent_node_id`、`level`、`anchor`）的构造与校验规则：锚 = 章节号路径 + 标题 slug，重复标题（同父同题）按「正文摘要 sha256[:8]」消歧、正文亦同者加同级序号；构造仅依赖文档内容与同级计数。
 
-| REQ-M07-F06 | 文档版本 diff API（B11） | M07 | P1 | 2 |
-| REQ-M08-F05 | 可编辑表格视图（B6） | M08 | P2 | 3 |
-| REQ-M10-F01 | SSH 公钥签名鉴权（全端点，B2） | M10 | P0 | 1 |
-| REQ-M10-F02 | WebUI 会话登录（挑战-响应，B2） | M10 | P0 | 1 |
-| REQ-M10-F03 | 用户与 SSH 公钥管理（admin，A1/B3） | M10 | P0 | 1 |
-| REQ-M10-F04 | RBAC 四角色 + 文档集级授权（B3） | M10 | P0 | 1 |
-| REQ-M10-F05 | 管理员自举与鉴权审计（B2） | M10 | P0 | 1 |
-| REQ-M11-F01 | CLI：导入/删除/修改/读取工具族（B3/B11） | M11 | P1 | 2 |
-| REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
-| REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P0 | 1 |
-| REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | P0 | 1 |
-| REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
-| REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
-| REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
+
+### REQ-M01-F02: 节点结构与锚规则约束（续）
 **验收标准**：锚消歧口径 = 「同父路径+同标题 → 正文摘要 sha256[:8]；正文亦同 → 同级序号」（A1）；对实测 219×「Test Steps:」（同父同题）全组生成**互异**锚，且两次相同解析结果逐字节一致（幂等）。
 
 ### REQ-M01-F03: doc_type 组合规则
