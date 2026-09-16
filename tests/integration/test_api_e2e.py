@@ -185,13 +185,14 @@ def _node_body(
     parent_node_id: UUID | None = None,
     node_id: UUID | None = None,
     expected_version: int | None = None,
+    format: str = "md",  # noqa: A002 —— 与 §3.0 `NodeIn.format` 同名（HTTP 契约字段）
 ) -> dict[str, Any]:
     """§3.0 `NodeIn` 的完整请求体（可选字段按 §3.0 口径**显式给 null**）。"""
     return {
         "nodeId": None if node_id is None else str(node_id),
         "docId": doc_id,
         "atomType": atom_type,
-        "format": "md",
+        "format": format,
         "ordinal": ordinal,
         "parentNodeId": None if parent_node_id is None else str(parent_node_id),
         "level": level,
@@ -258,6 +259,7 @@ async def test_agent_flow_read_write_render_diff(
             level=2,
             parent_node_id=UUID(chapter_node["nodeId"]),
             atom_type="table",
+            format="html",  # E1-a：HTML `<table>` 片段 → format 必须为 html（M09A `M09A.table.format`）
             content={
                 "fragment": "<table><tr><th>Name</th></tr><tr><td>A</td></tr></table>",
                 "meta": {"rows": 2, "cols": 1, "cells": 2, "max_colspan": 1},
