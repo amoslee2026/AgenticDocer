@@ -85,6 +85,12 @@ class Frontmatter:
     doc_slug: str
     source_path: Path | None
 
+    resolved_doc_type: str = "standard"
+    """`spec_type` 归一后的 `doc_type`（`model.DOC_TYPES` 之一；映射表 §2）。"""
+
+    resolved_doc_subtype: str | None = None
+    """`meta.doc_subtype`：`product` 大类等的细分；无细分为 ``None``（映射表 §2 收敛原则）。"""
+
     # ---------------------------------------------------------------- 映射
 
     @property
@@ -93,7 +99,12 @@ class Frontmatter:
 
     @property
     def doc_type(self) -> str:
-        return str(self.fields["spec_type"])
+        return self.resolved_doc_type
+
+    @property
+    def doc_subtype(self) -> str | None:
+        """细分（`meta.doc_subtype`）：`product` 大类靠它区分架构/MAS/寄存器手册等。"""
+        return self.resolved_doc_subtype
 
     @property
     def title(self) -> str:
@@ -110,14 +121,22 @@ class Frontmatter:
 
     @property
     def meta(self) -> dict[str, Any]:
-        """`docs.meta`：frontmatter 全量保真 + 稳定派生键（不含时间戳，保证重复导入幂等）。"""
-        return {**self.fields, "doc_slug": self.doc_slug}
+        """`docs.meta`：frontmatter 全量保真 + 稳定派生键（不含时间戳，保证重复导入幂等）。
+
+        派生键：`doc_slug`（恒有）；`doc_subtype`（判定/声明出细分时）——后者同时是
+        `product` 组合规则的必填项（映射表 §3）。
+        """
+        meta = {**self.fields, "doc_slug": self.doc_slug}
+        if self.resolved_doc_subtype is not None:
+            meta["doc_subtype"] = self.resolved_doc_subtype
+        return meta
 
     @property
     def doc_meta(self) -> dict[str, Any]:
         """`ParseResult.doc_meta`：`meta` + 映射出的文档级字段（供提交期重建 `DocIn`）。"""
         return {
             "doc_slug": self.doc_slug,
+            "doc_subtype": self.resolved_doc_subtype,
             "doc_id": self.doc_id,
             "doc_type": self.doc_type,
             "title": self.title,
