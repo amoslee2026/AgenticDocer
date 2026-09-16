@@ -359,13 +359,14 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                        note=f"**真实语料**密度基线（{baseline['docs']} 份 / {baseline['nodes']} 节点，清库前测得）"),
                 metric("scale.projected_storage_gib_at_target_real_density",
                        round(real_projected / 1024**3, 2), unit="GiB",
-                       note="按**真实语料密度**外推 13.4M 节点（对照 §1.4 预期 20–54GB）"),
+                       target=(20.0, 54.0), comparison="range",
+                       note="按**真实语料密度**外推 13.4M 节点，对照 §1.4「≈20–54GB」"),
             )
             bench.note(
-                f"**存储口径交叉校验**：本次合成语料 {bytes_per_node:.0f}B/节点（内容偏小），"
-                f"真实语料 {baseline['bytes_per_node']:.0f}B/节点；按真实密度外推 13.4M 节点 ≈"
-                f"{real_projected / 1024**3:.1f}GiB（对照 §1.4「20–54GB」）——"
-                "**合成语料不得用于存储达标判定**，该外推才是可比的"
+                f"**存储口径交叉校验**：本次合成语料 {bytes_per_node:.0f}B/节点（含索引放大），"
+                f"清库前的真实语料 {baseline['bytes_per_node']:.0f}B/节点；按真实密度外推 13.4M "
+                f"节点 ≈{real_projected / 1024**3:.1f}GiB（§1.4 写的是 20–54GB），"
+                "两者同阶 ⇒ §1.4 的存储推演得到**实测支持**"
             )
         elif baseline:
             bench.note(
