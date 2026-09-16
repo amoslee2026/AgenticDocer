@@ -633,3 +633,15 @@ def test_quality_gate_perf_health_is_admin_scoped(service: _Service) -> None:
     payload = service.ok("quality-gate", "--detectors", "perf_health", "--json", actor="admin")
     assert isinstance(payload, dict)
     assert [report["detectorId"] for report in payload["reports"]] == ["perf_health"]
+
+
+def test_import_commit_bulk_path_is_reachable_and_idempotent(
+    service: _Service, imported: dict[str, object]
+) -> None:
+    """M03 批量路径（ADR-009 §3）经统一入口可达，且重复提交幂等（放在最后，避免影响写入用例）。"""
+    report = service.ok(
+        "import", "commit", DOC_SLUG, "--bulk", "--bulk-mode", "online", "--json", actor="editor"
+    )
+    assert isinstance(report, dict)
+    assert report["docId"] == imported["doc_id"]
+    assert report["violations"] == []

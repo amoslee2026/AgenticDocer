@@ -340,7 +340,13 @@ async def test_missing_raw_path_scope_falls_back_with_warning(monkeypatch) -> No
 async def test_time_window_bounds(
     client: AsyncClient, database: Database, key_material: dict[str, Path]
 ) -> None:
-    """**S3**：偏移 ∈ [−30s, +300s]。"""
+    """**S3**：偏移 ∈ [−30s, +300s]。
+
+    边界余量刻意留大（±60s 级）：服务端判据用的是**它自己取到的时间**，与客户端生成戳之间
+    至少差一个 RTT，机器满载时可达秒级。原先用「恰好超界 1s」（+31/−301/−299）会让断言落在
+    RTT 抖动带内 → 偶发 200/401 反转（M11 全量第 2 轮实测命中）。语义不变：
+    「超出未来容忍应拒」用 +60s 同样成立，且不依赖 RTT 大小。
+    """
     await _make_user(database, "alice", "editor", key_material["editor_ed25519"])
     key = signing.load_private_key(key_material["editor_ed25519"])
     now = datetime.now(timezone.utc)
@@ -348,23 +354,18 @@ async def test_time_window_bounds(
     def stamp(offset_seconds: int) -> str:
         return signing.timestamp_now(now + timedelta(seconds=offset_seconds))
 
-    stale = signing.sign_request_headers(
-        key, "GET", "/api/v1/docs", timestamp=stamp(-301)
-    )
+    stale = signing.sign_request_headers(key, "GET", "/api/v1/docs", timestamp=stamp(-400))
     response = await client.get("/api/v1/docs", headers=stale)
     assert response.status_code == 401
     assert response.json()["detail"]["reason"] == "timestamp_expired"
 
-    future = signing.sign_request_headers(
-        key, "GET", "/api/v1/docs", timestamp=stamp(31)
-    )
+    future = signing.sign_request_headers(key, "GET", "/api/v1/docs", timestamp=stamp(60))
     response = await client.get("/api/v1/docs", headers=future)
     assert response.status_code == 401
     assert response.json()["detail"]["reason"] == "timestamp_future"
 
-    inside = signing.sign_request_headers(
-        key, "GET", "/api/v1/docs", timestamp=stamp(-299)
-    )
+    # 窗口**内**（距两侧边界各留 ≥30s：−60s vs 下限 −30s、且远离 +300s 上限）
+    inside = signing.sign_request_headers(key, "GET", "/api/v1/docs", timestamp=stamp(-60))
     assert (await client.get("/api/v1/docs", headers=inside)).status_code == 200
 
     malformed = dict(inside)

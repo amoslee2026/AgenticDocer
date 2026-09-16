@@ -650,6 +650,29 @@ def test_stats_requires_target_or_health() -> None:
     assert "--health" in result.stderr and "--src" in result.stderr
 
 
+def test_import_commit_bulk_dry_run_plan() -> None:
+    """M03 批量路径经统一入口可达（ADR-009 §3）：干跑回放 bulk 参数。"""
+    result = runner.invoke(
+        cli.app,
+        [
+            "import", "commit", "DBG",
+            "--bulk", "--bulk-mode", "initial_load", "--batch-size", "1000",
+            "--dry-run",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    arguments = _json(result.output)["arguments"]
+    assert arguments["bulk"] is True
+    assert arguments["bulk_mode"] == "initial_load"
+    assert arguments["batch_size"] == 1000
+
+
+def test_import_commit_rejects_unknown_bulk_mode() -> None:
+    result = runner.invoke(cli.app, ["import", "commit", "DBG", "--bulk-mode", "nope", "--dry-run"])
+    assert result.exit_code == 1
+    assert "online" in result.stderr and "initial_load" in result.stderr
+
+
 def test_auth_sign_requires_nonce_or_message(no_key: Path) -> None:
     result = runner.invoke(cli.app, ["auth", "sign"])
     assert result.exit_code == 1
