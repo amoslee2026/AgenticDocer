@@ -410,12 +410,13 @@ async def test_events_append_only(storage: Storage, database: Database) -> None:
         async with database.transaction() as session:
             await session.execute(text("DELETE FROM events"))
 
-
 async def test_auth_audit_events_are_written(storage: Storage) -> None:
+    # actor 取唯一值：共享库上他人（M10）可能已为 'lxx' 写过 auth 事件，勿做全局断言
+    actor = f"m02-audit-{new_uuid7()}"
     await storage.log_auth_event(
-        op="login", actor="lxx", payload={"user_id": "lxx", "ip": "127.0.0.1"}
+        op="login", actor=actor, payload={"user_id": actor, "ip": "127.0.0.1"}
     )
-    events = await storage.replay("auth", "lxx")
+    events = await storage.replay("auth", actor)
     assert [event.op for event in events] == ["login"]
     assert storage.apply_events("auth", events)["audit"][0]["payload"]["ip"] == "127.0.0.1"
 
