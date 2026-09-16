@@ -348,8 +348,6 @@ def test_fingerprint_matches_ssh_keygen_lf(openssh_dir: Path) -> None:
             text=True,
         ).stdout.split()[1]
         assert signing.fingerprint((openssh_dir / f"{name}.pub").read_text()) == expected, name
-        ).stdout.split()[1]
-        assert signing.fingerprint(path.with_suffix(".pub").read_text()) == expected, name
 
 
 @needs_ssh_keygen
