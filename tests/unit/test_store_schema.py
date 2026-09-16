@@ -35,7 +35,8 @@ def test_nodes_hash_partition_geometry() -> None:
         "CREATE TABLE IF NOT EXISTS nodes_p0 PARTITION OF nodes "
         "FOR VALUES WITH (MODULUS 64, REMAINDER 0)"
     )
-    assert statements[-1].endswith("REMAINDER 63")
+    assert _partition_names(statements)[0] == "nodes_p0"
+    assert statements[-1].endswith("(MODULUS 64, REMAINDER 63)")
     # 幂等（迁移重跑 / 维护任务可重复执行）
     assert all("IF NOT EXISTS" in statement for statement in statements)
 
