@@ -45,6 +45,7 @@ section_meta: "@meta"
 | P3 | 依赖单向：模块仅依赖已交付模块；**交付序见 `../idea/design_doc.md` §12（B14）** | import 方向 lint 规则（§1.3 矩阵） |
 | P4 | HTML 片段与内联标记原样直通（零改写）；**唯一例外**：产物层图片 `src` 重写（含片段内 `<img>`，A7）——normalize.images 以重写前哈希路径集合为口径 | 往返测试（normalize 等价，§3 M04） |
 | P5 | 口径唯一：normalize()、rule_id、anchor 各为单一判定口径 | 各自单测固定 |
+| **P6** | **运行期 LLM 无关**：系统任何运行路径（API/CLI/渲染/导入/鉴权/巡检）**不调用任何 LLM 或远程推理服务**；`coding agent` 仅为**外部客户端**（通过 CLI/HTTP 调用本系统），非本系统的运行期依赖 | ① `import` 白名单 lint：业务代码不得引入任何推理 SDK（`openai`/`anthropic`/`transformers`/`torch`/`litellm` 等）；② 出网审计：运行期无对外 LLM 域名连接（离线测试：断网后全功能可用）；③ 依赖树审计：`uv tree` 无推理类依赖；④ 端到端测试在**无 LLM 凭据**环境运行通过 |
 
 ### 1.2 Agent Context
 
