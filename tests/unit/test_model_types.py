@@ -347,7 +347,7 @@ def test_user_sshkey_grant_and_session():
         revoked_at=None,
     )
     grant = Grant(
-        grant_id=str(uuid4()),
+        grant_id=uuid4(),
         user_id=user.user_id,
         scope="doc_type",
         value="product",
@@ -385,9 +385,9 @@ def test_user_sshkey_grant_and_session():
             revoked_at=None,
         )
     with pytest.raises(ValidationError):
-        Grant(grant_id="g", user_id=owner, scope="repo", value="x", permission="write", granted_by=None, granted_at=NOW)
+        Grant(grant_id=uuid4(), user_id=owner, scope="repo", value="x", permission="write", granted_by=None, granted_at=NOW)
     with pytest.raises(ValidationError):
-        Grant(grant_id="g", user_id=owner, scope="doc", value="x", permission="admin", granted_by=None, granted_at=NOW)
+        Grant(grant_id=uuid4(), user_id=owner, scope="doc", value="x", permission="admin", granted_by=None, granted_at=NOW)
 
 
 def test_user_ids_are_uuid7_and_accept_http_string_form():
