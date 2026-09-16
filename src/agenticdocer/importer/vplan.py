@@ -224,12 +224,14 @@ def _rows_of_scope(
             )
             continue
         for test in tests:
+            test_status = _status(test) or None
             yield CoverageRow(
                 feature=feature_name,
                 sub_feature=sub_feature,
                 coverage_item=item_name,
                 test=_label(test) or None,
-                status=item_status or _status(test) or UNKNOWN_STATUS,
+                status=item_status or test_status or UNKNOWN_STATUS,
+                test_status=test_status,
             )
 
 
