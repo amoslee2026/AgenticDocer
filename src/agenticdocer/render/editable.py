@@ -180,13 +180,14 @@ def grid_to_content(grid: TableGrid, *, atom_type: str = "table") -> dict[str, A
     content: dict[str, Any] = {"fragment": fragment, "meta": table_meta(table_cells(fragment))}
     if atom_type == "table.register_field":
         names = list(grid.header_names or REGISTER_FIELD_COLUMNS)
-        allowed = REGISTER_FIELD_COLUMNS
+        # 未给列名时，首行（header=True）即列名行，不作为字段行
+        data_rows = grid.rows[1:] if (grid.header and not grid.header_names) else grid.rows
         fields: list[dict[str, str]] = []
-        for row in grid.rows:
+        for row in data_rows:
             item = {
                 name: value
                 for name, value in zip(names, row)
-                if name in allowed and str(value).strip()
+                if name in REGISTER_FIELD_COLUMNS and str(value).strip()
             }
             if item.get("field"):
                 fields.append(item)
