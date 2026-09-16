@@ -124,6 +124,8 @@ section_meta: "@meta"
 
 > **指标变更依据（B9）**：`docs`/`nodes`/`events` 按 `doc_id`/`ts` 分区（ADR-009）；写入连接池上限与 `autovacuum` 调参纳入 §5；`events` 保留策略（>24 个月归档）见 ADR-009。
 %%文档的渲染通过webui，分章节分别渲染，单文档渲染延时小于1s%%
+>
+> **处置（B10）**：已落地。(1) 新增 M04 `render_section(doc_id, section_node_id) -> RenderResult`，按 level-1/2 子树渲染，指标 **单章节 <1s**；(2) M07 新增 `GET /api/v1/docs/{id}/sections`（章节清单）与 `GET /api/v1/docs/{id}/render?section=`（章节渲染）；(3) M08 WebUI 改为**按需分章节加载**（进入文档先取章节清单，滚动/点击时按章节拉取渲染结果），替代一次性整档渲染；(4) 整档渲染 <3s 保留为上限指标（导出/CLI 场景）。
 
 
 ## 2. 代码结构与模块映射
