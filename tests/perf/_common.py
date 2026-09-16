@@ -226,15 +226,20 @@ class Stopwatch:
 
 
 def timing_stats(samples_us: Sequence[int]) -> dict[str, float]:
-    """样本（µs）→ P50/P95/P99/mean/min/max（ms）。
+    """样本（µs）→ `{n, p50_ms, p95_ms, p99_ms, mean_ms, min_ms, max_ms}`。
 
     百分位与在线指标共用 `observability.metrics.percentile`（nearest-rank，口径唯一）。
+
+    **形状稳定契约（空样本）**：`samples_us` 为空时**仍返回全部键**（各值 0.0、`n=0`），
+    使调用方（如「文档无图片 ⇒ 无资产取路径样本」）不必特判：
+
+    * **不得**把空样本的 `0.0` 读作「达标」——判定前必须检查 `n`（因此凡可能出现空样本的
+      **分量指标一律不设 `target`**，只作记录）；
+    * 若需在报告中呈现，应显式标注「n=0，值无意义」，避免零值被当成「零开销」。
     """
     from agenticdocer.observability.metrics import percentile
 
     if not samples_us:
-        # **形状稳定**契约：空样本仍返回全部键（全 0，`n=0`）——调用方（如「无资产 ⇒ 无资产取路径
-        # 样本」）不必特判；但**不得**用 0.0 当作「达标」（须先看 `n`，故此类指标一律不设 target）。
         return {"n": 0, "p50_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0, "mean_ms": 0.0,
                 "min_ms": 0.0, "max_ms": 0.0}
     return {
