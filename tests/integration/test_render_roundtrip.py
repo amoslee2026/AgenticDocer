@@ -46,6 +46,7 @@ from agenticdocer.store import ConflictError, NotFoundError, Storage
 from corpus_ingest import (
     CORPUS_ROOT,
     CTX,
+    bulk_ingest_markdown,
     ingest_markdown,
     split_blocks,
     split_frontmatter,
