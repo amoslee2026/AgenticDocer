@@ -192,18 +192,6 @@ async def run_bench(args: argparse.Namespace) -> Bench:
             ["分区", "行数"],
             [[name, count] for name, count in ordered[:3] + ordered[-3:]],
         ))
-            else 0.0
-        )
-
-        # 分区行数分布（只打印头部/尾部，完整数据落 JSON）
-        ordered = sorted(parts, key=lambda item: item[1])
-        print(f"\n分区行数分布（{len(parts)} 分区）：min={ordered[0][1]} "
-              f"max={ordered[-1][1]} mean={statistics.fmean(rows_per_part):.0f} "
-              f"CV={cv:.3f}")
-        print(render_table(
-            ["分区", "行数"],
-            [[name, count] for name, count in ordered[:3] + ordered[-3:]],
-        ))
 
         # ── 点查（复用 bench_point_query 的口径）──────────────────────────
         points = await sample_points(
