@@ -6,7 +6,7 @@
 |---|---|---|
 | `broken_refs` | 悬空引用巡检（ADR-009 降级外键兜底：refs src/dst、孤儿 parent、批注 node/event） | M02 |
 | `terms` | 术语表校验（`terms` 表 + `TERMS_SEED` 种子；含 `terms.definition_node_id` 兜底） | M02 |
-| `assets_missing` | 被引用资产缺失（`has` 令牌扫描：片段源路径 + `figure.asset_ref`） | M02 |
+| `assets_missing` | 被引用资产缺失（`sha256` 令牌扫描：片段内源路径 + `figure.asset_ref`） | M02 |
 | `render_consistency` | 往返两式（解析保真 / 渲染保真），比较函数只有 M04 `normalize*` 一套 | M04 |
 | `events_consistency` | events 重放（M02 `apply_events`）vs 当前态逐字段 | M02 |
 | `section_range_consistency` | 章节区间契约（M02 `section_range_diff`：区间法原始结果 vs 递归 CTE，含**漏收**方向） | M02 |
