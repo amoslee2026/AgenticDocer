@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID, uuid4
+from typing import Any, get_args
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -613,6 +613,7 @@ def test_contract_table_covers_every_public_model():
     }
 
     assert public_models == set(SPEC_FIELDS)
+
 
 UUID7_FIELDS: dict[type, set[str]] = {
     # §4 DDL uuid 列（节点/引用/事件/批注/术语定义目标/用户族）
