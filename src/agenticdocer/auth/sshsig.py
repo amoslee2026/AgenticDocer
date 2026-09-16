@@ -271,6 +271,58 @@ def key_blob_from_line(public_key_line: str) -> tuple[str, bytes]:
     return key_type, blob
 
 
+@dataclass(frozen=True, slots=True)
+class PublicKeyInfo:
+    """登记前的公钥体检结果（类型 / 强度 / 指纹）。"""
+
+    key_type: str
+    """wire 类型（``ssh-ed25519`` / ``ssh-rsa``）。"""
+
+    ssh_key_type: str
+    """``ssh_keys.key_type`` 列取值（DDL 取值域：``ssh-ed25519`` / ``rsa-sha2-512`` / ``rsa-sha2-256``）。"""
+
+    blob: bytes
+    bits: int | None
+    """RSA 模数位长；Ed25519 为 ``None``。"""
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_of_blob(self.blob)
+
+
+def validate_public_key(public_key_line: str) -> PublicKeyInfo:
+    """登记时体检：类型/表单/强度不合规 → :class:`SignatureFormatError`。
+
+    策略（ADR-007 §1）：仅接受 Ed25519 与 RSA（``ssh-rsa`` 行按 ``rsa-sha2-512`` 登记，
+    签名算法由 SSHSIG 帧内的 ``sig_alg`` 决定）；RSA 模数 < :data:`MIN_RSA_BITS` 拒绝，
+    低于 :data:`RECOMMENDED_RSA_BITS` 记录告警（沿用调用方日志）。
+    """
+    key_type, blob = key_blob_from_line(public_key_line)
+    if key_type not in SUPPORTED_KEY_TYPES:
+        raise SignatureFormatError(
+            f"不支持的公钥类型 {key_type!r}（仅 {list(SUPPORTED_KEY_TYPES)}；"
+            "DSA/ECDSA 与 SHA-1 一律拒绝，见 ADR-007 §1）",
+            reason="unsupported_key_type",
+        )
+    key = _load_public_key(key_type, blob)
+    bits: int | None = None
+    if isinstance(key, rsa.RSAPublicKey):
+        bits = _rmp_bits(key)
+        if bits < MIN_RSA_BITS:
+            raise SignatureFormatError(
+                f"RSA 强度不足：{bits} 位 < {MIN_RSA_BITS} 位", reason="weak_key"
+            )
+        return PublicKeyInfo(key_type, "rsa-sha2-512", blob, bits)
+    if not isinstance(key, ed25519.Ed25519PublicKey) or len(key.public_bytes_raw()) != 32:
+        raise SignatureFormatError("Ed25519 公钥长度非法", reason="bad_public_key")
+    return PublicKeyInfo(key_type, "ssh-ed25519", blob, bits)
+
+
+def key_type_for(public_key_line: str) -> str:
+    """公钥行 → ``ssh_keys.key_type`` 取值（登记与读取共用的唯一映射）。"""
+    return validate_public_key(public_key_line).ssh_key_type
+
+
 def public_key_line_from_blob(key_type: str, blob: bytes) -> str:
     """``(key_type, wire blob)`` → ``authorized_keys`` 行（不含注释）。"""
     return f"{key_type} {base64.b64encode(blob).decode('ascii')}"
