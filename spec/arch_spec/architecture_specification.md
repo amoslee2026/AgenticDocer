@@ -132,18 +132,20 @@ section_meta: "@meta"
 
 ```
 src/agenticdocer/
-├── model/       # M01（schemas.py, anchors.py, atoms.py, doc_types.py）
+├── model/       # M01（schemas.py, anchors.py, atoms.py, doc_types.py）—— 领域模型层，LLM 无关
 ├── store/       # M02（db.py, nodes.py, refs.py, events.py, comments.py, assets.py, docs.py）
 ├── importer/    # M03（parser/, rules/, cli.py, proposals.py, assets_sync.py）
-├── render/      # M04（renderer.py, normalize.py, __main__.py）
-├── retrieve/    # M05（traverse.py, search.py）
+├── render/      # M04（renderer.py, normalize.py, sections.py, __main__.py）
+├── retrieve/    # M05（traverse.py, search.py）—— 内部实现，无公开端点（ADR-008）
 ├── agent_api/   # M06（router.py）
 ├── webui_api/   # M07（router.py）
 ├── m09/         # M09（engine_9a.py, quality_9b/）
+├── auth/        # M10（ssh_verify.py, sessions.py, rbac.py, users.py, cli.py）—— 新增（批注 A1/A2）
 ├── mlr/         # M-LR（export.py, stream.py）
-├── cli.py       # 统一 CLI 装配（import/render/stats 子命令）
-└── app.py       # FastAPI 装配（含 M08 静态挂载）
-webui/           # M08（React+TS+Vite）
+├── cli.py       # 统一 CLI 装配（import/render/auth/user/stats 子命令，§9.2）
+└── app.py       # FastAPI 装配（含 M08 静态挂载、M10 鉴权中间件）
+webui/           # M08（React+TS+Vite；登录页走 SSH 挑战-响应）
+skills/          # 新增：coding agent 用 skill 定义（§9.3）
 tests/           # 单元/集成/e2e + fixtures/search_goldenset.yaml + perf/
 alembic/         # DDL 迁移（AB4）
 ```
