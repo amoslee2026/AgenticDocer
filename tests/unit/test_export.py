@@ -413,13 +413,12 @@ async def test_graph_relation_field_set(tmp_path: Path, no_relations: None) -> N
 async def test_export_makes_no_network_call(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_relations: None
 ) -> None:
-    """P6/C7：导出只读本库 + 写本地文件——任何 socket 连接都视为违规。"""
+    """P6/C7：导出只读本库 + 写本地文件——连 socket 都不该创建。"""
 
     def _blocked(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("network access attempted during export (P6/C7 violation)")
 
-    monkeypatch.setattr(socket.socket, "connect", _blocked)
-    monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
+    monkeypatch.setattr(socket, "socket", _blocked)  # 连 socket 对象都不允许创建
     monkeypatch.setattr(socket, "create_connection", _blocked)
     parent = _node(DOC_A, 0, level=1)
     child = _node(DOC_A, 1, parent=parent.node_id)
