@@ -628,7 +628,8 @@ async def test_disabling_user_kills_keys_and_live_sessions(
         signing.fingerprint(key_material["editor_ed25519"].with_suffix(".pub").read_text()),
         db=database,
     ) is None
-    assert (await client.get("/api/v1/auth/me", cookies=cookies)).status_code == 401
+    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
+    assert (await client.get("/api/v1/auth/me")).status_code == 401
     signed = await client.get(
         "/api/v1/docs", headers=signing.sign_request_headers(key, "GET", "/api/v1/docs")
     )
@@ -673,9 +674,8 @@ async def test_purge_expired_removes_sessions_and_nonces(
     assert report.sessions == 1 and report.nonces >= 1
     assert await _scalar(database, "SELECT count(*) FROM sessions") == 0
     assert await _scalar(database, "SELECT count(*) FROM nonces WHERE nonce = 'stale-nonce'") == 0
-    assert (
-        await client.get("/api/v1/auth/me", cookies={sessions.SESSION_COOKIE_NAME: token})
-    ).status_code == 401
+    client.cookies.set(sessions.SESSION_COOKIE_NAME, token)
+    assert (await client.get("/api/v1/auth/me")).status_code == 401
 
 
 def test_cookie_secure_follows_deployment(monkeypatch) -> None:
