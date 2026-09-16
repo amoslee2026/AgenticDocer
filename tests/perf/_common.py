@@ -364,7 +364,7 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
     if bench.environment:
         print("environment: " + json.dumps(bench.environment, ensure_ascii=False))
     if bench.counters:
-        print("counters:    " + json.dumps(bench.counters, ensure_ascii=False))
+        print("counters:    " + json.dumps(_compact(bench.counters), ensure_ascii=False))
 
     rows = []
     for item in bench.metrics:
@@ -386,15 +386,15 @@ def print_report(bench: Bench, previous: dict[str, Any] | None = None) -> None:
     if degraded:
         print("\n!! 降级路径（ADR-009 V16：`node_id` 单列点查无法分区裁剪）——结果**不得**与正常路径混为一谈：")
         for item in degraded:
-            print(f"   ! {item.name} = {item.value} {item.unit}（目标 {item.comparison}{item.target:g} → "
-                  f"{item.verdict}）{('— ' + item.note) if item.note else ''}")
+            print(f"   ! {item.name} = {item.value} {item.unit}{goal_text(item)}"
+                  f"{('— ' + item.note) if item.note else ''}")
 
     failed = bench.failed()
     if failed:
         print("\n!! 不达标指标：")
         for item in failed:
             suffix = f"（{item.note}）" if item.note else ""
-            print(f"   ✗ {item.name} = {item.value} {item.unit}（目标 {item.comparison}{item.target:g}）{suffix}")
+            print(f"   ✗ {item.name} = {item.value} {item.unit}{goal_text(item)}{suffix}")
     else:
         scored = [m for m in bench.metrics if m.verdict != "记录"]
         if scored:

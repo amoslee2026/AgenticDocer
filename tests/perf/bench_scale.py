@@ -206,7 +206,7 @@ async def run_bench(args: argparse.Namespace) -> Bench:
                    note="events RANGE(ts) 按月 + DEFAULT"),
             metric("scale.point_query.with_doc_id.p95_ms", point_results["with_doc_id"]["p95_ms"],
                    unit="ms", target=TARGET_POINT_P95_MS,
-                   note=f"规模下复测（§1.4 P95 <200ms）"),
+                   note="规模下复测（§1.4 P95 <200ms）"),
             metric("scale.point_query.with_doc_id.p50_ms", point_results["with_doc_id"]["p50_ms"],
                    unit="ms"),
             metric("scale.point_query.without_doc_id.p95_ms", point_results["without_doc_id"]["p95_ms"],
