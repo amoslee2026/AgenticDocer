@@ -25,7 +25,6 @@ section_meta: "@meta"
 | `ADR/ADR-001..010` | 单体架构 / PG+LightRAG 同库 / 表单引擎 / 渲染策略 / 检索实现 / 粒度与锚 / SSH 鉴权 / M05 降级 / 规模化存储 / **可观测性与性能监控** | ✅ |
 | `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `traceability/requirements_matrix.arch.csv` | **54 REQ** ↔ 架构章节追溯 | ✅ |
-| `research_report.md` | 事实核查（LightRAG PG 能力、环境、语料实测、先例） | ✅ |
 | `clarifications.md` | 架构级输入确认与假设（AB1–AB5；**B6/B10 已作废替换**） | ✅ |
 | `traceability/requirements_matrix.arch.csv` | **48 REQ** ↔ 架构章节追溯 | ✅ |
 | `.review/issues.md` | 对抗评审 A1–A25 清单与闭环记录 + **v1.3 批注评审** | ✅ |
