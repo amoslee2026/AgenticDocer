@@ -496,7 +496,7 @@ SPEC_FIELDS: dict[type, set[str]] = {
     DocTypeTarget: {"kind", "value"},
     DocTarget: {"kind", "value"},
     Comment: {"comment_id", "node_id", "target_event_id", "body", "state", "author", "version", "ts"},
-    NodeSnapshot: {"node": "node", "history": "history"},
+    NodeSnapshot: {"node", "history"},
     SearchHit: {"node_id", "doc_id", "anchor", "score"},
     TraversalHit: {"node_id", "doc_id", "anchor", "hops", "via"},
     RenderResult: {"doc_id", "out_path", "assets_exported"},
