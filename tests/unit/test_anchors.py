@@ -258,3 +258,21 @@ def test_assign_anchors_anchor_shape_matches_adr_006():
 
     for anchor in assign_anchors(DOC, sections):
         assert pattern.match(anchor), anchor
+
+
+def test_assign_anchors_never_duplicates_on_adversarial_input():
+    """UNIQUE (doc_id, anchor)：即使标题/正文大量重复、含空标题与超长标题也不得撞锚。"""
+    rng = random.Random(20260916)
+    titles = ["Test Steps:", "test  steps", "***", "", "3.1 术语与定义", "ＡＢＣ", "A" * 120, "Fail Conditions:"]
+    parents = [(), ("1",), ("1", "2"), ("Power",)]
+    bodies = ["", "x", "same", "same", "reg 0x0", "同一条款", "y" * 5000]
+    sections = [
+        SectionRef(section_path=rng.choice(parents), title=rng.choice(titles), body_text=rng.choice(bodies))
+        for _ in range(2000)
+    ]
+
+    first = assign_anchors(DOC, sections)
+
+    assert len(first) == 2000
+    assert len(set(first)) == 2000
+    assert assign_anchors(DOC, sections) == first  # 幂等
