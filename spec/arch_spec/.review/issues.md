@@ -30,10 +30,10 @@ section_meta: "@meta"
 | A9 | MEDIUM | `normalize(doc_id)` / `render_document(...)` 签名无法表达 REQ-M04-F01 的往返断言，`RenderResult` 未定义 |
 | A10 | MEDIUM | FTS 生成列未进 DDL + `content.text` 未约束 + HTML 表格无 text 字段 → 表格内容不可检索 |
 | A11 | MEDIUM | 前端契约 camelCase 与后端 pydantic/DDL snake_case 无序列化口径 |
-| A12 | MEDIUM | CLI 入口自相矛盾（`agenticdocer.import` vs 包目录 `importer/`）；`python -m agenticdocer.render` 无定义 |
+| A12 | MEDIUM | CLI 入口自相矛盾（`agenticspec.import` vs 包目录 `importer/`）；`python -m agenticspec.render` 无定义 |
 | A13 | MEDIUM | parse→review→commit 的提议清单落盘/审核状态持久化与 `doc_slug` 未定义，三步骤无法闭环 |
 | A14 | MEDIUM | 14 个被签名引用的类型（Node/RawFallback/RefKind/Event/TraversalHit/…）无字段定义 |
-| A15 | MEDIUM | append-only 强制落不了地：REVOKE 引用未创建角色 `agenticdocer_app`，§5 连接用户却是 `agenticdocer`，无属主/GRANT 策略 |
+| A15 | MEDIUM | append-only 强制落不了地：REVOKE 引用未创建角色 `agenticspec_app`，§5 连接用户却是 `agenticspec`，无属主/GRANT 策略 |
 | A16 | MEDIUM | schemas 注册、doc_type 组合规则、terms 词表三者无写入路径与载体（3 条 REQ 无实现面） |
 | A17 | MEDIUM | M02 无任何 docs 级方法、状态流转无 `expectedVersion`；`docs.version` 形同虚设 |
 | A18 | MEDIUM | `events.payload` 形状与重放 fold 语义未定义，M09B `events_consistency` 与 REQ-M02-F03 验收不可实现 |
@@ -127,9 +127,9 @@ section_meta: "@meta"
 ### A12 CLI 入口与包结构自相矛盾，渲染 CLI 无定义
 
 - **Severity**：MEDIUM
-- **位置**：`architecture_specification.md` §2 L32（`importer/`，含 `cli.py`）与 §3 M03 L113-116（`python -m agenticdocer.import ...`）；`user_manual.md` L25-30（另用 `python -m agenticdocer.render`）；§3 M04 L122（只有函数签名）
-- **问题**：文档内两处冲突：包目录是 `agenticdocer/importer/`，而 CLI 命令写成 `python -m agenticdocer.import`（`import` 是 Python 关键字，模块无法用常规 import 语句引用，对静态检查/IDE/pickle/重构工具普遍不友好）；此外 user_manual 的 `python -m agenticdocer.render <doc_slug>` 在 §2/§3 均无对应入口（`render/` 未定义 `__main__.py`，M04 只有 `render_document(doc_id, out_dir)`），REQ-M03-F02 与用户手册的快速开始都因此只有一种可选解释。
-- **修复建议**：统一为 `agenticdocer.importer`（命令 `python -m agenticdocer.importer parse|review|commit|stats`），在 §2 标注各 CLI 的 `__main__.py` 位置；为 M04 补 CLI 契约（`python -m agenticdocer.render <doc_slug> [--out build/rendered]`）或明确「渲染只经 M06 `POST /api/v1/docs/{id}/render`」并同步删改 user_manual §1。
+- **位置**：`architecture_specification.md` §2 L32（`importer/`，含 `cli.py`）与 §3 M03 L113-116（`python -m agenticspec.import ...`）；`user_manual.md` L25-30（另用 `python -m agenticspec.render`）；§3 M04 L122（只有函数签名）
+- **问题**：文档内两处冲突：包目录是 `agenticspec/importer/`，而 CLI 命令写成 `python -m agenticspec.import`（`import` 是 Python 关键字，模块无法用常规 import 语句引用，对静态检查/IDE/pickle/重构工具普遍不友好）；此外 user_manual 的 `python -m agenticspec.render <doc_slug>` 在 §2/§3 均无对应入口（`render/` 未定义 `__main__.py`，M04 只有 `render_document(doc_id, out_dir)`），REQ-M03-F02 与用户手册的快速开始都因此只有一种可选解释。
+- **修复建议**：统一为 `agenticspec.importer`（命令 `python -m agenticspec.importer parse|review|commit|stats`），在 §2 标注各 CLI 的 `__main__.py` 位置；为 M04 补 CLI 契约（`python -m agenticspec.render <doc_slug> [--out build/rendered]`）或明确「渲染只经 M06 `POST /api/v1/docs/{id}/render`」并同步删改 user_manual §1。
 
 ### A13 parse→review→commit 三步骤缺状态契约
 
@@ -148,16 +148,16 @@ section_meta: "@meta"
 ### A15 append-only 强制不可落地（角色不存在、与连接用户不一致）
 
 - **Severity**：MEDIUM
-- **位置**：`architecture_specification.md` §4 DDL L294（`REVOKE UPDATE, DELETE ON events FROM agenticdocer_app;`）与 §5 L305（`DATABASE_URL=postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer`）；§1 P2 L21（验证方式「REVOKE 审计」）
-- **问题**：P2 的 append-only 不变量在库层只靠这条 REVOKE，但 (a) DDL 与部署段都没有 `CREATE ROLE`/`GRANT`，角色 `agenticdocer_app` 不存在，语句不可执行（`alembic upgrade head` 直接报错）；(b) §5 的连接用户是 `agenticdocer`，与 REVOKE 目标角色名不一致——谁是应用角色未定义；(c) 未说明表的属主与非属主前提（属主天然可 UPDATE/DELETE，REVOKE 不构成任何约束），也未提 TRUNCATE 权限与 `events` 的 `SELECT`/`INSERT` 授权。REQ-M02-F03 的库层强制实际为空。
-- **修复建议**：补齐权限闭环：`CREATE ROLE agenticdocer_owner LOGIN;`（建表/迁移）、`CREATE ROLE agenticdocer_app LOGIN;`（应用连接，§5 连接串同步改为 `agenticdocer_app`），`GRANT INSERT, SELECT ON events TO agenticdocer_app;`、其余表按需 `SELECT/INSERT/UPDATE/DELETE`、`REVOKE TRUNCATE ON events FROM agenticdocer_app;`，并写明「Alembic 以 owner 角色执行、应用以 app 角色连接」的两套凭据与迁移脚本位置。
+- **位置**：`architecture_specification.md` §4 DDL L294（`REVOKE UPDATE, DELETE ON events FROM agenticspec_app;`）与 §5 L305（`DATABASE_URL=postgresql+asyncpg://agenticspec@127.0.0.1:5432/agenticspec`）；§1 P2 L21（验证方式「REVOKE 审计」）
+- **问题**：P2 的 append-only 不变量在库层只靠这条 REVOKE，但 (a) DDL 与部署段都没有 `CREATE ROLE`/`GRANT`，角色 `agenticspec_app` 不存在，语句不可执行（`alembic upgrade head` 直接报错）；(b) §5 的连接用户是 `agenticspec`，与 REVOKE 目标角色名不一致——谁是应用角色未定义；(c) 未说明表的属主与非属主前提（属主天然可 UPDATE/DELETE，REVOKE 不构成任何约束），也未提 TRUNCATE 权限与 `events` 的 `SELECT`/`INSERT` 授权。REQ-M02-F03 的库层强制实际为空。
+- **修复建议**：补齐权限闭环：`CREATE ROLE agenticspec_owner LOGIN;`（建表/迁移）、`CREATE ROLE agenticspec_app LOGIN;`（应用连接，§5 连接串同步改为 `agenticspec_app`），`GRANT INSERT, SELECT ON events TO agenticspec_app;`、其余表按需 `SELECT/INSERT/UPDATE/DELETE`、`REVOKE TRUNCATE ON events FROM agenticspec_app;`，并写明「Alembic 以 owner 角色执行、应用以 app 角色连接」的两套凭据与迁移脚本位置。
 
 ### A16 schemas 注册、doc_type 组合规则、terms 词表三者无写入路径
 
 - **Severity**：MEDIUM
 - **位置**：`architecture_specification.md` §3 M01 L54-56（只有 `get_json_schema`）、§4 DDL L272-277（schemas）、L287-291（terms）；`functional_specification.md` REQ-M01-F01 L63、REQ-M01-F03 L71-75、REQ-M09-F02 L205-207；`traceability/requirements_matrix.arch.csv` L4、L7、L32
 - **问题**：三处「只有表、没有写入路径与载体」：(1) **schemas**——无注册/更新接口（M01 只有读），REQ-M01-F01 的验收「schema 变更产生 `schema` 事件」无从产生，8 类 + 2 变体 schema 的种子方式（代码常量 or alembic data migration）也未规定；(2) **doc_type 组合规则**——REQ-M01-F03 要求「`doc_type → 允许原子类型/必填字段` 可配置并被 M03/M09A 消费」，但 `schemas` 表只有 `(type_name, json_schema, version)`，无承载位、无 API，traceability L4 把该 REQ 指向 §3 M01，而该处无任何相关内容（悬空映射）；(3) **terms**——M09B 术语校验的数据源，但全包没有写入路径（无导入规则、无端点、无 CLI、无种子），REQ-M09-F02 的术语 detector 无数据可查。
-- **修复建议**：三者各自补载体与写入路径：schemas 增 `put_schema(type_name, json_schema, actor)` + `PUT /api/v1/schemas/{atom_type}`（写 `schema` 事件）并明确种子迁移编号；doc_type 规则增 `doc_types(doc_type text PRIMARY KEY, allowed_atoms text[], required_fields jsonb)` 表（或在 schemas 中约定 `type_name = 'doc_type:<name>'`），并写入 M01/M09A 契约；terms 增写入路径（M03 解析 glossary 规则 + `POST /api/v1/terms` 或 CLI `python -m agenticdocer.importer terms <file>`）。
+- **修复建议**：三者各自补载体与写入路径：schemas 增 `put_schema(type_name, json_schema, actor)` + `PUT /api/v1/schemas/{atom_type}`（写 `schema` 事件）并明确种子迁移编号；doc_type 规则增 `doc_types(doc_type text PRIMARY KEY, allowed_atoms text[], required_fields jsonb)` 表（或在 schemas 中约定 `type_name = 'doc_type:<name>'`），并写入 M01/M09A 契约；terms 增写入路径（M03 解析 glossary 规则 + `POST /api/v1/terms` 或 CLI `python -m agenticspec.importer terms <file>`）。
 
 ### A17 M02 无 docs 级方法，状态流转与文档乐观锁无实现面
 
@@ -211,9 +211,9 @@ section_meta: "@meta"
 ### A24 用户手册快速开始路径错误
 
 - **Severity**：LOW
-- **位置**：`user_manual.md` L25（`uv run python -m agenticdocer.import parse ../spec/standards/IHI0024_AMBA_APB_spec.md`）
+- **位置**：`user_manual.md` L25（`uv run python -m agenticspec.import parse ../spec/standards/IHI0024_AMBA_APB_spec.md`）
 - **问题**：语料按组织分子目录存放（实测 `spec/standards/amba/IHI0024_AMBA_APB_spec.md`），命令缺少 `amba/` 层级，照抄即报文件不存在；`../spec/...` 的当前目录基准也未说明（README 的移交流程使用 `spec/standards/<org>/`）。
-- **修复建议**：改为 `spec/standards/amba/IHI0024_AMBA_APB_spec.md`，并注明「在仓库根目录（`/home/lxx/wrk/AgenticDocer`）执行」。
+- **修复建议**：改为 `spec/standards/amba/IHI0024_AMBA_APB_spec.md`，并注明「在仓库根目录（`/home/lxx/wrk/AgenticSpec`）执行」。
 
 ### A25 缺 it.arch Phase 4 模板要求的章节
 
@@ -244,7 +244,7 @@ section_meta: "@meta"
 | A6 | 资产字节落 ASSET_STORE_DIR CAS（L210/455）、get_asset_path（L205）、M06/M07 增 GET /assets/{id}（L278/L293）、M03 fetch_assets（L225）、assets.path NOT NULL（L427） |
 | A11 | §6 序列化口径 alias_generator=to_camel（L468）与 TS camelCase 契约一致 |
 | A13 | 提议持久化 data/import_work/<doc_slug>/{proposals.json,review_state.json} + doc_slug 定义（L219-222） |
-| A15 | §4.1 角色与 GRANT/REVOKE（L437-447）+ §5 连接串改用 agenticdocer_app（L454） |
+| A15 | §4.1 角色与 GRANT/REVOKE（L437-447）+ §5 连接串改用 agenticspec_app（L454） |
 | A16（schema 部分） | register_schema(...)（L158）+ DB 映射与 DOC_TYPES 取值域 CHECK（L155/L346） |
 | A18 | §3.5 事件载荷与折叠规范表（L331-339）+ apply_events（L197） |
 | A19 | KIND_RULES 三元组含 max_hops（L256-259）、traverse 按 kind 截断、M06 拆 /search 与 /nodes/{id}/traverse（L275-277） |
@@ -288,9 +288,9 @@ section_meta: "@meta"
 
 #### R6（MEDIUM，原 A12 未完全闭环）functional_spec 仍写旧 CLI；render 的 doc_slug/doc_id 口径不一
 
-- **位置**：`functional_specification.md` L121（`python -m agenticdocer.import review <doc>`）、`user_manual.md` L30（`uv run agenticdocer-render IHI0024_AMBA_APB_spec`）与 `architecture_specification.md` L242（`agenticdocer-render <doc_id>`）、L227（`agenticdocer-import`/`-m agenticdocer.importer`）
-- **问题**：A12 的统一只落在 arch 规范与 user_manual 的 import 命令上：functional REQ-M03-F02 仍规定关键字模块名 `agenticdocer.import`（正是 A12 判定为不可用的形式）；且 `agenticdocer-render` 在手册里收 `doc_slug`（IHI0024_AMBA_APB_spec）而在 M04 契约里收 `doc_id`（SPEC-*），实现者需自行猜测。
-- **修复建议**：functional L121 改为 `agenticdocer-import review <doc_slug>`（并注明 doc_slug 定义）；在 §3 M04 或 user_manual 明确 render 接受 `doc_slug` 还是 `doc_id`（建议按 M03 的 doc_slug 统一，或两者都接受）。
+- **位置**：`functional_specification.md` L121（`python -m agenticspec.import review <doc>`）、`user_manual.md` L30（`uv run agenticspec-render IHI0024_AMBA_APB_spec`）与 `architecture_specification.md` L242（`agenticspec-render <doc_id>`）、L227（`agenticspec-import`/`-m agenticspec.importer`）
+- **问题**：A12 的统一只落在 arch 规范与 user_manual 的 import 命令上：functional REQ-M03-F02 仍规定关键字模块名 `agenticspec.import`（正是 A12 判定为不可用的形式）；且 `agenticspec-render` 在手册里收 `doc_slug`（IHI0024_AMBA_APB_spec）而在 M04 契约里收 `doc_id`（SPEC-*），实现者需自行猜测。
+- **修复建议**：functional L121 改为 `agenticspec-import review <doc_slug>`（并注明 doc_slug 定义）；在 §3 M04 或 user_manual 明确 render 接受 `doc_slug` 还是 `doc_id`（建议按 M03 的 doc_slug 统一，或两者都接受）。
 
 #### R7（MEDIUM，原 A17 未完全闭环）M07 有文档列表端点，M02 无 list_docs
 
@@ -314,7 +314,7 @@ section_meta: "@meta"
 
 - **位置**：`architecture_specification.md` L16（v1.2 修订声称「schema/terms 写入路径（A16）」）、L430-433（terms DDL）、L318（M09B terms detector）；`functional_specification.md` L205（REQ-M09-F02 术语校验数据源 = `terms` 表）
 - **问题**：schema 的写入路径已落（L158 `register_schema`），但 `terms` 仍只有建表语句与 detector 引用：没有导入规则、没有 API/CLI、没有种子数据，M09B 的术语校验无数据可查（REQ-M09-F02，P2/阶段 3）；`doc_type → 允许原子类型/必填字段` 的规则模型同样只有取值域（L155 `DOC_TYPES`）而无载体（summary L43 的 Q6 延后登记可接受，但 L16 的「已补」表述与实际不符）。
-- **修复建议**：补 terms 写入路径（M03 `glossary`/`normative-keyword` 解析规则 + `POST /api/v1/terms` 或 CLI `agenticdocer-import terms <file>`，或明确「随 M09B 由人工 SQL 种子」）；把 L16 的修订措辞改为「terms 载体=DDL，写入路径随 M09B 阶段定义」，doc_type 规则注明 Q6 延后。
+- **修复建议**：补 terms 写入路径（M03 `glossary`/`normative-keyword` 解析规则 + `POST /api/v1/terms` 或 CLI `agenticspec-import terms <file>`，或明确「随 M09B 由人工 SQL 种子」）；把 L16 的修订措辞改为「terms 载体=DDL，写入路径随 M09B 阶段定义」，doc_type 规则注明 Q6 延后。
 
 ### 非阻塞残留（L1–L9）
 
@@ -323,7 +323,7 @@ section_meta: "@meta"
 | L1 | functional_specification.md L8 / user_manual.md L8 / research_report.md L8 / ADR-006 L8 / data_flow_diagrams.md L8 | 版本号未随 v1.2 同步（arch 与 summary 已 1.2.0，其余仍 1.1.0，尽管其中多数文件本轮被修订） |
 | L2 | summary_report.md L22 vs L36 | 「DDL 9 表」与「8 业务表」自相矛盾（实际 8 表：docs/nodes/refs/events/comments/schemas/assets/terms） |
 | L3 | architecture_specification.md L475 | 「17 字段 + spec 专有四字段必填」重复计数——实测语料 frontmatter 共 17 字段且已含 `spec_id/spec_type/spec_org/spec_revision` |
-| L4 | architecture_specification.md L440-447 | 属主角色 `agenticdocer` 只在注释中出现、无 `CREATE ROLE`；缺 `ALTER DEFAULT PRIVILEGES`（后续迁移新建表将无 app 角色授权） |
+| L4 | architecture_specification.md L440-447 | 属主角色 `agenticspec` 只在注释中出现、无 `CREATE ROLE`；缺 `ALTER DEFAULT PRIVILEGES`（后续迁移新建表将无 app 角色授权） |
 | L5 | architecture_specification.md L256-263 | M05 未声明过滤 `status='deleted'`（软删后遍历/检索仍可能命中已删节点） |
 | L6 | functional_specification.md L139 / L86 | REQ-M03-F05 未同步「md + HTML `<img>` 两语法」；REQ-M02-F02 的 ref payload 写作 `{op, src, dst, kind}` 与 §3.5 `{src, dst_doc, dst_node, kind}` 字段名不一致 |
 | L7 | architecture_specification.md L197 | `apply_events` 仅产出 `NodeSnapshot`，doc/ref/comment/schema 的折叠规则（§3.5）无对应入口 |
@@ -343,7 +343,7 @@ section_meta: "@meta"
 | R3 | P4（L27）已声明唯一例外：产物层图片 src 重写（含片段内 `<img>`），normalize.images 以重写前哈希路径集合为口径 |
 | R4 | §3.0 补齐 `Violation`（L148）/`DocIn`/`Doc`/`DocStatus`（L149-151）/`CommentState`（L152）/`AssetSyncReport`（L153）/`QualityScope`（L154） |
 | R5 | M01 增 `derive_text(atom_type, content)`（L167-169：HTML 去标签、表格按行列序拼接）+「content.text 必填（FTS 依赖）」约束 |
-| R6 | functional REQ-M03-F02（L121）改为 `agenticdocer-import review <doc_slug>`（等价 `python -m agenticdocer.importer review`）；user_manual L30 改为 `agenticdocer-render SPEC-STD-AMBA-APB`（doc_id）并注明 doc_slug 仅导入工作区 |
+| R6 | functional REQ-M03-F02（L121）改为 `agenticspec-import review <doc_slug>`（等价 `python -m agenticspec.importer review`）；user_manual L30 改为 `agenticspec-render SPEC-STD-AMBA-APB`（doc_id）并注明 doc_slug 仅导入工作区 |
 | R7 | M02 增 `list_docs(status: DocStatus \| None)`（L192） |
 | R8 | M07 节点行改为「**复用 M06 端点**（同一实现集）」（L306）；TS 契约补 `SchemaDTO`（L322） |
 | R9 | 三处引用已改指 §6（M04 docstring L247、docs DDL 注释 L361、§6 ID 行 L486）；映射表标题改为「C5 十七字段，含 spec 专属 4 项」（L491） |
@@ -351,7 +351,7 @@ section_meta: "@meta"
 
 ### 已闭环（L1–L9，9/9）
 
-L1 五份文件版本已升 1.2.0（functional L8 / user_manual L8 / research_report L8 / ADR-006 L8 / data_flow L8）；L2 summary_report L22 已改「DDL 8 表」；L3 映射标题与必填清单去重（C5 十七字段，含 spec 专属 4 项）；L4 §4.1 补 `CREATE ROLE agenticdocer`（属主）+ `ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer`（L~449）；L5 M05 `traverse`/`search_text` 均注明默认过滤 `status='deleted'`（L~270-272）；L6 functional L85 的 ref payload 已改 `{src, dst_doc, dst_node, kind}`（与 §3.5 一致）；L7 `apply_events(entity, events) -> NodeSnapshot | dict`（L207）；L8 user_manual L43 锚示例已含 `·slug` 与 `~正文摘要` 说明；L9 DF-2 改为 `R-->>S: RenderResult` → `S-->>A: 结果 + 产物路径`（经 M06 返回，data_flow L63-64）。（workflow_diagrams.md 与 clarifications.md 本轮未修订，保留 1.1.0，可接受。）
+L1 五份文件版本已升 1.2.0（functional L8 / user_manual L8 / research_report L8 / ADR-006 L8 / data_flow L8）；L2 summary_report L22 已改「DDL 8 表」；L3 映射标题与必填清单去重（C5 十七字段，含 spec 专属 4 项）；L4 §4.1 补 `CREATE ROLE agenticspec`（属主）+ `ALTER DEFAULT PRIVILEGES FOR ROLE agenticspec`（L~449）；L5 M05 `traverse`/`search_text` 均注明默认过滤 `status='deleted'`（L~270-272）；L6 functional L85 的 ref payload 已改 `{src, dst_doc, dst_node, kind}`（与 §3.5 一致）；L7 `apply_events(entity, events) -> NodeSnapshot | dict`（L207）；L8 user_manual L43 锚示例已含 `·slug` 与 `~正文摘要` 说明；L9 DF-2 改为 `R-->>S: RenderResult` → `S-->>A: 结果 + 产物路径`（经 M06 返回，data_flow L63-64）。（workflow_diagrams.md 与 clarifications.md 本轮未修订，保留 1.1.0，可接受。）
 
 ### 本轮阻塞残留（2 项，N1–N2）
 

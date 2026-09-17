@@ -49,7 +49,7 @@ section_meta: "@meta"
 | # | 假设/模糊点 | 采用的默认 | 依据 | 影响 | 回退方式 |
 |---|---|---|---|---|---|
 | B1 | 系统落地形态 | 模块化单体：Python(FastAPI) 后端 + PG + React/TS WebUI；单机 systemd --user | v0.1 §7 + 知识库「单 Agent/中小项目→模块化单体」+ 本机运维惯例 | 架构按 M01–M09 单体多模块 | 模块边界清晰可拆 |
-| B2 | PG 实例 | 复用本机现有 PG 实例，新建 database `agenticdocer`（与既有消费方隔离） | LocalServices.md（pgvector Podman :5432 运行中）；新实例运维成本高 | 连接参数配置化 | 可迁独立实例 |
+| B2 | PG 实例 | 复用本机现有 PG 实例，新建 database `agenticspec`（与既有消费方隔离） | LocalServices.md（pgvector Podman :5432 运行中）；新实例运维成本高 | 连接参数配置化 | 可迁独立实例 |
 | B3 | LightRAG 集成深度 | 首批仅定义边界接口（导出渲染文本+node_id、增量驱动）；**暂不联调摄入**（C7） | 用户指令 + v0.1 §6 | M-LightRAG 模块接口完整、实现后置 | 摄入恢复后按接口接入 |
 | B4 | WebUI 前端栈 | React + TypeScript（+Vite）；表单引擎候选 RJSF/JSON Forms 或自研轻量，Phase 5 由 ADR 裁决 | v0.1 §5.1（借鉴 Sanity Studio 思路，不接其云） | M08 前端按 schema 驱动设计 | 引擎与 UI 分层可换 |
 | B5 | 后端框架 | FastAPI + 异步（asyncpg/SQLAlchemy 2.x 异步） | 生态惯例；Agent 熟悉度高 | API 用 OpenAPI 契约描述 | 框架与接口解耦 |
@@ -62,14 +62,14 @@ section_meta: "@meta"
 | B12 | 测试策略 | 语料回归：7 份 markdown 为 fixture，断言解析→存储→渲染往返保真（frontmatter/表格/条款标题） | 用户指令 | 测试计划以此为核心 | 增补合成 fixture |
 | B13 | 与 GigaRAG 关系 | 只消费其产物（经 spec/ 移交），不反向写入 | spec/README 移交流程 | 集成边界=文件系统 | — |
 | B14 | 实施顺序（依赖序） | M01（+M09A）→ **M10 鉴权** → M02 存储 → M03 导入解析 → M04 渲染 → M06 Agent 接口 → M07/M08 WebUI → M05 检索 → M09B 质量门 → M-LR → **M11 CLI/skill** | 数据依赖链（v1.3 更新：M10 前置以避免全端点鉴权返工；M11 依赖 M06/M07 契约） | it.mas 按此序 | 渲染层与 M08 表单引擎可并行 |
-| B15 | 服务进程形态 | 两个 user 服务：`agenticdocer-api`（FastAPI，含渲染/lint）与静态前端（可由 API 直接托管）；PG 复用现有实例 | 简化运维（LocalServices 惯例） | 部署文档按此 | 可拆更多服务 |
+| B15 | 服务进程形态 | 两个 user 服务：`agenticspec-api`（FastAPI，含渲染/lint）与静态前端（可由 API 直接托管）；PG 复用现有实例 | 简化运维（LocalServices 惯例） | 部署文档按此 | 可拆更多服务 |
 
 ## 3. 开放问题（open_questions，不阻塞）
 
 | Q | 问题 | 现状 |
 |---|---|---|
 | Q1 | LightRAG PG 后端能否「同实例同库不同表」共存？ | **已解决**（本地源码证据 2026-09-16）：lightrag-hku 1.5.6 含 `kg/postgres_impl.py`、`kg/pgtable_impl.py`；表名 `LIGHTRAG_*`（含 workspace 列/索引），与业务表天然隔离，**支持同库多表共存** |
-| Q2 | 本机 PG 实例现状（现有 database/凭据/容量）；node/npm 可用性 | **已解决**（2026-09-16 实测，本机 TeraFab）：PG **16.15**（Podman 容器 `pgvector/pgvector:pg16`，:5432 可达），现有库 mem0/vectest/gigapie_gigapie/gigapie_test → 新建 `agenticdocer` 库可行；node v22.22.3 / npm 10.9.8 可用；uv 0.12.7 + Python 3.11 可用（系统 python3=3.6.8 过老）；**/mnt/big10T 不存在**（数据落 home）；lightRAG v1.5.6 运行中（JSON 文件模式） |
+| Q2 | 本机 PG 实例现状（现有 database/凭据/容量）；node/npm 可用性 | **已解决**（2026-09-16 实测，本机 TeraFab）：PG **16.15**（Podman 容器 `pgvector/pgvector:pg16`，:5432 可达），现有库 mem0/vectest/gigapie_gigapie/gigapie_test → 新建 `agenticspec` 库可行；node v22.22.3 / npm 10.9.8 可用；uv 0.12.7 + Python 3.11 可用（系统 python3=3.6.8 过老）；**/mnt/big10T 不存在**（数据落 home）；lightRAG v1.5.6 运行中（JSON 文件模式） |
 | Q3 | 表单引擎选型（RJSF/JSON Forms/自研） | Phase 5 ADR |
 | Q4 | 结构化粒度（条款 vs 段落为最小节点） | 试点裁决，ADR 记录 |
 | Q5 | 渲染模板引擎（Jinja2 vs 程序化生成） | Phase 5 ADR |

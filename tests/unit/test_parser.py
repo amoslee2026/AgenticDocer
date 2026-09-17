@@ -14,7 +14,7 @@ from collections import Counter
 import jsonschema
 import pytest
 
-from agenticdocer.importer import (
+from agenticspec.importer import (
     RULES,
     RULES_BY_KIND,
     RULE_SET_VERSION,
@@ -33,17 +33,17 @@ from agenticdocer.importer import (
     scan_blocks,
     split_frontmatter,
 )
-from agenticdocer.importer.assets_sync import mime_for
-from agenticdocer.importer.frontmatter import doc_in_from_meta, parse_frontmatter
-from agenticdocer.importer.parser import (
+from agenticspec.importer.assets_sync import mime_for
+from agenticspec.importer.frontmatter import doc_in_from_meta, parse_frontmatter
+from agenticspec.importer.parser import (
     atom_content,
     build_sections,
     classify,
     fallback_anchors,
     parse_markdown,
 )
-from agenticdocer.importer.rules import MATCHERS, parse_numbering
-from agenticdocer.model import RawFallback
+from agenticspec.importer.rules import MATCHERS, parse_numbering
+from agenticspec.model import RawFallback
 
 pytestmark = pytest.mark.filterwarnings("error::UserWarning")
 
@@ -445,7 +445,7 @@ def test_list_becomes_note_and_helper_atoms(parsed) -> None:
 
 
 def test_every_atom_content_satisfies_m01_schema_and_has_text(parsed) -> None:
-    from agenticdocer.model import get_atom_schema
+    from agenticspec.model import get_atom_schema
 
     checked = 0
     for proposal in parsed.proposals:
@@ -499,7 +499,7 @@ def test_stats_report_shape(parsed) -> None:
 
 
 def test_atom_content_helper_requires_non_empty_text() -> None:
-    from agenticdocer.model import derive_text
+    from agenticspec.model import derive_text
 
     content = atom_content("note", fragment="纯文本")
     assert content["text"] == "纯文本"
@@ -642,7 +642,7 @@ def test_check_proposals_rejects_unknown_atom_and_disallowed_atom(
     assert "M09A.atom.unknown" in {violation.rule_id for violation in check_proposals(unknown)}
 
     # 已注册原子但被 doc_type 组合规则排除：M09A 判（M01.doc_type.atom）
-    from agenticdocer.model import DOC_TYPE_RULES, DocTypeRule
+    from agenticspec.model import DOC_TYPE_RULES, DocTypeRule
 
     monkeypatch.setitem(
         DOC_TYPE_RULES, "safety", DocTypeRule(doc_type="safety", allowed_atom_types=("clause",))

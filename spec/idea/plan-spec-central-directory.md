@@ -14,7 +14,7 @@ section_meta: "@meta"
 > **执行方式**：推荐使用 subagent-driven-development 或 executing-plans
 > **调研说明**：调研降级为 WebSearch 快速调研（docs-as-code 拓扑、StrictDoc/Doorstop 目录约定），未运行完整 it.deepresearch 流程。
 > **修订 v1.1（2026-09-16 用户指令：所有 spec 文件与 idea 保存在 ./spec）**：新增 `spec/idea/` 类目；`Notes/idea/` 与 `idea/` 归位 `spec/idea/`（A8 修订，Task 3 Step 3 承担）；`docs/plans/` 存放执行计划（plan 类，非 spec/idea），保留原位。
-> **执行状态：2026-09-16 已完成**（Task 1–5 全绿：K1 7/7、K2 缺失 0、K3 DRY_RUN 列 7、K4 表 1+表 2 全通过、K5 双仓 clean、K6 零 rm）。AgenticDocer 提交 bbdf4e0→5d2236c→0273c04；GigaRAG 提交 4d60205→f53d700→（删除记录）。
+> **执行状态：2026-09-16 已完成**（Task 1–5 全绿：K1 7/7、K2 缺失 0、K3 DRY_RUN 列 7、K4 表 1+表 2 全通过、K5 双仓 clean、K6 零 rm）。AgenticSpec 提交 bbdf4e0→5d2236c→0273c04；GigaRAG 提交 4d60205→f53d700→（删除记录）。
 
 | I need to... | § |
 |---|---|
@@ -26,9 +26,9 @@ section_meta: "@meta"
 | 改 ingest.sh | Task 4 |
 | 端到端验证 | Task 5 |
 
-**目标**：在 AgenticDocer 建立 `spec/` 作为芯片设计知识库的集中权威目录——所有 spec 文件与 idea 文档统一归档于此（用户指令 2026-09-16）：首批物理集中 GigaRAG 已审核的 7 份行业规范，idea 文档（立项方案/假设/评审记录）归位 `spec/idea/`，并为活跃项目的工程 spec 建立引用登记机制。
+**目标**：在 AgenticSpec 建立 `spec/` 作为芯片设计知识库的集中权威目录——所有 spec 文件与 idea 文档统一归档于此（用户指令 2026-09-16）：首批物理集中 GigaRAG 已审核的 7 份行业规范，idea 文档（立项方案/假设/评审记录）归位 `spec/idea/`，并为活跃项目的工程 spec 建立引用登记机制。
 
-**架构**：AgenticDocer（本仓库）= 知识库权威源，`spec/` 按 v0.1 方案的文档类型分类存放 spec；GigaRAG 回归纯转换流水线（01_raw→02_converted→03_reviewed→移交）；LightRAG 摄入改为从 `spec/` 读源，导入状态以 frontmatter `ingested_at` 原地标记，权威文件永不移动。
+**架构**：AgenticSpec（本仓库）= 知识库权威源，`spec/` 按 v0.1 方案的文档类型分类存放 spec；GigaRAG 回归纯转换流水线（01_raw→02_converted→03_reviewed→移交）；LightRAG 摄入改为从 `spec/` 读源，导入状态以 frontmatter `ingested_at` 原地标记，权威文件永不移动。
 
 **技术栈**：bash（git/mv/find）、Markdown + YAML frontmatter（mySkills meta-fields v1.1）、Python 3 标准库（frontmatter 升级脚本，零第三方依赖）、GigaRAG ingest.sh（现有脚本参数化）。
 
@@ -36,7 +36,7 @@ section_meta: "@meta"
 
 **现状基线**（2026-09-16 探明）：
 
-- AgenticDocer 无 git，仅 `Notes/idea/` 下 1 份方案文档
+- AgenticSpec 无 git，仅 `Notes/idea/` 下 1 份方案文档
 - GigaRAG `corpus/03_reviewed/` 有 7 份已审核行业规范（约 11.4MB），**均未被 git 跟踪**
 - `scripts/ingest.sh`（145 行）：L14 `REVIEWED_DIR` 硬编码平铺路径；L53 `find -maxdepth 1`；L134 导入成功后 `mv` 至 04_ingested；`add_ingested_at()` 幂等追加已存在
 - 7 份规范：PCIe 5.0（PCI-SIG）、CXL r3.2（CXL Consortium）、JESD270-4A HBM4（JEDEC）、AMBA AHB IHI0033C / AHB-Lite IHI0033B / APB IHI0024 / AXI-ACE IHI0022K（ARM）
@@ -49,7 +49,7 @@ flowchart LR
         RAW["01_raw 原始PDF 溯源存档"] --> CONV["02_converted 人工转换"] --> REV["03_reviewed 人工审核"]
     end
     REV -- "git 留底 + mv 移交" --> SPEC
-    subgraph AD["AgenticDocer（知识库权威源）"]
+    subgraph AD["AgenticSpec（知识库权威源）"]
         SPEC["spec/standards/ 按组织分目录<br/>权威 spec 唯一存放点"]
         IDX["spec/INDEX.md 登记表"]
     end
@@ -71,7 +71,7 @@ flowchart LR
 | K2 | frontmatter 必填字段完整率 | 7 份 × 17 字段 = 100%（ingested_at 不计入：本计划不执行摄入，A10） | Task 5 Step 1 输出缺失总数 0 |
 | K3 | ingest.sh 对 spec/ 读源可用 | `SPEC_SRC_DIR=…/spec/standards DRY_RUN=1` 列出恰好 7 份 | Task 5 |
 | K4 | INDEX 登记完整 | 物理表 7 行 + 引用表 ≥3 行；表 1 路径与 frontmatter spec_id 逐条一致；引用路径存在率 100% | Task 5 Step 2 |
-| K5 | 可恢复性 | 迁移前 GigaRAG commit 留底；AgenticDocer 全程 git 跟踪 | `git log` 双仓可见 |
+| K5 | 可恢复性 | 迁移前 GigaRAG commit 留底；AgenticSpec 全程 git 跟踪 | `git log` 双仓可见 |
 | K6 | 零删除 | 全程仅 mv/cp，无任何 rm | 执行记录审查 |
 
 **方案选型**：
@@ -121,9 +121,9 @@ flowchart LR
 - [ ] **Step 1: git 初始化并提交现有 Notes（迁移前留底）**
 
 ```bash
-git -C /home/lxx/wrk/AgenticDocer init
-git -C /home/lxx/wrk/AgenticDocer add Notes docs idea
-git -C /home/lxx/wrk/AgenticDocer commit -m "docs: 立项方案 v0.1 + spec 集中目录执行计划与假设记录"
+git -C /home/lxx/wrk/AgenticSpec init
+git -C /home/lxx/wrk/AgenticSpec add Notes docs idea
+git -C /home/lxx/wrk/AgenticSpec commit -m "docs: 立项方案 v0.1 + spec 集中目录执行计划与假设记录"
 ```
 
 - [ ] **Step 2: 写 `.gitignore`**
@@ -143,8 +143,8 @@ idea/.logs/
 - [ ] **Step 2b: 提交 `.gitignore`**（计划产物全程入库，K5/R2）
 
 ```bash
-git -C /home/lxx/wrk/AgenticDocer add .gitignore
-git -C /home/lxx/wrk/AgenticDocer commit -m "chore: gitignore"
+git -C /home/lxx/wrk/AgenticSpec add .gitignore
+git -C /home/lxx/wrk/AgenticSpec commit -m "chore: gitignore"
 ```
 
 - [ ] **Step 3: 写 `spec/README.md`**（完整内容）
@@ -163,7 +163,7 @@ section_meta: "@meta"
 
 # spec/ — 芯片设计知识库 spec 集中目录
 
-本仓库（AgenticDocer）是芯片设计知识库的 **spec 权威源**；`spec/` 是所有 spec 文档与 idea 文档的唯一集中存放点。设计依据：`idea/芯片设计知识库-结构化文档方案-v0.1.md`（下称 v0.1 方案；自 `Notes/idea/` 归位）。
+本仓库（AgenticSpec）是芯片设计知识库的 **spec 权威源**；`spec/` 是所有 spec 文档与 idea 文档的唯一集中存放点。设计依据：`idea/芯片设计知识库-结构化文档方案-v0.1.md`（下称 v0.1 方案；自 `Notes/idea/` 归位）。
 
 ## 目录分类（对齐 v0.1 §1 文档类型）
 
@@ -232,7 +232,7 @@ ingested_at: 2026-09-16
 
 ## 与 LightRAG 的关系
 
-- 摄入：`SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards KEEP_IN_PLACE=1 ~/wrk/GigaRAG/scripts/ingest.sh`（递归扫描；已带 `ingested_at` 的文件自动跳过防重复入库；`DRY_RUN=1` 仅列出待导入）
+- 摄入：`SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards KEEP_IN_PLACE=1 ~/wrk/GigaRAG/scripts/ingest.sh`（递归扫描；已带 `ingested_at` 的文件自动跳过防重复入库；`DRY_RUN=1` 仅列出待导入）
 - **权威文件导入后不移动**：`KEEP_IN_PLACE=1` 时成功件原地追加 `ingested_at`；失败件保留原处
 - 职责划分见 v0.1 §6：本目录=确定性权威源；LightRAG=渲染文本的语义索引，滞后无害
 ````
@@ -377,8 +377,8 @@ if __name__ == "__main__":
 
 **Verification commands**:
 ```bash
-git -C /home/lxx/wrk/AgenticDocer log --oneline
-python3 -m py_compile /home/lxx/wrk/AgenticDocer/scripts/upgrade_frontmatter.py
+git -C /home/lxx/wrk/AgenticSpec log --oneline
+python3 -m py_compile /home/lxx/wrk/AgenticSpec/scripts/upgrade_frontmatter.py
 ```
 
 ---
@@ -400,7 +400,7 @@ python3 -m py_compile /home/lxx/wrk/AgenticDocer/scripts/upgrade_frontmatter.py
 
 ```bash
 git -C /home/lxx/wrk/GigaRAG add corpus/03_reviewed
-git -C /home/lxx/wrk/GigaRAG commit -m "chore(corpus): reviewed specs 留底（移交 AgenticDocer/spec 前存档）"
+git -C /home/lxx/wrk/GigaRAG commit -m "chore(corpus): reviewed specs 留底（移交 AgenticSpec/spec 前存档）"
 ```
 
 **Exit criteria**:
@@ -430,42 +430,42 @@ git -C /home/lxx/wrk/GigaRAG ls-files corpus/03_reviewed
 - [ ] **Step 1: 建目录并迁移**
 
 ```bash
-mkdir -p /home/lxx/wrk/AgenticDocer/spec/standards/{pcie,cxl,jedec,amba}
-mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/PCI_Express_Base_Specification_Revision_5.0.md /home/lxx/wrk/AgenticDocer/spec/standards/pcie/
-mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/CXL_Specification_rev3p2_ver1p0.md /home/lxx/wrk/AgenticDocer/spec/standards/cxl/
-mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/JEDEC_JESD270-4A_HBM4_2025.md /home/lxx/wrk/AgenticDocer/spec/standards/jedec/
+mkdir -p /home/lxx/wrk/AgenticSpec/spec/standards/{pcie,cxl,jedec,amba}
+mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/PCI_Express_Base_Specification_Revision_5.0.md /home/lxx/wrk/AgenticSpec/spec/standards/pcie/
+mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/CXL_Specification_rev3p2_ver1p0.md /home/lxx/wrk/AgenticSpec/spec/standards/cxl/
+mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/JEDEC_JESD270-4A_HBM4_2025.md /home/lxx/wrk/AgenticSpec/spec/standards/jedec/
 mv /home/lxx/wrk/GigaRAG/corpus/03_reviewed/IHI0033C_AMBA_AHB_spec.md \
    /home/lxx/wrk/GigaRAG/corpus/03_reviewed/IHI0033B_AMBA5_AHB_AHB-Lite_spec.md \
    /home/lxx/wrk/GigaRAG/corpus/03_reviewed/IHI0024_AMBA_APB_spec.md \
    /home/lxx/wrk/GigaRAG/corpus/03_reviewed/IHI0022K_AMBA_AXI_ACE_protocol_spec.md \
-   /home/lxx/wrk/AgenticDocer/spec/standards/amba/
+   /home/lxx/wrk/AgenticSpec/spec/standards/amba/
 ```
 
 - [ ] **Step 2: frontmatter 升级（幂等脚本，跑两遍验证幂等）**
 
 ```bash
 cd 前 无需；指定绝对路径执行:
-uv run --no-project python3 /home/lxx/wrk/AgenticDocer/scripts/upgrade_frontmatter.py \
-  /home/lxx/wrk/AgenticDocer/spec/standards/*/*.md
-uv run --no-project python3 /home/lxx/wrk/AgenticDocer/scripts/upgrade_frontmatter.py \
-  /home/lxx/wrk/AgenticDocer/spec/standards/*/*.md   # 第二遍应全部 [skip]
+uv run --no-project python3 /home/lxx/wrk/AgenticSpec/scripts/upgrade_frontmatter.py \
+  /home/lxx/wrk/AgenticSpec/spec/standards/*/*.md
+uv run --no-project python3 /home/lxx/wrk/AgenticSpec/scripts/upgrade_frontmatter.py \
+  /home/lxx/wrk/AgenticSpec/spec/standards/*/*.md   # 第二遍应全部 [skip]
 ```
 
 - [ ] **Step 3: 仓库内 idea 归位 `spec/idea/`**（用户指令 2026-09-16；A8 修订）
 
 ```bash
-mkdir -p /home/lxx/wrk/AgenticDocer/spec/idea
-mv /home/lxx/wrk/AgenticDocer/Notes/idea/芯片设计知识库-结构化文档方案-v0.1.md /home/lxx/wrk/AgenticDocer/spec/idea/
-mv /home/lxx/wrk/AgenticDocer/idea/assumptions.md /home/lxx/wrk/AgenticDocer/spec/idea/
-mv /home/lxx/wrk/AgenticDocer/idea/.review /home/lxx/wrk/AgenticDocer/spec/idea/.review
-rmdir /home/lxx/wrk/AgenticDocer/Notes/idea /home/lxx/wrk/AgenticDocer/Notes   # 仅删空目录，文件已全部 mv
+mkdir -p /home/lxx/wrk/AgenticSpec/spec/idea
+mv /home/lxx/wrk/AgenticSpec/Notes/idea/芯片设计知识库-结构化文档方案-v0.1.md /home/lxx/wrk/AgenticSpec/spec/idea/
+mv /home/lxx/wrk/AgenticSpec/idea/assumptions.md /home/lxx/wrk/AgenticSpec/spec/idea/
+mv /home/lxx/wrk/AgenticSpec/idea/.review /home/lxx/wrk/AgenticSpec/spec/idea/.review
+rmdir /home/lxx/wrk/AgenticSpec/Notes/idea /home/lxx/wrk/AgenticSpec/Notes   # 仅删空目录，文件已全部 mv
 ```
 
 - [ ] **Step 4: 提交（含 idea 归位与 Notes 退役）**
 
 ```bash
-git -C /home/lxx/wrk/AgenticDocer add -A
-git -C /home/lxx/wrk/AgenticDocer commit -m "feat(spec): 集中 7 份行业规范 + idea 归位 spec/idea + frontmatter v2"
+git -C /home/lxx/wrk/AgenticSpec add -A
+git -C /home/lxx/wrk/AgenticSpec commit -m "feat(spec): 集中 7 份行业规范 + idea 归位 spec/idea + frontmatter v2"
 ```
 
 **Exit criteria**:
@@ -477,7 +477,7 @@ git -C /home/lxx/wrk/AgenticDocer commit -m "feat(spec): 集中 7 份行业规�
 
 **Verification commands**:
 ```bash
-find /home/lxx/wrk/AgenticDocer/spec/standards -name '*.md' -type f | wc -l
+find /home/lxx/wrk/AgenticSpec/spec/standards -name '*.md' -type f | wc -l
 ```
 
 ---
@@ -608,7 +608,7 @@ done
 # 原:
 # 将 corpus/03_reviewed/ 的 markdown 文档导入 lightRAG（HTTP API + /documents/scan）
 # 改为:
-# 将读源目录（默认 corpus/03_reviewed/，可 SPEC_SRC_DIR 指向 AgenticDocer/spec）的 markdown 导入 lightRAG
+# 将读源目录（默认 corpus/03_reviewed/，可 SPEC_SRC_DIR 指向 AgenticSpec/spec）的 markdown 导入 lightRAG
 ```
 
 - [ ] **Step 6: `corpus/03_reviewed/README.md` 末尾追加**
@@ -616,7 +616,7 @@ done
 ```markdown
 ## 移交通道（2026-09 起）
 
-已审核的行业规范文档移交 `~/wrk/AgenticDocer/spec/standards/` 集中管理（流程见该仓库 `spec/README.md`）；本目录仅存留转中的非规范类文档。lightRAG 导入改由 spec 侧驱动：`SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards KEEP_IN_PLACE=1 scripts/ingest.sh`。
+已审核的行业规范文档移交 `~/wrk/AgenticSpec/spec/standards/` 集中管理（流程见该仓库 `spec/README.md`）；本目录仅存留转中的非规范类文档。lightRAG 导入改由 spec 侧驱动：`SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards KEEP_IN_PLACE=1 scripts/ingest.sh`。
 ```
 
 - [ ] **Step 7: GigaRAG `README.md` 工作流步骤 4 替换**
@@ -625,7 +625,7 @@ done
 <!-- 原:
 4. **导入**：运行 `scripts/ingest.sh` 将 `03_reviewed/` 推入 lightRAG，成功后移入 `04_ingested/`。
    改为: -->
-4. **导入/移交**：行业规范类审核通过后移交 `~/wrk/AgenticDocer/spec/`（权威源，导入 lightRAG 用 `SPEC_SRC_DIR=<spec目录> KEEP_IN_PLACE=1 scripts/ingest.sh`，成功后原地标记不移动）；其余文档仍走 `scripts/ingest.sh` 默认流程（03_reviewed → 04_ingested）。
+4. **导入/移交**：行业规范类审核通过后移交 `~/wrk/AgenticSpec/spec/`（权威源，导入 lightRAG 用 `SPEC_SRC_DIR=<spec目录> KEEP_IN_PLACE=1 scripts/ingest.sh`，成功后原地标记不移动）；其余文档仍走 `scripts/ingest.sh` 默认流程（03_reviewed → 04_ingested）。
 ```
 
 - [ ] **Step 8: `scripts/README.md` 末尾追加环境变量段**
@@ -641,26 +641,26 @@ done
 
 已带 `ingested_at` 的文件自动跳过（防重复入库）；`DRY_RUN=1` 列出的即实际待导入集合。
 
-典型用法（AgenticDocer spec 权威源）:
-`SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards KEEP_IN_PLACE=1 scripts/ingest.sh`
+典型用法（AgenticSpec spec 权威源）:
+`SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards KEEP_IN_PLACE=1 scripts/ingest.sh`
 ```
 
 - [ ] **Step 9: 提交 GigaRAG**
 
 ```bash
 git -C /home/lxx/wrk/GigaRAG add scripts/ingest.sh README.md corpus/03_reviewed/README.md scripts/README.md
-git -C /home/lxx/wrk/GigaRAG commit -m "feat(ingest): 读源参数化 SPEC_SRC_DIR + KEEP_IN_PLACE 原地标记（对接 AgenticDocer/spec 权威源）"
+git -C /home/lxx/wrk/GigaRAG commit -m "feat(ingest): 读源参数化 SPEC_SRC_DIR + KEEP_IN_PLACE 原地标记（对接 AgenticSpec/spec 权威源）"
 ```
 
 **Exit criteria**:
 - [ ] `bash -n ingest.sh` 通过
 - [ ] 默认行为回归：`DRY_RUN=1 bash ingest.sh`（不设 SPEC_SRC_DIR）在迁移后的空 03_reviewed 上输出"无 markdown 文件"退出 0
-- [ ] spec 读源：`SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards DRY_RUN=1 bash ingest.sh` 列出恰好 7 份（K3）
+- [ ] spec 读源：`SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards DRY_RUN=1 bash ingest.sh` 列出恰好 7 份（K3）
 
 **Verification commands**:
 ```bash
 bash -n /home/lxx/wrk/GigaRAG/scripts/ingest.sh
-SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
+SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
 DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
 ```
 
@@ -682,7 +682,7 @@ DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
 - [ ] **Step 1: frontmatter 完整性断言（K2）**
 
 ```bash
-cd /home/lxx/wrk/AgenticDocer  # 或在各命令用绝对路径
+cd /home/lxx/wrk/AgenticSpec  # 或在各命令用绝对路径
 shopt -s nullglob
 files=(spec/standards/*/*.md)
 test "${#files[@]}" -eq 7 || { echo "文件数 ${#files[@]} ≠ 7，中止"; exit 1; }   # 防 glob 空真通过
@@ -701,11 +701,11 @@ echo "缺失总数: $missing"   # 期望 0
 - [ ] **Step 2: 集中率与 INDEX 路径存在性断言（K1/K4）**
 
 ```bash
-test "$(find /home/lxx/wrk/AgenticDocer/spec/standards -name '*.md' -type f | wc -l)" -eq 7 && echo "K1 OK"
+test "$(find /home/lxx/wrk/AgenticSpec/spec/standards -name '*.md' -type f | wc -l)" -eq 7 && echo "K1 OK"
 while IFS='|' read -r sid path; do
-  test -f "/home/lxx/wrk/AgenticDocer/spec/$path" || echo "K4 缺失: $sid -> $path"
-  awk -v sid="$sid" 'NR==1{next} /^---[[:space:]]*$/{exit} $0 == "spec_id: " sid {found=1; exit} END{exit !found}' "/home/lxx/wrk/AgenticDocer/spec/$path" || echo "K4 ID 不一致: $sid"
-done < <(awk -F'|' '/^\| SPEC-/ {sid=$2; path=$3; gsub(/^[ \t]+|[ \t]+$/, "", sid); gsub(/^[ \t]+|[ \t]+$/, "", path); print sid "|" path}' /home/lxx/wrk/AgenticDocer/spec/INDEX.md)
+  test -f "/home/lxx/wrk/AgenticSpec/spec/$path" || echo "K4 缺失: $sid -> $path"
+  awk -v sid="$sid" 'NR==1{next} /^---[[:space:]]*$/{exit} $0 == "spec_id: " sid {found=1; exit} END{exit !found}' "/home/lxx/wrk/AgenticSpec/spec/$path" || echo "K4 ID 不一致: $sid"
+done < <(awk -F'|' '/^\| SPEC-/ {sid=$2; path=$3; gsub(/^[ \t]+|[ \t]+$/, "", sid); gsub(/^[ \t]+|[ \t]+$/, "", path); print sid "|" path}' /home/lxx/wrk/AgenticSpec/spec/INDEX.md)
 test -d /home/lxx/wrk/GigaRAG/corpus/01_raw/specifications && echo "K4 原始来源根 OK"
 test -d /home/lxx/wrk/GigaPie/spec && echo "REF-GIGAPIE-SPEC OK"
 test -d /home/lxx/wrk/Arion/spec/PRD && echo "REF-ARION-PRD OK"
@@ -714,8 +714,8 @@ test -d /home/lxx/wrk/nova2026/archExplorer/spec && echo "REF-NOVA-ARCHEXPLORER 
 - [ ] **Step 3: ingest 读源端到端（K3，复用 Task 4 命令）+ 双仓状态检查（K5）**
 
 ```bash
-SPEC_SRC_DIR=$HOME/wrk/AgenticDocer/spec/standards DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
-git -C /home/lxx/wrk/AgenticDocer status --short   # 期望为空：全部计划产物已入库（R2）
+SPEC_SRC_DIR=$HOME/wrk/AgenticSpec/spec/standards DRY_RUN=1 bash /home/lxx/wrk/GigaRAG/scripts/ingest.sh
+git -C /home/lxx/wrk/AgenticSpec status --short   # 期望为空：全部计划产物已入库（R2）
 git -C /home/lxx/wrk/GigaRAG status --short -- README.md corpus/03_reviewed corpus/04_ingested scripts/ingest.sh scripts/README.md   # 精确到计划修改文件；scripts/convert 等 untracked 历史遗留不判（R6）
 ```
 

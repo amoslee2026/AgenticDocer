@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from agenticdocer.m09.quality_9b import (
+from agenticspec.m09.quality_9b import (
     DETECTORS,
     DETECTOR_IDS,
     assets_missing,
@@ -29,16 +29,16 @@ from agenticdocer.m09.quality_9b import (
     section_range_consistency,
     terms,
 )
-from agenticdocer.model import C5_META_FIELDS, Doc, Event, Node, QualityScope, Violation, new_uuid7
-from agenticdocer.observability import (
+from agenticspec.model import C5_META_FIELDS, Doc, Event, Node, QualityScope, Violation, new_uuid7
+from agenticspec.observability import (
     IndexHealth,
     PartitionHealth,
     PoolHealth,
     TableHealth,
     evaluate_health,
 )
-from agenticdocer.render import NormalForm, TableNF
-from agenticdocer.store import ValidationError, apply_events, field_deltas, now
+from agenticspec.render import NormalForm, TableNF
+from agenticspec.store import ValidationError, apply_events, field_deltas, now
 
 DOC_ID = "SPEC-STD-AMBA-APB"
 STUB_STORAGE = SimpleNamespace(db=SimpleNamespace(url="postgresql+asyncpg://app@db/test"))
@@ -824,8 +824,8 @@ def test_violation_shape_is_mechanical() -> None:
 
 def test_no_llm_or_network_imports_in_m09() -> None:
     """P6：M09 不引入 LLM/网络客户端（静态断言模块清单）。"""
-    import agenticdocer.m09.engine_9a as engine
-    import agenticdocer.m09.quality_9b.gate as gate
+    import agenticspec.m09.engine_9a as engine
+    import agenticspec.m09.quality_9b.gate as gate
 
     banned = {"openai", "anthropic", "httpx", "requests", "urllib.request"}
     for module in (engine, gate):

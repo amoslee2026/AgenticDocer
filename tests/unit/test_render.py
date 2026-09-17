@@ -13,8 +13,8 @@ from uuid import uuid4
 import pytest
 import yaml
 
-from agenticdocer.model import Doc, Node, User, new_uuid7
-from agenticdocer.render import (
+from agenticspec.model import Doc, Node, User, new_uuid7
+from agenticspec.render import (
     EDITABLE_DOC_TYPES,
     TableEdit,
     TableGrid,
@@ -39,7 +39,7 @@ from agenticdocer.render import (
     table_meta,
     validate_table_content,
 )
-from agenticdocer.store import NotFoundError, ValidationError
+from agenticspec.store import NotFoundError, ValidationError
 
 SHA_A = "c" * 64
 SHA_B = "d" * 64
@@ -362,7 +362,7 @@ def test_resolve_table_mode_doc_type_whitelist() -> None:
         mode = resolve_table_mode(doc, node, make_user("editor"))
         assert mode.editable is True and mode.reason == "doc_type_whitelist"
     finally:
-        import agenticdocer.render.sections as sections
+        import agenticspec.render.sections as sections
 
         sections.EDITABLE_DOC_TYPES = EDITABLE_DOC_TYPES
 

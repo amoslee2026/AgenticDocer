@@ -1,4 +1,4 @@
-# AgenticDocer 术语种子（TERMS_SEED，§5：随 migrate 载入 terms 表）
+# AgenticSpec 术语种子（TERMS_SEED，§5：随 migrate 载入 terms 表）
 #
 # 口径：
 #   - 规范性关键词（kind: normative-keyword）不对应文档节点 → definition_node_id 保持 NULL，

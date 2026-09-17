@@ -4,7 +4,7 @@
 （同一鉴权/RBAC 中间件）才能证明 CLI 与 WebUI 共用同一判定口径（P5）；`CliRunner` 也无法覆盖
 **进程退出码**（REQ-M11-F01b：权限不足必须非零退出）。
 
-**隔离库**：本用例在 `agenticdocer_m11_test` 上跑（自建自 DROP），不触碰共享 `agenticdocer_test`。
+**隔离库**：本用例在 `agenticspec_m11_test` 上跑（自建自 DROP），不触碰共享 `agenticspec_test`。
 """
 
 from __future__ import annotations
@@ -34,18 +34,18 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from agenticdocer import cli
-from agenticdocer.auth import signing
+from agenticspec import cli
+from agenticspec.auth import signing
 
 pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[2]
-ISOLATED_DB = "agenticdocer_m11_test"
-APP_URL_DEFAULT = "postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer_test"
-OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer_test"
+ISOLATED_DB = "agenticspec_m11_test"
+APP_URL_DEFAULT = "postgresql+asyncpg://agenticspec_app@127.0.0.1:5432/agenticspec_test"
+OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticspec@127.0.0.1:5432/agenticspec_test"
 SUPER_URL_DEFAULT = "postgresql+asyncpg://postgres@127.0.0.1:5432/postgres"
-OWNER_ROLE = "agenticdocer"
-APP_ROLE = "agenticdocer_app"
+OWNER_ROLE = "agenticspec"
+APP_ROLE = "agenticspec_app"
 TOKEN = uuid.uuid4().hex[:6]
 """本次运行的唯一后缀：用户名/文档 ID 都带它（**不假设库是干净的**，Main 全量验收要求）。"""
 DOC_ID = f"SPEC-M11-{TOKEN.upper()}"
@@ -192,9 +192,9 @@ class _Service:
         self, *args: str, actor: str = "admin", stdin: str | None = None
     ) -> subprocess.CompletedProcess[str]:
         """以某个身份跑一条 CLI 命令（**真进程、真签名**）。"""
-        env = {**self.env, "AGENTICDOCER_SSH_KEY": str(self.keys[actor])}
+        env = {**self.env, "AGENTICSPEC_SSH_KEY": str(self.keys[actor])}
         return subprocess.run(
-            [sys.executable, "-m", "agenticdocer.cli", *args],
+            [sys.executable, "-m", "agenticspec.cli", *args],
             cwd=ROOT,
             env=env,
             input=stdin,
@@ -243,7 +243,7 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
     if error is not None:
         pytest.skip(f"PostgreSQL 不可用（{SUPER_URL_DEFAULT}）：{error}")
 
-    # 建库需要超级用户（`agenticdocer` 无 CREATEDB）；OWNER 交给属主角色，迁移由其执行。
+    # 建库需要超级用户（`agenticspec` 无 CREATEDB）；OWNER 交给属主角色，迁移由其执行。
     asyncio.run(
         _maintenance_sql(
             super_url,
@@ -283,10 +283,10 @@ def service(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Service]:
 
     port = _free_port()
     api_url = f"http://127.0.0.1:{port}"
-    env.update({"AGENTICDOCER_API_URL": api_url, "API_HOST": "127.0.0.1", "API_PORT": str(port)})
+    env.update({"AGENTICSPEC_API_URL": api_url, "API_HOST": "127.0.0.1", "API_PORT": str(port)})
 
     server = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "agenticdocer.app:app", "--host", "127.0.0.1", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "agenticspec.app:app", "--host", "127.0.0.1", "--port", str(port)],
         cwd=ROOT,
         env=env,
         stdout=subprocess.PIPE,
@@ -486,7 +486,7 @@ def test_reader_cannot_write_and_gets_actionable_hint(service: _Service, importe
     patch = _write_patch(service, "reader-patch.json", _node_payload(node, node["version"]))
     denied = service.fails("node", "put", "--file", str(patch), "--json", actor="reader")
     assert "editor" in denied.stderr  # 所需角色名
-    assert "agenticdocer grant add" in denied.stderr  # 授权命令原文
+    assert "agenticspec grant add" in denied.stderr  # 授权命令原文
     assert "--permission write" in denied.stderr
 
 
@@ -584,7 +584,7 @@ def test_key_revocation_is_effective(service: _Service) -> None:
 def test_non_admin_cannot_manage_users(service: _Service) -> None:
     denied = service.fails("user", "list", "--json", actor="reviewer")
     assert "admin" in denied.stderr
-    assert "agenticdocer user role --username" in denied.stderr
+    assert "agenticspec user role --username" in denied.stderr
 
 
 def test_logs_wrapper_reaches_agentic_logger(service: _Service) -> None:
@@ -628,7 +628,7 @@ def test_quality_gate_perf_health_is_admin_scoped(service: _Service) -> None:
     """perf_health 读 DB 内部指标 → 与 ``GET /admin/health`` 同级（admin）。"""
     denied = service.fails("quality-gate", "--detectors", "perf_health", "--json", actor="reader")
     assert "admin" in denied.stderr
-    assert "agenticdocer user role --username" in denied.stderr
+    assert "agenticspec user role --username" in denied.stderr
 
     payload = service.ok("quality-gate", "--detectors", "perf_health", "--json", actor="admin")
     assert isinstance(payload, dict)

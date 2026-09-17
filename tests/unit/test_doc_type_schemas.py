@@ -13,8 +13,8 @@ from __future__ import annotations
 import jsonschema
 import pytest
 
-import agenticdocer.model.doc_types as doc_types_module
-from agenticdocer.model import (
+import agenticspec.model.doc_types as doc_types_module
+from agenticspec.model import (
     ATOM_SCHEMAS,
     ATOM_TYPES,
     ATOM_VARIANTS,

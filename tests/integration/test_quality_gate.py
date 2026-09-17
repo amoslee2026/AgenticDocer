@@ -31,8 +31,8 @@ import pytest
 from sqlalchemy import delete, insert, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from agenticdocer.m09 import DETECTOR_IDS, run_quality_gate, run_quality_gate_sync
-from agenticdocer.m09.quality_9b import (
+from agenticspec.m09 import DETECTOR_IDS, run_quality_gate, run_quality_gate_sync
+from agenticspec.m09.quality_9b import (
     assets_missing,
     broken_refs,
     doc_type_conformance,
@@ -42,7 +42,7 @@ from agenticdocer.m09.quality_9b import (
     section_range_consistency,
     terms,
 )
-from agenticdocer.model import (
+from agenticspec.model import (
     C5_META_FIELDS,
     DocIn,
     Node,
@@ -53,12 +53,12 @@ from agenticdocer.model import (
     derive_text,
     new_uuid7,
 )
-from agenticdocer.observability import health
-from agenticdocer.render import render_document, table_meta
-from agenticdocer.store import Storage, ValidationError, now
-from agenticdocer.store.schema import events as events_table
-from agenticdocer.store.schema import nodes as nodes_table
-from agenticdocer.store.schema import terms as terms_table
+from agenticspec.observability import health
+from agenticspec.render import render_document, table_meta
+from agenticspec.store import Storage, ValidationError, now
+from agenticspec.store.schema import events as events_table
+from agenticspec.store.schema import nodes as nodes_table
+from agenticspec.store.schema import terms as terms_table
 
 pytestmark = pytest.mark.integration
 
@@ -535,7 +535,7 @@ async def test_perf_health_detects_failing_target(storage: Storage, sample: Samp
     等价且可注入的容量故障，且判据完全来自 M12 `health()`（本 detector 不做二次解读）。
     关键语义：`fail` **绝不静默通过**——这正是质量门接入容量巡检的意义（ADR-010）。
     """
-    absent = "postgresql+asyncpg://agenticdocer_app:agenticdocer_app_dev@127.0.0.1:5432/agenticdocer_m09_absent_test"
+    absent = "postgresql+asyncpg://agenticspec_app:agenticspec_app_dev@127.0.0.1:5432/agenticspec_m09_absent_test"
     report = await health(dsn=absent)
     assert report.verdict == "fail", report.advice
 

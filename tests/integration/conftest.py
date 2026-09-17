@@ -2,8 +2,8 @@
 
 PG 不可用（连不上 / 无凭据）时**整体 skip**，不 fail——无库环境仍应全绿。
 
-连接串（`.env` 由 `agenticdocer.store.db` 作为默认值注入）：
-- 应用角色：`TEST_DATABASE_URL` → `DATABASE_URL` → `...agenticdocer_app@.../agenticdocer_test`
+连接串（`.env` 由 `agenticspec.store.db` 作为默认值注入）：
+- 应用角色：`TEST_DATABASE_URL` → `DATABASE_URL` → `...agenticspec_app@.../agenticspec_test`
 - 迁移（属主）：应用连接串的**同一库** + `MIGRATION_DATABASE_URL` 的属主凭据。
 
 安全闸：**仅当**开启重建（见下）时才会 `DROP SCHEMA public CASCADE`，故库名必须以 `_test` 结尾，
@@ -11,8 +11,8 @@ PG 不可用（连不上 / 无凭据）时**整体 skip**，不 fail——无库
 
 库状态策略（Main 批准，2026-09-16）：
 
-- **默认（`AGENTICDOCER_TEST_DROP_SCHEMA=0`）**：夹具只跑幂等的 `alembic upgrade head`，
-  **不 drop**、不动既有数据 —— 可与他人共享 `agenticdocer_test`（各自负责自己的数据清理）。
+- **默认（`AGENTICSPEC_TEST_DROP_SCHEMA=0`）**：夹具只跑幂等的 `alembic upgrade head`，
+  **不 drop**、不动既有数据 —— 可与他人共享 `agenticspec_test`（各自负责自己的数据清理）。
   用例断言因此按「只针对自己写入的 doc_id/asset_id/actor」编写，不依赖库是空的。
 - **开启（`=1`）**：先 drop/recreate `public` 再 upgrade，得到干净库。
   **何时该开**：① 单独跑本套件、想要确定性起点；② 怀疑 schema 漂移（手改过表/Alembic 版本
@@ -36,13 +36,13 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from agenticdocer.store import Database, Storage
+from agenticspec.store import Database, Storage
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_URL_DEFAULT = "postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer_test"
-OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticdocer@127.0.0.1:5432/agenticdocer_test"
+APP_URL_DEFAULT = "postgresql+asyncpg://agenticspec_app@127.0.0.1:5432/agenticspec_test"
+OWNER_URL_DEFAULT = "postgresql+asyncpg://agenticspec@127.0.0.1:5432/agenticspec_test"
 
-DROP_SCHEMA_ENV = "AGENTICDOCER_TEST_DROP_SCHEMA"
+DROP_SCHEMA_ENV = "AGENTICSPEC_TEST_DROP_SCHEMA"
 
 
 def _drop_schema_requested() -> bool:
@@ -57,7 +57,7 @@ def _app_url() -> str:
 def _owner_url(app_url: str) -> str:
     """属主凭据 + **同一个（测试）库**。
 
-    只替换用户名/口令，不采用 `MIGRATION_DATABASE_URL` 的库名——那指向 `agenticdocer`
+    只替换用户名/口令，不采用 `MIGRATION_DATABASE_URL` 的库名——那指向 `agenticspec`
     （开发/生产库），而本夹具会 `DROP SCHEMA public CASCADE`。
     """
     application = make_url(app_url)
@@ -117,7 +117,7 @@ def database_urls() -> tuple[str, str]:
 def migrated_schema(database_urls: tuple[str, str]) -> str:
     """确保 schema 存在且为 head（会话一次）。
 
-    默认只跑幂等的 `alembic upgrade head`（不 drop）；`AGENTICDOCER_TEST_DROP_SCHEMA=1`
+    默认只跑幂等的 `alembic upgrade head`（不 drop）；`AGENTICSPEC_TEST_DROP_SCHEMA=1`
     时先 drop/recreate 再 upgrade —— 两种模式的取舍与「何时该开」见模块文档。
     """
     owner, _ = database_urls

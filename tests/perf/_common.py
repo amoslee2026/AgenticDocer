@@ -3,12 +3,12 @@
 五个基准（`bench_{point_query,render,auth,scale,import}.py`）共用本模块：
 
 * **计时与百分位口径**：`timing_stats()` 直接复用在线指标同一实现
-  （`agenticdocer.observability.metrics.percentile`，nearest-rank）——P5「口径唯一」；
+  （`agenticspec.observability.metrics.percentile`，nearest-rank）——P5「口径唯一」；
 * **结果落盘**：<repo>/build/perf.json（每基准保留最近 `HISTORY_LIMIT` 次运行 +
   `latest`）+ <repo>/build/perf/<bench>_<ts>.json 归档（ADR-010 §3.2「结果归档」）；
 * **历史对比**：`--compare` 打印与上一次运行的同名指标差值（趋势）；
 * **人类可读输出**：指标表 + 「达标 / 不达标」判定 + 降级路径独立区块；
-* **DSN 解析**：`--dsn` → `PERF_DATABASE_URL` → 内置隔离库 `agenticdocer_perf_test`。
+* **DSN 解析**：`--dsn` → `PERF_DATABASE_URL` → 内置隔离库 `agenticspec_perf_test`。
   刻意**不**回落环境里的 `DATABASE_URL`：本套件会灌入上万文档（ADR-009 规模基准），
   误跑在共享库/主库上的代价不可接受（模块本身的默认库即隔离库）。
 
@@ -47,7 +47,7 @@ SCHEMA_VERSION = 1
 HISTORY_LIMIT = 20
 
 DEFAULT_DSN = (
-    "postgresql+asyncpg://agenticdocer:agenticdocer_dev@127.0.0.1:5432/agenticdocer_perf_test"
+    "postgresql+asyncpg://agenticspec:agenticspec_dev@127.0.0.1:5432/agenticspec_perf_test"
 )
 """默认隔离库（跑完可 DROP；M02/M09/M11 同款做法）。"""
 
@@ -237,7 +237,7 @@ def timing_stats(samples_us: Sequence[int]) -> dict[str, float]:
       **分量指标一律不设 `target`**，只作记录）；
     * 若需在报告中呈现，应显式标注「n=0，值无意义」，避免零值被当成「零开销」。
     """
-    from agenticdocer.observability.metrics import percentile
+    from agenticspec.observability.metrics import percentile
 
     if not samples_us:
         return {"n": 0, "p50_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0, "mean_ms": 0.0,
@@ -549,7 +549,7 @@ def reachable(dsn: str | None = None, *, timeout: float = 5.0) -> bool:
 async def _reachable(dsn: str, timeout: float) -> bool:
     from sqlalchemy import text
 
-    from agenticdocer.store import Database
+    from agenticspec.store import Database
 
     db = Database(dsn)
     try:
@@ -568,7 +568,7 @@ async def _reachable(dsn: str, timeout: float) -> bool:
 
 def open_storage(dsn: str | None = None) -> Any:
     """构造 `Storage`（显式 DSN；不依赖进程单例，也不覆盖已配置的 DSN）。"""
-    from agenticdocer.store import Database, Storage
+    from agenticspec.store import Database, Storage
 
     return Storage(Database(resolve_dsn(dsn)))
 
@@ -686,8 +686,8 @@ def corpus_paths() -> list[Path]:
 
 async def import_corpus(storage: Any, *, only: Iterable[Path] | None = None) -> list[dict[str, Any]]:
     """真实语料 → 解析 + 入库（in-process，与 M11 `import commit` 同一函数路径）。"""
-    from agenticdocer.importer import commit_document, coverage, parse_markdown
-    from agenticdocer.model import WriteContext
+    from agenticspec.importer import commit_document, coverage, parse_markdown
+    from agenticspec.model import WriteContext
 
     ctx = WriteContext(actor="perf-bench", source="importer")
     records: list[dict[str, Any]] = []
@@ -903,7 +903,7 @@ async def largest_doc(storage: Any) -> tuple[str, int, str]:
 
 async def largest_section(storage: Any, doc_id: str) -> tuple[Any, str, int, int]:
     """文档内子树最大的 level-1/2 章节 → `(node_id, anchor, node_count, doc_nodes)`。"""
-    from agenticdocer.render.sections import list_sections
+    from agenticspec.render.sections import list_sections
 
     nodes = await storage.get_doc_nodes(doc_id)
     sections = list_sections(nodes, max_level=2)
@@ -923,7 +923,7 @@ async def bench_render_set(
     warmup: int = 1,
 ) -> dict[str, Any]:
     """整档 + 单章节渲染计时（ADR-010 §3.2；指标 §1.4：章节 <1s、整档 <3s）。"""
-    from agenticdocer.render import render_document, render_section
+    from agenticspec.render import render_document, render_section
 
     with tempfile.TemporaryDirectory(prefix="perf-render-") as tmp:
         out = Path(tmp)
@@ -987,7 +987,7 @@ async def bench_render_set(
 
 async def _section_asset_ids(storage: Any, doc_id: str, section_node_id: Any) -> list[str]:
     """章节子树内的**唯一资产 id**（复用 M04 的公开口径：块文本 → 图片 src → asset_id）。"""
-    from agenticdocer.render import asset_id_of, collect_image_srcs, node_block_text
+    from agenticspec.render import asset_id_of, collect_image_srcs, node_block_text
 
     subtree = await storage.get_section_nodes(doc_id, section_node_id)
     srcs = collect_image_srcs(node_block_text(node) for node in subtree)
@@ -1052,8 +1052,8 @@ async def ingest_synthetic(
     storage: Any, *, docs: int, atoms_per_doc: int, seed: int = 7, progress_every: int = 25
 ) -> dict[str, Any]:
     """合成 `docs` 份文档灌入（**真实 M03 路径**：parse_text → commit_document）。"""
-    from agenticdocer.importer import commit_document, parse_text
-    from agenticdocer.model import WriteContext
+    from agenticspec.importer import commit_document, parse_text
+    from agenticspec.model import WriteContext
 
     ctx = WriteContext(actor="perf-bench", source="importer")
     totals = {"docs": 0, "nodes_created": 0, "refs_created": 0, "proposals": 0, "blocks": 0,

@@ -1,4 +1,4 @@
-# AgenticDocer
+# AgenticSpec
 
 芯片设计知识库的结构化文档系统：**结构化库为唯一权威源**，人类可读格式（Markdown/HTML）均为渲染产物；Agent 可通过 CLI/API 读写节点、追溯事件、评审批注。
 
@@ -28,8 +28,8 @@ bash scripts/deploy.sh
 
 # 4) 首次使用：放置管理员公钥并重启触发自举
 cp ~/.ssh/id_ed25519.pub data/admin_keys/admin.pub
-systemctl --user restart agenticdocer-api
-uv run agenticdocer auth whoami
+systemctl --user restart agenticspec-api
+uv run agenticspec auth whoami
 ```
 
 WebUI：浏览器访问 http://127.0.0.1:8787/ （SSH 挑战-响应登录，无密码）
@@ -37,7 +37,7 @@ WebUI：浏览器访问 http://127.0.0.1:8787/ （SSH 挑战-响应登录，无�
 ## 架构
 
 ```
-AgenticDocer 单体（FastAPI + PG16）
+AgenticSpec 单体（FastAPI + PG16）
 ├── M01 领域模型     类型 / UUIDv7 / 锚规则 / 原子 schema（LLM 无关，P6）
 ├── M02 存储层       13 表 + nodes HASH64 分区 + events 月分区 + 事件折叠
 ├── M03 导入         解析器（覆盖率 99.93%）/ 规则库 / 提议审核 / bulk 导入

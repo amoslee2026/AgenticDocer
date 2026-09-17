@@ -1,12 +1,12 @@
 [project]
-name = "agenticdocer"
+name = "agenticspec"
 version = "0.1.0"
 description = "结构化文档知识库：结构化库为唯一权威源，Agent 可读/可写/可追溯"
 requires-python = ">=3.11"
 license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
 readme = "README.md"
-authors = [{ name = "AgenticDocer contributors" }]
+authors = [{ name = "AgenticSpec contributors" }]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
@@ -32,20 +32,20 @@ dev = [
 ]
 
 [project.scripts]
-agenticdocer = "agenticdocer.cli:app"
-agenticdocer-api = "agenticdocer.app:main"
+agenticspec = "agenticspec.cli:app"
+agenticspec-api = "agenticspec.app:main"
 
 [project.urls]
-Homepage = "https://github.com/amoslee2026/AgenticDocer"
-Repository = "https://github.com/amoslee2026/AgenticDocer"
-Issues = "https://github.com/amoslee2026/AgenticDocer/issues"
+Homepage = "https://github.com/amoslee2026/AgenticSpec"
+Repository = "https://github.com/amoslee2026/AgenticSpec"
+Issues = "https://github.com/amoslee2026/AgenticSpec/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/agenticdocer"]
+packages = ["src/agenticspec"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -58,7 +58,7 @@ markers = [
 # 集成测试的库状态约束（见 tests/integration/conftest.py 模块文档）
 # 全量验收命令（保持默认，不 drop schema）：
 #   unset all_proxy ALL_PROXY && uv run pytest tests/unit tests/integration -q
-# 需要确定性干净起点时（不可与他人并行）才设 AGENTICDOCER_TEST_DROP_SCHEMA=1
+# 需要确定性干净起点时（不可与他人并行）才设 AGENTICSPEC_TEST_DROP_SCHEMA=1
 
 [tool.uv]
 default-groups = ["dev"]

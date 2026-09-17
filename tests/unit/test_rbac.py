@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from agenticdocer.auth import rbac
-from agenticdocer.model import DocTarget, DocTypeTarget, Grant, User, new_uuid7
-from agenticdocer.store import ForbiddenError, ValidationError
+from agenticspec.auth import rbac
+from agenticspec.model import DocTarget, DocTypeTarget, Grant, User, new_uuid7
+from agenticspec.store import ForbiddenError, ValidationError
 
 NOW = datetime(2026, 9, 16, tzinfo=timezone.utc)
 

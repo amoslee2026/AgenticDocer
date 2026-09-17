@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from agenticdocer.model import (
+from agenticspec.model import (
     Asset,
     AssetSyncReport,
     Comment,
@@ -132,7 +132,7 @@ def test_node_in_rejects_unknown_format():
 
 def test_atom_type_is_open_string_with_schema_closed_set():
     """§3.0 将 atom_type 定为 str；闭集约束由 M01 的 schema 注册表承担（REQ-M01-F01）。"""
-    from agenticdocer.model import UnknownAtomTypeError, get_atom_schema
+    from agenticspec.model import UnknownAtomTypeError, get_atom_schema
 
     assert NodeIn(**node_in_payload(atom_type="not-an-atom")).atom_type == "not-an-atom"
     with pytest.raises(UnknownAtomTypeError):
@@ -416,7 +416,7 @@ def test_grant_target_defaults_and_aliases():
     assert doc_target.kind == "doc"
     assert GrantTarget is not None
 
-    from agenticdocer.model import GrantTargetDoc, GrantTargetDocType
+    from agenticspec.model import GrantTargetDoc, GrantTargetDocType
 
     assert GrantTargetDocType is DocTypeTarget
     assert GrantTargetDoc is DocTarget
@@ -605,7 +605,7 @@ def test_camel_case_aliases_are_derived_uniformly():
 
 def test_contract_table_covers_every_public_model():
     """契约表必须与包导出的模型一一对应——防止新增模型或漏改条目导致约束静默失效。"""
-    import agenticdocer.model as model_pkg
+    import agenticspec.model as model_pkg
 
     public_models = {
         getattr(model_pkg, name)

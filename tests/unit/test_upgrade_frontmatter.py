@@ -17,8 +17,8 @@ import sys
 import pytest
 import yaml
 
-from agenticdocer.importer import parse_frontmatter
-from agenticdocer.model import C5_META_FIELDS, DOC_TYPES, DOC_TYPE_RULES, missing_required_meta
+from agenticspec.importer import parse_frontmatter
+from agenticspec.model import C5_META_FIELDS, DOC_TYPES, DOC_TYPE_RULES, missing_required_meta
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 

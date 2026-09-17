@@ -51,7 +51,7 @@ flowchart TB
         LR["LightRAG 语义索引<br/>（现状：JSON 文件模式；<br/>迁移后：同 PG 实例 LIGHTRAG_* 表）"]
     end
 
-    subgraph SYS["AgenticDocer 单体系统"]
+    subgraph SYS["AgenticSpec 单体系统"]
         subgraph IFACE["界面层"]
             AG["Agent 客户端<br/>（coding agent / CLI）"]
             WEB["M08 WebUI 前端<br/>React+TS（schema 驱动表单/diff/批注）"]
@@ -125,7 +125,7 @@ flowchart LR
 
 ## 5. 数据模型（草案）
 
-**PostgreSQL（database `agenticdocer`，B2）**；JSONB 存节点内容、关系表存图边（v0.1 §9 已定，不引图数据库）。
+**PostgreSQL（database `agenticspec`，B2）**；JSONB 存节点内容、关系表存图边（v0.1 §9 已定，不引图数据库）。
 
 | 表 | 关键列 | 说明 |
 |---|---|---|
@@ -196,7 +196,7 @@ sequenceDiagram
 
 - **无概率置信度**（解析器是确定性规则）：提议携带 `rule_id`（命中规则标识）与 `待确认` 标志（规则未覆盖的启发式解析）；人工仅需复核「待确认」项与未映射清单。
 - **未映射内容兜底**：无法映射到八类原子的块（目录/许可/免责声明/残余 HTML 等）→ 降级为 `note`/`code`（`format:html`）原子保留（**不计入规则覆盖率**，单列「兜底率/待确认条数」回归指标，见 §10），**不丢弃**。
-- 审核载体：阶段 1 = CLI（`python -m agenticdocer.import review`，实现于 it.mas/it.tdd 细化）；阶段 2 = M07 API（WebUI 表单）。
+- 审核载体：阶段 1 = CLI（`python -m agenticspec.import review`，实现于 it.mas/it.tdd 细化）；阶段 2 = M07 API（WebUI 表单）。
 
 ### 6.2 Agent 读写流（S4，P1）
 
@@ -264,22 +264,22 @@ sequenceDiagram
 | 层 | 选型 | 说明 |
 |---|---|---|
 | 语言/后端 | Python 3.11+（**uv 管理**；系统 python3=3.6.8 不可用）/ FastAPI / SQLAlchemy 2.x 异步（asyncpg） | B5；OpenAPI 契约原生 |
-| 存储 | PostgreSQL **16.15**（复用本机 Podman 容器 `pgvector/pgvector:pg16`，:5432；新建 database `agenticdocer`；现有库 mem0/vectest/gigapie_*）+ JSONB | B2 已验证（Q2 已解决） |
+| 存储 | PostgreSQL **16.15**（复用本机 Podman 容器 `pgvector/pgvector:pg16`，:5432；新建 database `agenticspec`；现有库 mem0/vectest/gigapie_*）+ JSONB | B2 已验证（Q2 已解决） |
 | 前端 | React + TypeScript + Vite | B4 |
 | 表单引擎 | 候选：RJSF / JSON Forms / 轻量自研 | Q3，ADR |
 | 渲染 | Python 模板引擎（候选 Jinja2）或程序化生成；HTML 片段直通 | Q5，ADR |
 | 校验 | JSON Schema（M09A）+ 一致性规则（M09B）；文档格式 lint 可选后置 | v0.1 §5 |
 | 文本检索 | PG FTS（tsvector）+ pg_trgm 备选 | §6.4；ADR |
 | 测试 | pytest（+httpx TestClient；前端 vitest） | B12；覆盖率 99%（AGENTS.md） |
-| 部署 | systemd --user（`agenticdocer-api` 服务；前端静态由 API 托管） | B15 |
+| 部署 | systemd --user（`agenticspec-api` 服务；前端静态由 API 托管） | B15 |
 
 ## 9. 部署与运维（单机）
 
 ```
-/开发仓库:  /home/lxx/wrk/AgenticDocer       （spec/ 语料+设计+计划归档、src/ 代码、tests/、scripts/）
+/开发仓库:  /home/lxx/wrk/AgenticSpec       （spec/ 语料+设计+计划归档、src/ 代码、tests/、scripts/）
 /渲染产物:  build/rendered/（派生数据，gitignore；含 assets/ 导出）
-/运行数据:  PG 16.15 容器 pgvector（复用，database=agenticdocer）；本机 /mnt/big10T 不存在，数据落 home 分区
-/服务:      systemd --user: agenticdocer-api（127.0.0.1，端口待实现期定）
+/运行数据:  PG 16.15 容器 pgvector（复用，database=agenticspec）；本机 /mnt/big10T 不存在，数据落 home 分区
+/服务:      systemd --user: agenticspec-api（127.0.0.1，端口待实现期定）
 /备份:      git（代码与 spec/ 文档）+ PG dump（数据）——纳入既有 sys-backup 惯例
 ```
 

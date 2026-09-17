@@ -57,21 +57,21 @@ section_meta: "@meta"
 请求头: X-SSH-Key-Id, X-SSH-Signature(base64), X-Timestamp, X-Nonce
 ```
 
-服务端校验顺序（**S3/S7 修复**）：① 时间窗（偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]，**未来容忍收紧至 30s**）→ ② 公钥查表（active）→ ③ **SSHSIG 验签**（namespace=`agenticdocer@auth`）→ ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。**nonce 保留期 = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s)**——必须 ≥ 时间窗宽度，否则存在重放窗口（S3）。
+服务端校验顺序（**S3/S7 修复**）：① 时间窗（偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]，**未来容忍收紧至 30s**）→ ② 公钥查表（active）→ ③ **SSHSIG 验签**（namespace=`agenticspec@auth`）→ ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。**nonce 保留期 = max(2×SIGNATURE_MAX_SKEW_SECONDS, 600s)**——必须 ≥ 时间窗宽度，否则存在重放窗口（S3）。
 
 **WebUI 登录协议**（一次性）：
 
 ```
 1. POST /api/v1/auth/challenge        → { nonce, expiresAt }（TTL 120s）
 2. 客户端用私钥签名 nonce（ssh-keygen -Y sign 或 libcrypto）
-3. POST /api/v1/auth/login            → 验签通过 → Set-Cookie: agenticdocer_session=...（httpOnly, SameSite=Lax, **Secure 强制，见 §5 TLS 要求**）
+3. POST /api/v1/auth/login            → 验签通过 → Set-Cookie: agenticspec_session=...（httpOnly, SameSite=Lax, **Secure 强制，见 §5 TLS 要求**）
 ```
 
 **为何不给 WebUI 用密码**：引入第二身份源会带来「密码↔公钥如何关联同一用户」的映射问题，且需额外的密码存储/重置/强度策略。SSH 挑战-响应复用同一 `users` 行，**身份源唯一**。
 
-**浏览器如何签名**：登录页提供**两条**方式：(a) 本地 `agenticdocer auth sign --login --nonce <n>`（推荐，服务端按 SSHSIG 验签）；(b) 上传一次性签名文件（离线场景）。**明确不做**：(i) 浏览器内直接读取私钥（安全禁区）；(ii) ~~WebAuthn 桥接~~（**S12 修复：已删除**——WebAuthn 凭据无任何存储模型支撑，`ssh_keys` 表与 `login()` 契约均不接受该凭据类型，属悬空设计）。
+**浏览器如何签名**：登录页提供**两条**方式：(a) 本地 `agenticspec auth sign --login --nonce <n>`（推荐，服务端按 SSHSIG 验签）；(b) 上传一次性签名文件（离线场景）。**明确不做**：(i) 浏览器内直接读取私钥（安全禁区）；(ii) ~~WebAuthn 桥接~~（**S12 修复：已删除**——WebAuthn 凭据无任何存储模型支撑，`ssh_keys` 表与 `login()` 契约均不接受该凭据类型，属悬空设计）。
 
-**签名格式（S11 修复）**：统一采用 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 使用 `rsa-sha2-512` + **PSS padding**。CLI 与登录页两条路径共用**同一验签器**（否则裸签名与 SSHSIG 互不兼容）。
+**签名格式（S11 修复）**：统一采用 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticspec@auth`；RSA 使用 `rsa-sha2-512` + **PSS padding**。CLI 与登录页两条路径共用**同一验签器**（否则裸签名与 SSHSIG 互不兼容）。
 
 **签名载荷（S2 修复）**：`payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE`，其中 `RAW_PATH` **含 query string 的原样字节**（不规范化），防 query 参数被篡改（如 `expected_version`）。
 
@@ -90,7 +90,7 @@ section_meta: "@meta"
 ```bash
 # 部署时（环境变量引导，用户裁决）
 echo "$(cat ~/.ssh/id_ed25519.pub)" > data/admin_keys/admin.pub
-uv run agenticdocer auth bootstrap            # **S9：不存在 active admin 时可重复执行**（救援语义）
+uv run agenticspec auth bootstrap            # **S9：不存在 active admin 时可重复执行**（救援语义）
 ```
 `data/admin_keys/` 纳入 `.gitignore`（含个人公钥，虽非秘密但不必入库）。
 

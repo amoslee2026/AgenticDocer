@@ -19,7 +19,7 @@ import re
 import pytest
 from sqlalchemy import text
 
-from agenticdocer.importer import (
+from agenticspec.importer import (
     check_proposals,
     commit_document,
     commit_document_bulk,
@@ -33,9 +33,9 @@ from agenticdocer.importer import (
     save_parse_result,
     save_review_state,
 )
-from agenticdocer.importer.cli import PROPOSALS_NAME, selected_proposals
-from agenticdocer.model import C5_META_FIELDS, RawFallback, WriteContext
-from agenticdocer.store import Storage, ValidationError
+from agenticspec.importer.cli import PROPOSALS_NAME, selected_proposals
+from agenticspec.model import C5_META_FIELDS, RawFallback, WriteContext
+from agenticspec.store import Storage, ValidationError
 
 pytestmark = pytest.mark.integration
 
@@ -697,7 +697,7 @@ def test_new_corpus_doc_type_is_not_standard(new_corpus_results) -> None:
         doc_type = result.doc_meta.get("doc_type")
         assert doc_type in {"lang", "safety"}, f"{name}: doc_type={doc_type!r} 应为 lang/safety"
         # 且该 doc_type 的必填 meta 齐备（差异化 schema 生效）
-        from agenticdocer.model.doc_types import missing_required_meta
+        from agenticspec.model.doc_types import missing_required_meta
 
         missing = missing_required_meta(doc_type, result.doc_meta.get("frontmatter"))
         assert missing == [], f"{name}: {doc_type} 类缺必填 meta {missing}"

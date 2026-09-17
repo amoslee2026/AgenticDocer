@@ -20,7 +20,7 @@ Accepted（2026-09-16）
 - 本机已有 PG 16.15 实例（Podman `pgvector/pgvector:pg16`：mem0/vectest/gigapie_* 在用）。
 
 ## Decision
-1. 全部结构化数据入**纯 PostgreSQL**（新建 database `agenticdocer`），不引入图数据库。
+1. 全部结构化数据入**纯 PostgreSQL**（新建 database `agenticspec`），不引入图数据库。
 2. LightRAG 未来**同实例同库不同表**共存（其表名 `LIGHTRAG_*`，按 `workspace` 列隔离——源码核实，Q1）；联调暂缓（C7）。
 
 ## Trade-offs

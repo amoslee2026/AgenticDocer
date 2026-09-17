@@ -19,12 +19,12 @@ section_meta: "@meta"
 
 - 语料 `spec/standards/` 7 文件合计 **8,812,225 B（≈8.8MB）**、75,694 行；标题行合计 5,954（CXL 2,666 / PCIe 2,097 / AMBA-AXI 506 / HBM4 389 / AHB-C 131 / AHB-Lite-B 115 / APB 50）。
 - 表格形态：以 `|` 开头的行 **0**（无 GFM 竖线表格）；`<table>` **2,440**、`<tr>` **19,763**、`<td>` **79,817**，其中 **57,005** 个单元格带 `colspan/rowspan/bgcolor/align` 属性；含 `<sup>` 的行 239 行。
-- 图片：`images/<sha256>.jpg` 形式引用 **1,019 处**（去重后仍 1,019 个）；AgenticDocer 仓库内 `*.jpg` 文件 **0** 个；同批图片实物在 GigaRAG `corpus/02_converted/specifications/*/auto/images/`。
+- 图片：`images/<sha256>.jpg` 形式引用 **1,019 处**（去重后仍 1,019 个）；AgenticSpec 仓库内 `*.jpg` 文件 **0** 个；同批图片实物在 GigaRAG `corpus/02_converted/specifications/*/auto/images/`。
 - 标题重复（锚冲突实证）：CXL 单文件内 219×「Test Steps:」、217×「Fail Conditions:」、214×「Pass Criteria:」、170×「Prerequisites:」、59×「IMPLEMENTATION NOTE」；PCIe 154×「IMPLEMENTATION NOTE」；HBM4 21×「Wrapper Data Register」等；AMBA-AXI 存在 2×「Part C Glossary」。
 - lightRAG：`lightrag-hku` 安装于 `/home/lxx/.local/share/uv/tools/lightrag-hku/lib/python3.11/site-packages/lightrag/kg/{postgres_impl.py,pgtable_impl.py}`（Q1 引用属实）；现运行形态为 JSON 文件模式（`/home/lxx/lightrag/rag_storage`）。
 - GigaRAG：`scripts/ingest.sh` L9 默认 `LIGHTRAG_INPUT_DIR=/mnt/big10T/lxx/lightrag/inputs`；摄入源对 `$SRC_DIR` 做**递归 `*.md` 扫描**（仅排除 README.md；命中 `^ingested_at:` 即跳过；basename 重复直接 ERROR 退出）。GigaRAG README L5 原文为「只入库人工转换 + 人工审核通过的文档。自动解析（PDF/Word 直转）质量不可控，禁止直接入库」。
 - AGENTS.md：`~/.pi/agent/AGENTS.md` L26「不保留向后兼容」、L108「测试覆盖率 99%」；`~/.omp/agent/AGENTS.md` L20/L78 同义（C6 与 §8 引用属实）。
-- `spec/README.md`（移交流程、frontmatter v2 17 字段、⛔ 摄入暂缓）、`spec/INDEX.md`（表 1 七条）与五份产物陈述一致；`AgenticDocer/docs/` 为空目录。
+- `spec/README.md`（移交流程、frontmatter v2 17 字段、⛔ 摄入暂缓）、`spec/INDEX.md`（表 1 七条）与五份产物陈述一致；`AgenticSpec/docs/` 为空目录。
 
 ---
 
@@ -39,7 +39,7 @@ section_meta: "@meta"
 
 - **Severity**: HIGH
 - **位置**: `design_doc.md` §5 数据模型（L122-124）、§7 集成边界（L199）
-- **问题描述**: 语料含 1,019 处 `images/<sha256>.jpg` 引用，而 `spec/standards/` 及整个 AgenticDocer 仓库内图片文件数为 **0**（实物留在 GigaRAG `corpus/02_converted/.../auto/images/`）。数据模型既无资产表/文件存储，`figure` 原子也无 asset/path 字段；§7 只定义导出格式、不定义渲染产物落盘位置与图片链接重写/复制规则；§10 断言不含图。触发条件 = 解析/渲染任一含图文档（7 份中 6 份命中）：M03 对 1,019 处引用无处置依据，M04 渲染产物必然含死链，「结构化库=唯一权威源、渲染产物可读」不成立。
+- **问题描述**: 语料含 1,019 处 `images/<sha256>.jpg` 引用，而 `spec/standards/` 及整个 AgenticSpec 仓库内图片文件数为 **0**（实物留在 GigaRAG `corpus/02_converted/.../auto/images/`）。数据模型既无资产表/文件存储，`figure` 原子也无 asset/path 字段；§7 只定义导出格式、不定义渲染产物落盘位置与图片链接重写/复制规则；§10 断言不含图。触发条件 = 解析/渲染任一含图文档（7 份中 6 份命中）：M03 对 1,019 处引用无处置依据，M04 渲染产物必然含死链，「结构化库=唯一权威源、渲染产物可读」不成立。
 - **修复建议**: §5 增补资产模型（`assets` 表或 content-addressed 文件存储 + `figure.content.asset_ref`）；§7 增一行「渲染产物落盘目录 + 图片相对路径重写/复制规则（含 source-of-truth 与 GigaRAG images 目录的同步策略）」；§10 增加「图片引用保真」断言。
 
 ## E3 refs / schemas 写入无事件覆盖，违反「一切写入走 events」
@@ -158,7 +158,7 @@ section_meta: "@meta"
 
 - **Severity**: LOW
 - **位置**: `clarifications.md` §0（L18）；`design_doc.md` §9（L217）
-- **问题描述**: 引用 `../..//docs/plans/2026-09-16-spec-central-directory.md`，该路径不存在——`AgenticDocer/docs/` 为空目录，全仓库无 `*central-directory*` 匹配文件；同句 `assumptions.md` 存在。design_doc §9 亦把「docs/ 计划」列为既有布局。执行者按图索骥会落空。
+- **问题描述**: 引用 `../..//docs/plans/2026-09-16-spec-central-directory.md`，该路径不存在——`AgenticSpec/docs/` 为空目录，全仓库无 `*central-directory*` 匹配文件；同句 `assumptions.md` 存在。design_doc §9 亦把「docs/ 计划」列为既有布局。执行者按图索骥会落空。
 - **修复建议**: 改为指向实际留底位置（如 `spec/idea/.review/archive/` 或 git 历史 commit）或删除该引用；同步修正 design_doc §9 布局描述。
 
 ## E20 LightRAG 运行形态表述与实测不一致

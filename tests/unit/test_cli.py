@@ -23,8 +23,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from typer.testing import CliRunner
 
-from agenticdocer import cli
-from agenticdocer.auth import signing, sshsig
+from agenticspec import cli
+from agenticspec.auth import signing, sshsig
 
 runner = CliRunner()
 
@@ -67,7 +67,7 @@ def no_key(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     empty = tmp_path / "empty-home"
     empty.mkdir()
     monkeypatch.setenv("HOME", str(empty))
-    monkeypatch.delenv("AGENTICDOCER_SSH_KEY", raising=False)
+    monkeypatch.delenv("AGENTICSPEC_SSH_KEY", raising=False)
     return empty
 
 
@@ -327,7 +327,7 @@ def test_client_posts_body_bytes_that_are_signed(
 def test_missing_key_error_is_actionable(no_key: Path) -> None:
     result = runner.invoke(cli.app, ["auth", "whoami"])
     assert result.exit_code == 1
-    assert "AGENTICDOCER_SSH_KEY" in result.stderr
+    assert "AGENTICSPEC_SSH_KEY" in result.stderr
     assert "user key add" in result.stderr
     assert "Traceback" not in result.output + result.stderr
 
@@ -358,8 +358,8 @@ def test_forbidden_hint_names_role_and_grant_command(
     result = run("node", "put", "--file", str(patch), "--json", env_key=key_pair[0])
     assert result.exit_code == 1
     assert "editor" in result.stderr  # 所需角色名
-    assert "agenticdocer user role --username" in result.stderr
-    assert "agenticdocer grant add" in result.stderr
+    assert "agenticspec user role --username" in result.stderr
+    assert "agenticspec grant add" in result.stderr
     assert "--permission write" in result.stderr
 
 
@@ -437,7 +437,7 @@ def test_network_failure_is_actionable(
     patch_transport(monkeypatch, httpx.MockTransport(boom))
     result = run("doc", "list", "--json", env_key=key_pair[0])
     assert result.exit_code == 1
-    assert "agenticdocer-api" in result.stderr
+    assert "agenticspec-api" in result.stderr
 
 
 def test_server_error_hint_points_at_logs(
@@ -449,7 +449,7 @@ def test_server_error_hint_points_at_logs(
     result = run("doc", "list", "--json", env_key=key_pair[0])
     assert result.exit_code == 1
     assert "HTTP 500" in result.stderr
-    assert "agenticdocer logs query --level ERROR" in result.stderr
+    assert "agenticspec logs query --level ERROR" in result.stderr
 
 
 def test_min_role_mapping_matches_m10_matrix() -> None:
@@ -478,7 +478,7 @@ def _whoami_reader(request: httpx.Request) -> httpx.Response:
 
 
 def _stub_reports() -> list[Any]:
-    from agenticdocer.model import QualityReport, Violation
+    from agenticspec.model import QualityReport, Violation
 
     return [
         QualityReport(detector_id="broken_refs", violations=[]),
@@ -499,7 +499,7 @@ def _stub_reports() -> list[Any]:
 @pytest.fixture()
 def stub_gate(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     """把 M09B 的质量门换成固定报告（只测 CLI 的参数/角色/输出形状）。"""
-    import agenticdocer.m09 as m09
+    import agenticspec.m09 as m09
 
     calls: list[Any] = []
 
@@ -592,7 +592,7 @@ def test_quality_gate_requires_admin_for_perf_health(
     denied = run("quality-gate", "--detectors", "perf_health", "--json", env_key=key_pair[0])
     assert denied.exit_code == 1
     assert "admin" in denied.stderr
-    assert "agenticdocer user role --username" in denied.stderr
+    assert "agenticspec user role --username" in denied.stderr
     assert not stub_gate  # 未越权执行
 
 

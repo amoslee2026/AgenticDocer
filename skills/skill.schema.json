@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/amoslee2026/AgenticDocer/skills/skill.schema.json",
-  "title": "AgenticDocer skill 前置元数据",
+  "$id": "https://github.com/amoslee2026/AgenticSpec/skills/skill.schema.json",
+  "title": "AgenticSpec skill 前置元数据",
   "description": "skills/<name>/SKILL.md 的 YAML frontmatter 契约（REQ-M11-F05/F06/F07 的 V17 判据：四字段齐备且可机检）。",
   "type": "object",
   "required": ["name", "description", "role", "command"],
@@ -10,7 +10,7 @@
     "name": {
       "type": "string",
       "description": "skill 标识（目录名同名，agent 侧调用名）。",
-      "pattern": "^docer-[a-z][a-z-]*$",
+      "pattern": "^spec-[a-z][a-z-]*$",
       "minLength": 6,
       "maxLength": 32
     },
@@ -27,7 +27,7 @@
     },
     "command": {
       "type": "string",
-      "description": "底层命令（`agenticdocer` 子命令原文，可含 `|` 列出该 skill 覆盖的全部形态）。",
+      "description": "底层命令（`agenticspec` 子命令原文，可含 `|` 列出该 skill 覆盖的全部形态）。",
       "minLength": 12
     }
   }

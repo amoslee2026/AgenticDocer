@@ -18,7 +18,7 @@ function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        AgenticDocer <span className="sub">文档评审台</span>
+        AgenticSpec <span className="sub">文档评审台</span>
       </div>
       <nav>
         {link("/docs", "文档")}

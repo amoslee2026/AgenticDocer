@@ -21,7 +21,7 @@ import re
 import asyncpg
 import pytest
 
-from agenticdocer.observability import health_sync, normalize_dsn
+from agenticspec.observability import health_sync, normalize_dsn
 
 pytestmark = pytest.mark.integration
 

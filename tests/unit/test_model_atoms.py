@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from agenticdocer.model import (
+from agenticspec.model import (
     ATOM_SCHEMAS,
     ATOM_TYPES,
     ATOM_VARIANTS,
@@ -16,7 +16,7 @@ from agenticdocer.model import (
     get_atom_schema,
     html_to_text,
 )
-from agenticdocer.model.atoms import TABLE_ATOMS
+from agenticspec.model.atoms import TABLE_ATOMS
 
 HTML_TABLE = (
     "<table><tr><td>D0</td><td>7:0</td></tr>"

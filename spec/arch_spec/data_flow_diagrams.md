@@ -122,11 +122,11 @@ sequenceDiagram
     WEB->>M10: POST /auth/challenge
     M10->>DB: 写 nonce（TTL 120s）
     M10-->>WEB: nonce
-    WEB->>CLI: 本地签名（agenticdocer auth sign）
+    WEB->>CLI: 本地签名（agenticspec auth sign）
     CLI-->>WEB: signature
     WEB->>M10: POST /auth/login {keyFingerprint, nonce, signature}
     M10->>DB: 验签 → 建 session（仅存 token SHA256）
-    M10-->>WEB: Set-Cookie: agenticdocer_session（httpOnly, TTL 8h）
+    M10-->>WEB: Set-Cookie: agenticspec_session（httpOnly, TTL 8h）
     WEB->>M10: 后续请求带 Cookie
     M10->>DB: resolve_session → user + role + grants
     M10->>API: 注入 WriteContext(actor=user_id, source=webui)
@@ -139,7 +139,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph SYS["AgenticDocer 运行期（无 LLM 依赖，P6）"]
+    subgraph SYS["AgenticSpec 运行期（无 LLM 依赖，P6）"]
         M10b["M10 鉴权"] -->|rid, dur, error_code| M12["M12 observability<br/>（logger.py 单一适配层）"]
         M06b["M06/M07 API"] -->|rid, dur, status| M12
         M02b["M02 存储"] -->|dur, 慢查询| M12
@@ -164,7 +164,7 @@ flowchart LR
 
 | 数据 | 位置 | 生命周期 |
 |---|---|---|
-| 权威内容（nodes/refs/events/comments/schemas/assets/terms/docs/**users/ssh_keys/grants/sessions/nonces**） | PG `agenticdocer`（nodes 按 doc_id HASH 64 分区；events 按 ts 月分区） | 永久（append-only 事件；events 分区 >24 月归档）；nonces TTL 300s、sessions TTL 8h |
+| 权威内容（nodes/refs/events/comments/schemas/assets/terms/docs/**users/ssh_keys/grants/sessions/nonces**） | PG `agenticspec`（nodes 按 doc_id HASH 64 分区；events 按 ts 月分区） | 永久（append-only 事件；events 分区 >24 月归档）；nonces TTL 300s、sessions TTL 8h |
 | 渲染产物 | `build/rendered/`（含 `sections/<anchor>.md`） | 可重建（派生） |
 | 导入快照（源 markdown） | `spec/standards/` | 只读（勿编辑；改版经 M03 重导入） |
 | LightRAG 索引 | 现：`/home/lxx/lightrag/rag_storage`（JSON）；迁移后：同 PG 实例 `LIGHTRAG_*` 表 | 派生（可重建） |

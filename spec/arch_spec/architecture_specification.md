@@ -155,18 +155,18 @@ section_meta: "@meta"
 > **指标测量机制（ADR-010，用户要求「要有性能评估和监控机制」）**：上表所有指标均**可测可验**，测量手段三层——
 > 1. **在线**：AgenticLogger 记 `dur`/`error_code`（按端点/模块聚合），`GET /api/v1/admin/metrics` 查询快照；
 > 2. **离线基准**：`tests/perf/bench_{point_query,render,auth,scale,import}.py`（可复现，验收证据）；
-> 3. **健康巡检**：`agenticdocer stats --health`（分区/索引/膨胀/连接池/归档逾期）。
+> 3. **健康巡检**：`agenticspec stats --health`（分区/索引/膨胀/连接池/归档逾期）。
 > 分层告警语义：单次 >0.8×指标 → `warn`；>指标 → `error`（`DTO_PERF_EXCEEDED`）；窗口 P95 >1.5×指标 → `critical`（附建议）。
 
 | 监控项 | 采集点 | 存储/查询 |
 |---|---|---|
-| API 耗时（端点 × P50/95/99） | M06/M07 中间件 | AgenticLogger JSONL → `agenticdocer logs stats` |
+| API 耗时（端点 × P50/95/99） | M06/M07 中间件 | AgenticLogger JSONL → `agenticspec logs stats` |
 | 错误率（端点 × error_code） | 同上 | 同上（`--group-by error_code`） |
 | 慢查询 Top-N | M02 查询包装器（> `SLOW_QUERY_MS`） | 同上 |
 | 鉴权失败率 | M10 `verify_signature` | JSONL + PG `events(entity='auth')` |
 | 渲染耗时（整档/章节） | M04 | JSONL |
 | 导入进度/覆盖率 | M03 | JSONL |
-| 容量健康（分区/膨胀/索引/归档） | M09B `perf_health` detector | `agenticdocer stats --health` |
+| 容量健康（分区/膨胀/索引/归档） | M09B `perf_health` detector | `agenticspec stats --health` |
 
 **审计与日志分离（P2 强化）**：AgenticLogger 记**运行日志**（可轮转可丢弃）；审计事件仍落 PG `events`（append-only 权威）。两者不可互替。
 
@@ -203,7 +203,7 @@ section_meta: "@meta"
 ## 2. 代码结构与模块映射
 
 ```
-src/agenticdocer/
+src/agenticspec/
 ├── model/          # M01（schemas.py, anchors.py, atoms.py, doc_types.py）—— 领域模型层，LLM 无关
 ├── store/          # M02（db.py, nodes.py, refs.py, events.py, comments.py, assets.py, docs.py）
 ├── importer/       # M03（parser/, rules/, cli.py, proposals.py, assets_sync.py）
@@ -229,7 +229,7 @@ alembic/            # DDL 迁移（AB4）
 ### 3.0 公共类型定义（A14）
 
 ```python
-# agenticdocer/model/types.py（片段）
+# agenticspec/model/types.py（片段）
 UUID7 = UUID                     # UUIDv7：应用侧生成（时间有序）
 
 class WriteContext(BaseModel):   # A3：一切写入的身份与来源
@@ -319,7 +319,7 @@ def missing_required_meta(doc_type: str, meta: dict | None) -> list[str]: ...  #
 def get_json_schema(atom_type: str) -> dict: ...                     # schemas 表缓存加载
 def register_schema(atom_type: str, schema: dict, version: int, ctx: WriteContext) -> None: ...  # A16 写入路径
 # 注（分层裁决 2026-09-16）：M01 不提供 validate()——校验入口统一为
-# `agenticdocer.m09.validate_proposal(atom_type, content)`（M03/M06/M11 直接调用）。
+# `agenticspec.m09.validate_proposal(atom_type, content)`（M03/M06/M11 直接调用）。
 # 理由：M01=L1、M09=L3，M01 委托 M09A 会反转 §1.3 依赖方向（L1→L3 被禁）。
 # 该行原「委托 M09A」表述为 spec 缺陷，已撤销。
 def derive_text(atom_type: str, content: dict) -> str: ...           # A10/R5：生成 content.text（必填）
@@ -394,7 +394,7 @@ async def commit(result: ParseResult, ctx: WriteContext) -> CommitResult: ...   
 # 资产同步（A6/A7：覆盖 md 引用与 HTML <img src>）
 def fetch_assets(refs: list[str], source_root: Path) -> AssetSyncReport: ...
 
-# CLI（A12 统一入口：console script `agenticdocer-import` 与 `python -m agenticdocer.importer` 等价）
+# CLI（A12 统一入口：console script `agenticspec-import` 与 `python -m agenticspec.importer` 等价）
 #   parse  <src.md> [--doc-slug S]           → proposals.json
 #   review <doc_slug>                        → 交互审核（更新 review_state.json）
 #   commit <doc_slug> [--actor importer]     → 校验 + 入库 + 统计
@@ -413,7 +413,7 @@ def normalize_markdown(source: str | Path) -> NormalForm: ...  # 源侧（markdo
 # 往返断言（REQ-M04-F01，两式并列）：(a) 解析保真 normalize(doc_id) == normalize_markdown(src)；
 # (b) 渲染保真 normalize_markdown(<产物文件>) == normalize_markdown(src)（HTML 直通/内联标记/frontmatter 回写
 #     的破坏只发生在渲染层，必须由 (b) 覆盖；images 以重写前哈希路径集合比较）
-# 渲染入口：`agenticdocer-render <doc_id>` 或 `python -m agenticdocer.render`（入参为 doc_id=spec_id）
+# 渲染入口：`agenticspec-render <doc_id>` 或 `python -m agenticspec.render`（入参为 doc_id=spec_id）
 def render_section(doc_id: str, section_node_id: UUID7) -> RenderResult:
     """按 level-1/2 子树渲染单章节（B10）：取 section_node_id 及其后代（ordinal 序、
     status='active'）→ Markdown；图片重写规则与 render_document 一致；
@@ -500,10 +500,10 @@ def resolve_table_mode(doc: Doc, node: Node, user: User) -> EditableTableMode: .
 payload = METHOD + "\n" + RAW_PATH + "\n" + SHA256(body).hexdigest() + "\n" + TIMESTAMP + "\n" + NONCE
 ```
   **规范化规则（双方不得另行规范化）**：`RAW_PATH` = 请求行中路径 + `?` + query 的**原样字节**（不百分号解码、不去点段、不增删尾部斜杠）；**query string 参与签名**——篡改 query 任一参数 → 401。
-- **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticdocer@auth`；RSA 用 `rsa-sha2-512`（**验签先试 PSS 再回落 v1.5**——实测 ssh-keygen 输出 v1.5；签名固定 PSS）。CLI 与 WebUI 登录页共用**同一验签器**。
+- **签名编码（S11 修复）**：统一 **SSHSIG**（`ssh-keygen -Y sign` 产物），namespace 固定 `agenticspec@auth`；RSA 用 `rsa-sha2-512`（**验签先试 PSS 再回落 v1.5**——实测 ssh-keygen 输出 v1.5；签名固定 PSS）。CLI 与 WebUI 登录页共用**同一验签器**。
 - **校验顺序（S3/S7 修复）**：① `X-Timestamp` 偏移 ∈ [−30s, +`SIGNATURE_MAX_SKEW_SECONDS`]（**未来偏移容忍 30s**）→ ② `X-SSH-Key-Id` 查 `ssh_keys`（active）→ ③ **验签** → ④ **验签通过后**才 INSERT nonce（未认证请求不写库）。失败：401（无/坏凭据）、403（公钥未注册或角色不足）。
 
-**WebUI 路径**：`Cookie: agenticdocer_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖客户端自述字段**（S14 修复：**已删除 `X-Actor` 头**，身份一律以验签结果为准）。
+**WebUI 路径**：`Cookie: agenticspec_session=<token>`（登录时经同一 SSH 挑战-响应换取，见 M10）。写入时 `WriteContext(actor=<验签所得 user_id>, source=<凭据类型>)`——**`source` 由凭据类型判定**（Cookie → `webui`；签名 → `agent`；M03 导入器 → `importer`；系统任务 → `system`），**不依赖客户端自述字段**（S14 修复：**已删除 `X-Actor` 头**，身份一律以验签结果为准）。
 
 ### M07 WebUI API
 
@@ -594,12 +594,12 @@ class Session(BaseModel): session_id: UUID7; user_id: UUID7; created_at: datetim
 def verify_signature(method: str, path: str, body: bytes, headers: SshSigHeaders) -> User:
     """Ed25519 验签。载荷 = f"{method}\n{path}\n{sha256(body).hex()}\n{ts}\n{nonce}"。
     步骤：(1) ts 偏移 ∈ [−30s, +SIGNATURE_MAX_SKEW_SECONDS]（S3：未来容忍收紧）；(2) 公钥查表（active）；
-    (3) SSHSIG 验签（namespace=agenticdocer@auth）；(4) **验签通过后**才 INSERT nonce（S7）。任一步失败 → AuthError(401/403)。"""
+    (3) SSHSIG 验签（namespace=agenticspec@auth）；(4) **验签通过后**才 INSERT nonce（S7）。任一步失败 → AuthError(401/403)。"""
 
 # 会话（WebUI 路径）
 async def create_challenge(ip: str) -> Challenge: ...   # nonce 一次性 TTL 120s；**按 IP 限流**（S7）
 async def login(key_fingerprint: str, nonce: str, signature: str) -> Session:
-    """SSHSIG 验签（namespace=agenticdocer@auth）；成功 → session。
+    """SSHSIG 验签（namespace=agenticspec@auth）；成功 → session。
     session.token = secrets.token_urlsafe(32)（**256 位 CSPRNG**，S13）；DB 仅存 SHA256(token)。"""
 async def resolve_session(token: str) -> User | None:
     """**JOIN users 且 status='active'**，否则删除会话并返回 None（401）——S8：
@@ -652,9 +652,9 @@ def bootstrap_admin(public_key_path: Path) -> User:
 ### M11 CLI 工具族与 Skill（新增；批注 B3/B11）
 
 ```python
-# agenticdocer/cli.py（Typer/argparse 装配；每命令自动签名，auth bootstrap 除外）
+# agenticspec/cli.py（Typer/argparse 装配；每命令自动签名，auth bootstrap 除外）
 class SigningClient:
-    """从 ~/.ssh/ 或 AGENTICDOCER_SSH_KEY 读私钥，按 §3 M06 载荷规范生成 SSHSIG 头。"""
+    """从 ~/.ssh/ 或 AGENTICSPEC_SSH_KEY 读私钥，按 §3 M06 载荷规范生成 SSHSIG 头。"""
     def request(self, method: str, path: str, body: bytes | None = None) -> Response: ...
 
 # 命令 → 服务：CLI 不直连 DB（除 auth bootstrap），一律经 M06/M07 HTTP 端点，
@@ -668,7 +668,7 @@ def cmd_logs(subcommand: str, **opts) -> None: ...   # 薄封装 agentic-logger 
 
 **依赖关系**：M11 → M06/M07（HTTP 契约）+ M10（签名）。**分层归属（V7）**：L4 接口层（与 M06/M07 同层，属对外交付面）。
 
-**Skill 定义**（`skills/`，6 项）：`docer-import`/`docer-read`/`docer-write`/`docer-render`/`docer-diff`/`docer-annotations`——每项含 `name`/`description`/前置角色/底层命令四字段（可 JSON Schema 校验，V17 判据），供**外部** coding agent 消费（非运行期依赖，P6）。
+**Skill 定义**（`skills/`，6 项）：`spec-import`/`spec-read`/`spec-write`/`spec-render`/`spec-diff`/`spec-annotations`——每项含 `name`/`description`/前置角色/底层命令四字段（可 JSON Schema 校验，V17 判据），供**外部** coding agent 消费（非运行期依赖，P6）。
 **速率限制（S7 修复）**：`/auth/challenge` 与 `/auth/login` 按 IP 限流（默认 10 次/分钟，`AUTH_RATE_LIMIT_PER_MIN` 可配）；**验签失败的请求不写 nonces 表**（nonce 仅在验签通过后消费）；`auth` 失败事件按 `(ip, 5min)` 聚合计数（避免审计淹没）。
 
 ### M-LR LightRAG 边界（暂缓联调，C7）
@@ -694,18 +694,18 @@ async def change_stream(since: str | None) -> AsyncIterator[Event]: ...   # even
 ### M12 可观测性（横切；ADR-010）
 
 ```python
-# agenticdocer/observability/logger.py
+# agenticspec/observability/logger.py
 from agentic_logger import AgentLogger, ErrorCode
 
 def get_logger(module: str, **ctx) -> AgentLogger:
-    """模块级 logger（program="agenticdocer"，command=<模块/子命令>）。
+    """模块级 logger（program="agenticspec"，command=<模块/子命令>）。
     自动注入 rid（ContextVar）与 module（M##.子域）；ctx 作为额外字段写入每行。"""
 
-# agenticdocer/observability/rid.py
+# agenticspec/observability/rid.py
 def new_rid() -> str: ...                    # uuid7 短形态（8 hex）；请求/CLI 调用入口生成
 def current_rid() -> str | None: ...         # ContextVar 读取（跨 async 任务传播）
 
-# agenticdocer/observability/metrics.py
+# agenticspec/observability/metrics.py
 class EndpointMetric(BaseModel): route: str; count: int; p50: int; p95: int; p99: int; error_rate: float
 class SlowQuery(BaseModel): sql_hash: str; count: int; max_dur: int; table: str
 class RenderMetric(BaseModel): section_p95: int; document_p95: int; count: int
@@ -715,7 +715,7 @@ class MetricsSnapshot(BaseModel):
 def snapshot(since: datetime, window: int = 3600) -> MetricsSnapshot:
     """从 AgenticLogger 查询层聚合（不引入时序库）。"""
 
-# agenticdocer/observability/health.py
+# agenticspec/observability/health.py
 class TableHealth(BaseModel): name: str; rows: int; size_bytes: int; dead_tup: int; last_autovacuum: datetime | None
 class IndexHealth(BaseModel): name: str; scans: int; size_bytes: int      # scans=0 → 建议清理
 class PartitionHealth(BaseModel): events_next_missing: bool; oldest_event_ts: datetime | None
@@ -723,10 +723,10 @@ class PoolHealth(BaseModel): size: int; checkedout: int; overflow: int
 class HealthReport(BaseModel):
     tables: list[TableHealth]; indexes: list[IndexHealth]; partitions: PartitionHealth
     pool: PoolHealth; verdict: Literal["ok","degraded","fail"]; advice: list[str]
-def health() -> HealthReport: ...            # `agenticdocer stats --health` 与 M09B perf_health detector 共用
+def health() -> HealthReport: ...            # `agenticspec stats --health` 与 M09B perf_health detector 共用
 ```
 
-**错误码扩展**（`agenticdocer/observability/error_codes.py`）：
+**错误码扩展**（`agenticspec/observability/error_codes.py`）：
 
 | 码 | 场景 |
 |---|---|
@@ -745,7 +745,7 @@ def health() -> HealthReport: ...            # `agenticdocer stats --health` 与
 | `GET /api/v1/admin/metrics?since=&window=` | 指标快照（`MetricsSnapshot`） |
 | `GET /api/v1/admin/health` | 健康巡检（`HealthReport`） |
 
-## 4. 数据库 DDL（PostgreSQL 16，database `agenticdocer`；v1.3）
+## 4. 数据库 DDL（PostgreSQL 16，database `agenticspec`；v1.3）
 
 ```sql
 CREATE TABLE docs (
@@ -915,27 +915,27 @@ CREATE TABLE events (...) PARTITION BY RANGE (ts);   -- 每月一个分区，pg_
 **⚠️ 分区化修正（实现裁决 2026-09-16，M02 实测发现）**：下方字面写法在**分区化后不成立**——分区各自持有独立 ACL，且 `ALTER DEFAULT PRIVILEGES` 会把 U/D 授给**未来**的 events 月分区，append-only 随时间失效。**权威实现**：
 
 ```sql
--- 属主：agenticdocer（database owner，建库时创建）
-CREATE ROLE agenticdocer LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
-CREATE ROLE agenticdocer_app LOGIN PASSWORD '…';         -- 应用连接角色（最小权限）
-GRANT CONNECT ON DATABASE agenticdocer TO agenticdocer_app;
-GRANT USAGE ON SCHEMA public TO agenticdocer_app;
+-- 属主：agenticspec（database owner，建库时创建）
+CREATE ROLE agenticspec LOGIN PASSWORD '…';             -- 属主角色（alembic 迁移使用）
+CREATE ROLE agenticspec_app LOGIN PASSWORD '…';         -- 应用连接角色（最小权限）
+GRANT CONNECT ON DATABASE agenticspec TO agenticspec_app;
+GRANT USAGE ON SCHEMA public TO agenticspec_app;
 
 -- (1) 可变表：S/I/U/D 全授（docs/nodes/refs/comments/schemas/assets/terms/users/ssh_keys/grants/sessions/nonces）
-GRANT SELECT, INSERT, UPDATE, DELETE ON <每个 MUTABLE_TABLE> TO agenticdocer_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON <每个 MUTABLE_TABLE> TO agenticspec_app;
 
 -- (2) events（含**全部分区**与 default 分区）：仅 S/I，显式 REVOKE U/D/TRUNCATE
-GRANT SELECT, INSERT ON events TO agenticdocer_app;
-REVOKE UPDATE, DELETE, TRUNCATE ON events FROM agenticdocer_app;
+GRANT SELECT, INSERT ON events TO agenticspec_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON events FROM agenticspec_app;
 -- 对 events 的每个分区子表（events_202609…events_default）逐一执行同样的 S/I + REVOKE
 -- 原因：分区持有独立 ACL，仅授父表不覆盖子表
 
 -- (3) 默认权限：**只授 S/I**（未来新建的 events 月分区自动保持 append-only）
-ALTER DEFAULT PRIVILEGES FOR ROLE agenticdocer IN SCHEMA public
-  GRANT SELECT, INSERT ON TABLES TO agenticdocer_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE agenticspec IN SCHEMA public
+  GRANT SELECT, INSERT ON TABLES TO agenticspec_app;
 -- 未来若新增可变表，需在新 revision 中显式补授 U/D
 
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticspec_app;
 ```
 
 **校验方式**：集成测试断言 app 角色对 events 执行 UPDATE/DELETE 报错（M02 已实现，见 `tests/integration/test_store_crud.py`）。
@@ -946,7 +946,7 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 
 **双层防护**：DB 角色防「应用被攻破后越权访问他库」；应用 RBAC 防「合法连接内越权操作」。二者不可互相替代。
 
-**残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticdocer_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 身份四表启用 PG RLS；② 用户管理 API 走独立最小权限连接角色。**触发升级条件**：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
+**残余风险声明（S16）**：应用进程一旦被攻破（SQL 注入/RCE），攻击者经同一 `agenticspec_app` 连接可**全量读写身份四表**（`users`/`ssh_keys`/`grants`/`sessions`）并伪造身份——DB 层**无 RLS**，对此无约束。**这是已接受的残余风险**（单机自包含、无多租户需求）。收紧手段（择一，暂不实施）：① 身份四表启用 PG RLS；② 用户管理 API 走独立最小权限连接角色。**触发升级条件**：系统对外暴露或承载真实多用户生产数据时，须先实施 ① 或 ②。
 
 ## 5. 部署与运行（AB1/AB2/B15）
 
@@ -957,25 +957,25 @@ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO agenticdocer_app;
 
 
 ```
-systemd --user: agenticdocer-api.service
-  ExecStart: uv run agenticdocer-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
-  Environment: DATABASE_URL=postgresql+asyncpg://agenticdocer_app@127.0.0.1:5432/agenticdocer
-               ASSET_STORE_DIR=/home/lxx/wrk/AgenticDocer/data/assets
-               IMPORT_WORK_DIR=/home/lxx/wrk/AgenticDocer/data/import_work
-               RENDER_OUT_DIR=/home/lxx/wrk/AgenticDocer/build/rendered
-               TERMS_SEED=/home/lxx/wrk/AgenticDocer/data/terms_seed.yaml（规范性关键词种子，随 migrate 载入）
-               ADMIN_SSH_PUBKEY_FILE=/home/lxx/wrk/AgenticDocer/data/admin_keys/admin.pub（B2/M10 管理员自举）
+systemd --user: agenticspec-api.service
+  ExecStart: uv run agenticspec-api --host 127.0.0.1 --port 8787   # 默认 loopback（安全默认）
+  Environment: DATABASE_URL=postgresql+asyncpg://agenticspec_app@127.0.0.1:5432/agenticspec
+               ASSET_STORE_DIR=/home/lxx/wrk/AgenticSpec/data/assets
+               IMPORT_WORK_DIR=/home/lxx/wrk/AgenticSpec/data/import_work
+               RENDER_OUT_DIR=/home/lxx/wrk/AgenticSpec/build/rendered
+               TERMS_SEED=/home/lxx/wrk/AgenticSpec/data/terms_seed.yaml（规范性关键词种子，随 migrate 载入）
+               ADMIN_SSH_PUBKEY_FILE=/home/lxx/wrk/AgenticSpec/data/admin_keys/admin.pub（B2/M10 管理员自举）
                SESSION_TTL_HOURS=8（WebUI 会话时长，滑动续期）
                SIGNATURE_MAX_SKEW_SECONDS=300（签名时间窗，B2）
   监听: --host 0.0.0.0（**鉴权后**方可对外；无 users 表则 fail-closed，见 ADR-007）
   静态托管: FastAPI mount / -> webui/dist（AB2；登录页走 SSH 挑战-响应）
 开发期: Vite devserver (5173) -> proxy /api -> 127.0.0.1:8787
-测试库: agenticdocer_test（AB3，可重建；同角色授权）
+测试库: agenticspec_test（AB3，可重建；同角色授权）
 规模调优（ADR-009）: shared_buffers=8GB、work_mem=64MB、max_connections=200
                      应用池 pool_size=20/max_overflow=10；autovacuum scale_factor=0.05（nodes/events）
                      分区维护：nodes HASH(64)、events RANGE(月)；新分区由定时任务或 pg_partman 创建
 可观测性（ADR-010）:
-  AgenticLogger: program="agenticdocer"，输出 logs/<module>_<command>_<ts>.jsonl
+  AgenticLogger: program="agenticspec"，输出 logs/<module>_<command>_<ts>.jsonl
   日志轮转: 按天/按大小（LOG_RETENTION_DAYS=30、LOG_MAX_MB=500）→ 超出归档至 logs/archive/
   SLOW_QUERY_MS=200（M02 查询包装器 warn 阈值，与 §1.4 点查指标对齐）
   指标端点: GET /api/v1/admin/metrics、GET /api/v1/admin/health（admin 专属）
@@ -989,7 +989,7 @@ systemd --user: agenticdocer-api.service
 |---|---|
 | 身份与鉴权（B2/B3） | **全端点鉴权**（含读）：agent 走 SSH 签名（Ed25519，每请求），WebUI 走会话 Cookie（SSH 挑战-响应换取）。验签身份写入 `WriteContext(actor=<user_id>, source="agent"\|"webui")`；`X-Actor` 必须与验签身份一致（不一致 → 403）。RBAC 四角色 + 文档集级 grant（§3 M10、ADR-007） |
 | 序列化（A11） | pydantic `alias_generator=to_camel`；HTTP JSON 一律 camelCase；DB 与 Python 内部 snake_case |
-| 日志（ADR-010） | **AgenticLogger SDK**（AGENTS.md 强制）：`AgentLogger(program="agenticdocer", command=<模块>)`；字段 `module`(M##.子域)/`rid`(请求追踪)/`dur`(ms)/`error_code`(DTO_*)/`doc_id`；HTTPS 端点与 CLI 均经 `observability/logger.py` 单一适配层。**禁止**业务代码直用 `print`/`logging`。**日志 ≠ 审计**：运行日志可轮转丢弃，审计事件落 `events` 表（append-only） |
+| 日志（ADR-010） | **AgenticLogger SDK**（AGENTS.md 强制）：`AgentLogger(program="agenticspec", command=<模块>)`；字段 `module`(M##.子域)/`rid`(请求追踪)/`dur`(ms)/`error_code`(DTO_*)/`doc_id`；HTTPS 端点与 CLI 均经 `observability/logger.py` 单一适配层。**禁止**业务代码直用 `print`/`logging`。**日志 ≠ 审计**：运行日志可轮转丢弃，审计事件落 `events` 表（append-only） |
 | 可观测性边界（P6） | 系统运行**不依赖 LLM**：AgenticLogger 为确定性本地库（无网络/无推理）；日志的 agent 可读性是**可选优势**，非运行期依赖 |
 | 错误 | ConflictError→409、ValidationError→422、NotFound→404；Violation 结构统一 |
 | ID | 应用侧 UUIDv7（时间有序）；`doc_id` 采用 `SPEC-*` 映射（A22，映射表见 §6） |
@@ -1091,7 +1091,7 @@ systemd --user: agenticdocer-api.service
  │ （无状态）     │                  │ （挑战-响应登录）│
  └──────────────┘                  └────────────────┘
         │                                  │
- X-SSH-Signature                      Cookie: agenticdocer_session
+ X-SSH-Signature                      Cookie: agenticspec_session
  X-SSH-Key-Id/X-Timestamp/X-Nonce      → M10 resolve_session()
         │                                  │
         └───────────────┬──────────────────┘
@@ -1114,25 +1114,25 @@ systemd --user: agenticdocer-api.service
 
 ### 9.2 CLI 工具族（B3/B11）
 
-统一入口 `agenticdocer`（`cli.py` 装配）：
+统一入口 `agenticspec`（`cli.py` 装配）：
 
 | 命令 | 语义 | 最低角色 |
 |---|---|---|
-| `agenticdocer auth bootstrap` | 用 `ADMIN_SSH_PUBKEY_FILE` 创建首个 admin（幂等） | 本地 DB |
-| `agenticdocer auth whoami` | 打印当前身份/角色/公钥指纹 | 无 |
-| `agenticdocer user add/list/disable/role` | 用户管理 | **admin** |
-| `agenticdocer user key add/revoke` | SSH 公钥登记/吊销 | **admin** |
-| `agenticdocer grant add/list/rm` | 文档集级授权 | **admin** |
-| `agenticdocer import <path>` | 导入（解析 → 提议 → 事务写入） | editor |
-| `agenticdocer import review <slug>` | 交互式审核提议（M03 CLI 审核器） | editor |
-| `agenticdocer doc list/get/delete` | 文档读取 / 软删 | reader / editor |
-| `agenticdocer node get/put/delete` | 节点读写（乐观锁） | reader / editor |
-| `agenticdocer comment list/add/resolve` | 批注读写（**调取人类标注**，B11） | reader / reviewer |
-| `agenticdocer doc diff <doc_id> [--from --to]` | 文档版本 diff（events 重放） | reader |
-| `agenticdocer render <doc_id> [--section]` | 渲染（整档 / 章节） | reader |
-| `agenticdocer stats` | 导入统计 / 覆盖率 | reader |
+| `agenticspec auth bootstrap` | 用 `ADMIN_SSH_PUBKEY_FILE` 创建首个 admin（幂等） | 本地 DB |
+| `agenticspec auth whoami` | 打印当前身份/角色/公钥指纹 | 无 |
+| `agenticspec user add/list/disable/role` | 用户管理 | **admin** |
+| `agenticspec user key add/revoke` | SSH 公钥登记/吊销 | **admin** |
+| `agenticspec grant add/list/rm` | 文档集级授权 | **admin** |
+| `agenticspec import <path>` | 导入（解析 → 提议 → 事务写入） | editor |
+| `agenticspec import review <slug>` | 交互式审核提议（M03 CLI 审核器） | editor |
+| `agenticspec doc list/get/delete` | 文档读取 / 软删 | reader / editor |
+| `agenticspec node get/put/delete` | 节点读写（乐观锁） | reader / editor |
+| `agenticspec comment list/add/resolve` | 批注读写（**调取人类标注**，B11） | reader / reviewer |
+| `agenticspec doc diff <doc_id> [--from --to]` | 文档版本 diff（events 重放） | reader |
+| `agenticspec render <doc_id> [--section]` | 渲染（整档 / 章节） | reader |
+| `agenticspec stats` | 导入统计 / 覆盖率 | reader |
 
-**自动签名**：CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读私钥，按 §3 M06 协议生成签名头。`auth bootstrap` 为唯一不签名的命令（它建立鉴权本身）。
+**自动签名**：CLI 从 `~/.ssh/` 或 `AGENTICSPEC_SSH_KEY` 读私钥，按 §3 M06 协议生成签名头。`auth bootstrap` 为唯一不签名的命令（它建立鉴权本身）。
 
 ### 9.3 Skill 清单（B3/B11）
 
@@ -1140,21 +1140,21 @@ coding agent 用 skill 定义，落 `skills/`：
 
 | Skill | 用途 | 底层命令 |
 |---|---|---|
-| `docer-import` | 导入 markdown → 结构化库（含提议审核） | `agenticdocer import` |
-| `docer-read` | 按 doc_id/anchor/node_id 读取节点与文档树 | `agenticdocer node/doc get` |
-| `docer-write` | 结构化写入/更新/软删（含乐观锁重试） | `agenticdocer node put/delete` |
-| `docer-render` | 渲染整档或章节为 Markdown | `agenticdocer render` |
-| `docer-diff` | 查看文档版本 diff（了解他方改动） | `agenticdocer doc diff` |
-| **`docer-annotations`** | **调取人类用户的标注/批注**（B11 明确要求） | `agenticdocer comment list` |
+| `spec-import` | 导入 markdown → 结构化库（含提议审核） | `agenticspec import` |
+| `spec-read` | 按 doc_id/anchor/node_id 读取节点与文档树 | `agenticspec node/doc get` |
+| `spec-write` | 结构化写入/更新/软删（含乐观锁重试） | `agenticspec node put/delete` |
+| `spec-render` | 渲染整档或章节为 Markdown | `agenticspec render` |
+| `spec-diff` | 查看文档版本 diff（了解他方改动） | `agenticspec doc diff` |
+| **`spec-annotations`** | **调取人类用户的标注/批注**（B11 明确要求） | `agenticspec comment list` |
 
 **skill 与 CLI 的关系**：skill 是 CLI 的**语义封装**（声明「何时用哪个命令、如何解读输出、失败如何重试、需要何种角色」），不重复实现逻辑。
 
 **典型 agent 工作流**（skill 编排）：
 ```
-docer-import（首次导入）
-  → docer-annotations（读取人类标注，定位待修正点）
-  → docer-write（按标注修订节点）
-  → docer-render + docer-diff（自检产物与变更）
+spec-import（首次导入）
+  → spec-annotations（读取人类标注，定位待修正点）
+  → spec-write（按标注修订节点）
+  → spec-render + spec-diff（自检产物与变更）
 ```
 
 **鉴权传递**：skill 调用 CLI 时自动附带签名；agent 无需感知密码学细节，只需保证运行环境有可用 SSH 私钥且公钥已在 `users` 表登记。

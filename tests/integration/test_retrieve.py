@@ -22,10 +22,10 @@ import re
 import pytest
 from sqlalchemy import text
 
-from agenticdocer.importer import commit_document, parse_markdown
-from agenticdocer.model import Node, WriteContext, new_uuid7
-from agenticdocer.retrieve import search_text, traverse
-from agenticdocer.store import NotFoundError, Storage, ValidationError
+from agenticspec.importer import commit_document, parse_markdown
+from agenticspec.model import Node, WriteContext, new_uuid7
+from agenticspec.retrieve import search_text, traverse
+from agenticspec.store import NotFoundError, Storage, ValidationError
 
 pytestmark = pytest.mark.integration
 

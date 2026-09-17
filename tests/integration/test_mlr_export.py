@@ -29,15 +29,15 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from agenticdocer.mlr import change_stream, cursor_token, export_package
-from agenticdocer.mlr.export import (
+from agenticspec.mlr import change_stream, cursor_token, export_package
+from agenticspec.mlr.export import (
     EXPORT_GRAPH_FILE,
     EXPORT_MANIFEST_FILE,
     EXPORT_NODES_FILE,
 )
-from agenticdocer.model import DocIn, NodeIn, WriteContext
-from agenticdocer.render import body_text
-from agenticdocer.store import NotFoundError, Storage
+from agenticspec.model import DocIn, NodeIn, WriteContext
+from agenticspec.render import body_text
+from agenticspec.store import NotFoundError, Storage
 
 pytestmark = pytest.mark.integration
 

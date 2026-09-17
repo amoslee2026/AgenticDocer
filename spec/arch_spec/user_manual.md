@@ -26,41 +26,41 @@ uv sync                                  # 安装依赖（含 agentic-logger）
 # 1) 管理员自举（首次必做，否则系统 fail-closed：所有请求 401）
 cp ~/.ssh/id_ed25519.pub data/admin_keys/admin.pub   # 你的公钥
 uv run alembic upgrade head              # 建库 + 载入 seed（terms）
-uv run agenticdocer auth bootstrap       # 创建首个 admin（幂等）
+uv run agenticspec auth bootstrap       # 创建首个 admin（幂等）
 
 # 2) 启动服务
-uv run agenticdocer-api --host 0.0.0.0 --port 8787   # 鉴权后方可对外监听
+uv run agenticspec-api --host 0.0.0.0 --port 8787   # 鉴权后方可对外监听
 ```
 
 **注意**：无 `users` 表记录时系统拒绝所有请求（fail-closed 设计）——这是有意为之，避免「忘记配鉴权即裸奔」。
 
 ## 1. 快速开始（Agent 操作者）
 
-**前置**：你的 SSH 公钥已在 `users` 表登记（由 admin 执行 `agenticdocer user key add`）。CLI 自动读取 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 私钥签名，无需手工处理鉴权。
+**前置**：你的 SSH 公钥已在 `users` 表登记（由 admin 执行 `agenticspec user key add`）。CLI 自动读取 `~/.ssh/` 或 `AGENTICSPEC_SSH_KEY` 私钥签名，无需手工处理鉴权。
 
 ```bash
 # 身份自检
-uv run agenticdocer auth whoami          # 显示 user_id / role / 公钥指纹
+uv run agenticspec auth whoami          # 显示 user_id / role / 公钥指纹
 
 # 导入一份规范文档（三步骤：解析 → 审核 → 入库）
-uv run agenticdocer import parse spec/standards/amba/IHI0024_AMBA_APB_spec.md
-uv run agenticdocer import review IHI0024_AMBA_APB_spec       # 逐条审核
-uv run agenticdocer import commit IHI0024_AMBA_APB_spec       # 校验+事务入库
+uv run agenticspec import parse spec/standards/amba/IHI0024_AMBA_APB_spec.md
+uv run agenticspec import review IHI0024_AMBA_APB_spec       # 逐条审核
+uv run agenticspec import commit IHI0024_AMBA_APB_spec       # 校验+事务入库
 
 # 读写（需 editor 角色）
-uv run agenticdocer node get SPEC-STD-AMBA-APB#3.2.1
-uv run agenticdocer node put --file patch.json               # 含 expectedVersion（乐观锁）
+uv run agenticspec node get SPEC-STD-AMBA-APB#3.2.1
+uv run agenticspec node put --file patch.json               # 含 expectedVersion（乐观锁）
 
 # 版本与渲染
-uv run agenticdocer doc diff SPEC-STD-AMBA-APB --from 2026-09-01
-uv run agenticdocer render SPEC-STD-AMBA-APB                  # 整档（build/rendered/）
-uv run agenticdocer render SPEC-STD-AMBA-APB --section 3.2    # 单章节（<1s）
+uv run agenticspec doc diff SPEC-STD-AMBA-APB --from 2026-09-01
+uv run agenticspec render SPEC-STD-AMBA-APB                  # 整档（build/rendered/）
+uv run agenticspec render SPEC-STD-AMBA-APB --section 3.2    # 单章节（<1s）
 
 # 调取人类批注（agent 专用 skill 的底层命令）
-uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
+uv run agenticspec comment list --doc SPEC-STD-AMBA-APB --state open
 ```
 
-**Skill 用法**（coding agent 侧，`skills/` 目录）：`docer-import` / `docer-read` / `docer-write` / `docer-render` / `docer-diff` / **`docer-annotations`**（调取人类标注）。
+**Skill 用法**（coding agent 侧，`skills/` 目录）：`spec-import` / `spec-read` / `spec-write` / `spec-render` / `spec-diff` / **`spec-annotations`**（调取人类标注）。
 
 ## 2. 导入与审核（半自动流程）
 
@@ -74,7 +74,7 @@ uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 
 ## 3. 结构化读写（M06 API）
 
-- **鉴权**：所有端点（含读）需 SSH 签名。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nTimestamp\nNonce`。CLI 自动完成（§1）；手写脚本可用 `agenticdocer auth sign` 辅助。
+- **鉴权**：所有端点（含读）需 SSH 签名。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`；签名载荷 = `METHOD\nPATH\nSHA256(body)\nTimestamp\nNonce`。CLI 自动完成（§1）；手写脚本可用 `agenticspec auth sign` 辅助。
 - 读：按 `node_id` / `doc_id` / `anchor`（如 `SPEC-STD-AMBA-APB#3.2.1·transfer`；重复标题带 `~正文摘要` 后缀）取节点。
 - 写：提交 JSON Schema 约束的节点变更 + 当前 `version`（乐观锁）。校验失败 → 违规清单+修复建议；冲突（409）→ 重读后重试。
 - 每次成功写入自动：写事件（字段级 diff）→ 更新实体 → 触发该文档重渲染。
@@ -85,8 +85,8 @@ uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 
 | 需求 | 途径 |
 |---|---|
-| 按 ID/锚直取节点 | `agenticdocer node get`（M06） |
-| 浏览文档树/章节树 | `agenticdocer doc get`、`GET /docs/{id}/sections` |
+| 按 ID/锚直取节点 | `agenticspec node get`（M06） |
+| 浏览文档树/章节树 | `agenticspec doc get`、`GET /docs/{id}/sections` |
 | 关键词/语义检索 | **LightRAG**（本系统经 M-LR 提供导出包：渲染文本 + node_id + 增量事件流） |
 
 > **注**：M05 的图遍历与 FTS 为**内部实现**（供 M-LR 导出与质量门），不暴露端点（ADR-008）。
@@ -104,7 +104,7 @@ uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 ### 5.1 登录（SSH 挑战-响应，非密码）
 
 1. 打开 WebUI → 登录页显示一次性 nonce（TTL 120s）。
-2. 本地签名：`uv run agenticdocer auth sign --login --nonce <nonce>`（读取你的 SSH 私钥），将结果粘回页面。
+2. 本地签名：`uv run agenticspec auth sign --login --nonce <nonce>`（读取你的 SSH 私钥），将结果粘回页面。
 3. 验签通过 → 签发会话 Cookie（httpOnly，8 小时滑动续期）。
 
 > 浏览器不读取私钥（安全禁区）；登录依赖本地 CLI 辅助签名。
@@ -126,23 +126,23 @@ uv run agenticdocer comment list --doc SPEC-STD-AMBA-APB --state open
 
 ```bash
 # 错误分布 / 模块健康度
-uv run agenticdocer logs stats --group-by error_code
-uv run agenticdocer logs stats --group-by module
+uv run agenticspec logs stats --group-by error_code
+uv run agenticspec logs stats --group-by module
 
 # 单请求全链路追踪（鉴权→API→存储→渲染）
-uv run agenticdocer logs trace --rid <rid>
+uv run agenticspec logs trace --rid <rid>
 
 # 实时跟踪 / 条件查询
-uv run agenticdocer logs tail --module m02.nodes
-uv run agenticdocer logs query --level ERROR --since 1h
+uv run agenticspec logs tail --module m02.nodes
+uv run agenticspec logs query --level ERROR --since 1h
 
 # 容量健康巡检（分区/索引膨胀/连接池/归档逾期）
-uv run agenticdocer stats --health
+uv run agenticspec stats --health
 
 # 质量门巡检（M09B 数据一致性 detector；按 detector 分组输出违规 + 修复建议 fixHint）
-uv run agenticdocer quality-gate --json
-uv run agenticdocer quality-gate --detectors broken_refs,terms --doc-id SPEC-STD-AMBA-APB
-uv run agenticdocer quality-gate --detectors perf_health          # 需 admin（DB 内部指标）
+uv run agenticspec quality-gate --json
+uv run agenticspec quality-gate --detectors broken_refs,terms --doc-id SPEC-STD-AMBA-APB
+uv run agenticspec quality-gate --detectors perf_health          # 需 admin（DB 内部指标）
 
 # 离线性能基准（验收证据）
 uv run pytest tests/perf/ -m perf --benchmark-json=build/perf.json
@@ -157,7 +157,7 @@ uv run pytest tests/perf/ -m perf --benchmark-json=build/perf.json
 
 | 问题 | 处置 |
 |---|---|
-| 所有请求返回 401 | 系统 fail-closed：未自举或未登记公钥。执行 `agenticdocer auth bootstrap` 或请 admin 登记（`user key add`） |
+| 所有请求返回 401 | 系统 fail-closed：未自举或未登记公钥。执行 `agenticspec auth bootstrap` 或请 admin 登记（`user key add`） |
 | 403 但密钥有效 | 角色权限不足：请 admin 授予对应角色或文档集级 grant（`grant add`） |
 | 签名被拒（401） | 检查时钟偏移（>300s 拒绝）、nonce 是否被复用、请求体是否被中间层改写 |
 | WebUI 登录页打不开 | 确认服务已启动且静态资源挂载正常；登录页本身豁免鉴权 |
@@ -167,31 +167,31 @@ uv run pytest tests/perf/ -m perf --benchmark-json=build/perf.json
 | 渲染产物在哪 | `build/rendered/`（可重建，不入库）；`spec/` 内 markdown 是导入快照，勿直接编辑 |
 | 为何系统内搜不到 | 检索归 LightRAG（ADR-008）；本系统只提供导出包与按 ID 点查 |
 | 为何不能向 lightRAG 导入 | 用户指令暂缓（C7）；系统就绪后按 M-LR 导出包接口联调 |
-| 性能不达标 | `agenticdocer stats --health` 看巡检建议；`tests/perf/` 复现基准 |
+| 性能不达标 | `agenticspec stats --health` 看巡检建议；`tests/perf/` 复现基准 |
 
 ## 8. 用户与权限管理（管理员）
 
 ```bash
 # 用户
-uv run agenticdocer user add --username alice --role editor
-uv run agenticdocer user list
-uv run agenticdocer user role --username alice --role reviewer
-uv run agenticdocer user disable --username alice
+uv run agenticspec user add --username alice --role editor
+uv run agenticspec user list
+uv run agenticspec user role --username alice --role reviewer
+uv run agenticspec user disable --username alice
 
 # SSH 公钥（用户可登记多把，换机无需重建账号）
-uv run agenticdocer user key add --username alice --key ~/alice.pub
-uv run agenticdocer user key revoke --username alice --fingerprint SHA256:...
+uv run agenticspec user key add --username alice --key ~/alice.pub
+uv run agenticspec user key revoke --username alice --fingerprint SHA256:...
 
 # 文档集级授权（叠加在角色基线之上，不可超越角色上限）
-uv run agenticdocer grant add --username alice --scope doc_type --value product --permission write
-uv run agenticdocer grant list --username alice
+uv run agenticspec grant add --username alice --scope doc_type --value product --permission write
+uv run agenticspec grant list --username alice
 ```
 
 **四角色权限**（详见架构 §3 M10 权限矩阵）：admin（全部 + 用户管理）/ editor（文档 CRUD、批注、表格编辑）/ reviewer（批注、状态审批、只读正文）/ reader（只读）。
 
 ## 9. 数据与恢复
 
-- 权威源 = PostgreSQL（database `agenticdocer`）；一切变更可凭 `events` 重放。
-- 备份：`pg_dump agenticdocer`（纳入 sys-backup 惯例）+ git（代码与 spec/ 文档）。
+- 权威源 = PostgreSQL（database `agenticspec`）；一切变更可凭 `events` 重放。
+- 备份：`pg_dump agenticspec`（纳入 sys-backup 惯例）+ git（代码与 spec/ 文档）。
 - 迁移：Alembic 管理 DDL 版本（`uv run alembic upgrade head`）。
 - **审计不可丢**：`events` 表 append-only；运行日志（`logs/`）可轮转丢弃，二者职责分离。

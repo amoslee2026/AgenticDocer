@@ -1,15 +1,15 @@
 [Unit]
-Description=AgenticDocer API（结构化文档知识库）
-Documentation=https://github.com/amoslee2026/AgenticDocer
+Description=AgenticSpec API（结构化文档知识库）
+Documentation=https://github.com/amoslee2026/AgenticSpec
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/lxx/wrk/AgenticDocer
+WorkingDirectory=/home/lxx/wrk/AgenticSpec
 
 # 环境变量从仓库 .env 加载（含 DATABASE_URL 等；非 systemd 环境变量）
-EnvironmentFile=/home/lxx/wrk/AgenticDocer/.env
+EnvironmentFile=/home/lxx/wrk/AgenticSpec/.env
 
 # 本机 all_proxy=socks5 会破坏 PG/HTTP 连接（TLS handshake 失败），必须清除
 Environment=all_proxy=
@@ -23,7 +23,7 @@ Environment=no_proxy=localhost,127.0.0.1,::1
 # 前提（二者缺一不可，ADR-007 S6）：
 #   ① 已自举 admin（无 users 行则 fail-closed，全部 401）
 #   ② 经 TLS 反向代理终止（否则会话 Cookie 可被嗅探）
-ExecStart=/home/lxx/wrk/AgenticDocer/.venv/bin/python -m uvicorn agenticdocer.app:create_app \
+ExecStart=/home/lxx/wrk/AgenticSpec/.venv/bin/python -m uvicorn agenticspec.app:create_app \
     --factory --host 127.0.0.1 --port 8787 --log-level info
 
 Restart=on-failure

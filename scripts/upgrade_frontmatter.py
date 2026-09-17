@@ -11,11 +11,11 @@
 - **非 markdown 语料**（`.n` nroff / `.rst` / `.hjson` / `.adoc` / …）：跳过并提示需前置转换——
   方案 C 的 47 份真实语料里只有 `safety/*.md` 与 `lang/opensta-commands.md` 是 markdown；
   其余**不得当 markdown 处理**，须先转换为 markdown 再跑本脚本。
-  UCIS `.xml` 走 `agenticdocer.importer.vplan`（UCIS 解析器），不经本脚本。
+  UCIS `.xml` 走 `agenticspec.importer.vplan`（UCIS 解析器），不经本脚本。
 - **许可文件**（`LICENSE`/`*-LICENSE.*`，含 `tcl-license.terms`）：非文档语料，跳过不登记。
 
 `status` 判定（假设 A13）: 追加后已有 `reviewed_by` -> `approved`，否则 `review`。
-`spec_type` 取值域（单源 `agenticdocer/model/doc_types.py`；本脚本零依赖故镜像）:
+`spec_type` 取值域（单源 `agenticspec/model/doc_types.py`；本脚本零依赖故镜像）:
 `standard` | `lang` | `tool-manual` | `product` | `safety`（缺省 `standard`，向后兼容首批 7 份）。
 
 新文档接入: 在 `REGISTRY` 登记 `spec_id`/`spec_org`/`spec_revision`/`spec_type`，**外加**该

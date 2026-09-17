@@ -11,8 +11,8 @@ section_meta: "@meta"
 
 # M10 鉴权独立安全复核（SecAudit，2026-09-16）
 
-**复核方式**：只读对抗复核（不修改任何文件），独立隔离库 `agenticdocer_secaudit_test`（已 DROP）。
-**复核对象**：`src/agenticdocer/auth/`（10 文件）+ 其 83 测试。
+**复核方式**：只读对抗复核（不修改任何文件），独立隔离库 `agenticspec_secaudit_test`（已 DROP）。
+**复核对象**：`src/agenticspec/auth/`（10 文件）+ 其 83 测试。
 **结论**：**通过，无阻塞**。8 项断言 **7 项已验属实**、1 项部分（S11 RSA 反向，属规范既定选择）。无 CRITICAL/HIGH。
 
 ## 一、8 项断言逐条验证
@@ -54,7 +54,7 @@ section_meta: "@meta"
 ## 五、复核方法学
 
 - 只读：未修改任何文件（`git status` 可验）
-- 隔离：独立库 `agenticdocer_secaudit_test`，跑完 DROP
+- 隔离：独立库 `agenticspec_secaudit_test`，跑完 DROP
 - **不采信自述**：8 项断言全部实际执行或精确代码引用，无一条依赖 M10 的报告
 - 独立复现 OpenSSH 互操作（自建密钥、自跑 `ssh-keygen -Y sign/verify`）
 

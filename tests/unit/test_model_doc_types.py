@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import agenticdocer.model.doc_types as doc_types
-from agenticdocer.model import (
+import agenticspec.model.doc_types as doc_types
+from agenticspec.model import (
     ATOM_TYPES,
     ATOM_VARIANTS,
     C5_META_FIELDS,

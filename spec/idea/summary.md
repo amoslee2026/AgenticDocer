@@ -11,7 +11,7 @@ section_meta: "@meta"
 
 # 执行摘要
 
-生成：2026-09-16（it.idea 完整模式，AgenticDocer）。本摘要为 `design_doc.md` 的浓缩版；系统开发按本组文档推进，下一步 handoff → it.arch（架构规范）。
+生成：2026-09-16（it.idea 完整模式，AgenticSpec）。本摘要为 `design_doc.md` 的浓缩版；系统开发按本组文档推进，下一步 handoff → it.arch（架构规范）。
 
 ## 一句话
 
@@ -31,7 +31,7 @@ section_meta: "@meta"
 
 | 项 | 事实 | 对设计的影响 |
 |---|---|---|
-| PG | **16.15**，Podman 容器 `pgvector/pgvector:pg16`，:5432 可达；现有库：mem0/vectest/gigapie_gigapie/gigapie_test | 直接复用，新建 `agenticdocer` 库（B2 ✓） |
+| PG | **16.15**，Podman 容器 `pgvector/pgvector:pg16`，:5432 可达；现有库：mem0/vectest/gigapie_gigapie/gigapie_test | 直接复用，新建 `agenticspec` 库（B2 ✓） |
 | lightRAG | v1.5.6 运行中（JSON 文件模式，storage=/home/lxx/lightrag/rag_storage）；PG 后端能力存在（`kg/postgres_impl.py`） | 同库多表路径可行；迁移为后期配置变更（C7 暂缓） |
 | Node/npm | v22.22.3 / 10.9.8 | WebUI（React+Vite）开发可行（B4 ✓） |
 | Python | 系统 python3=3.6.8（过老）；**uv 0.12.7 + uv 管理 Python 3.11 可用**（lightrag 工具环境实证） | 后端一律 uv 管理 3.11+ 环境 |

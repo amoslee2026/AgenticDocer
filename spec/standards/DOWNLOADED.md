@@ -11,7 +11,7 @@ section_meta: "@meta"
 
 # 真实语料清单
 
-> **目的**：为 AgenticDocer 的非 `standard` 文档类型（`lang`/`tool-manual`/`product`/`safety`/UCIS）提供**真实语料**用于端到端验证。
+> **目的**：为 AgenticSpec 的非 `standard` 文档类型（`lang`/`tool-manual`/`product`/`safety`/UCIS）提供**真实语料**用于端到端验证。
 >
 > **来源**：用户指示「部分真实语料可以从网络搜索获得」（2026-09-17）→ 调研（`agent://IndividualTick`，全部 URL 实测 HTTP 状态码 + 许可核查）→ 下载。
 >

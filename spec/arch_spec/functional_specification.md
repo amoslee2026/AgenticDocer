@@ -19,7 +19,7 @@ section_meta: "@meta"
 
 生成：2026-09-16（it.arch Phase 3）。输入基线：`../idea/design_doc.md` v1.1.0（模块 M01–M09 + M-LR）。环境事实与调研见 `research_report.md`。
 
-> **v1.3 修订（批注 B11）**：新增 REQ-M07-F06（文档 diff）、REQ-M08-F05（可编辑表格）、REQ-M10-F01..F05（鉴权与用户管理）、REQ-M11-F01..F07（CLI 工具族与 skill，含 `docer-annotations` 人类标注调取）；REQ-M05-F01/F02 改注为**内部实现**（批注 B5）。**批注原文保留**于各处置点。
+> **v1.3 修订（批注 B11）**：新增 REQ-M07-F06（文档 diff）、REQ-M08-F05（可编辑表格）、REQ-M10-F01..F05（鉴权与用户管理）、REQ-M11-F01..F07（CLI 工具族与 skill，含 `spec-annotations` 人类标注调取）；REQ-M05-F01/F02 改注为**内部实现**（批注 B5）。**批注原文保留**于各处置点。
 
 > 编号规则：`REQ-M##-F##`（M## = 模块，F## = 模块内功能序）。优先级：P0 = 阶段 1（地基+闭环）；P1 = 阶段 2（人机接口）；P2 = 阶段 3（增值）。
 
@@ -31,7 +31,7 @@ section_meta: "@meta"
 >
 > [!TODO] 应该提供skill和CLI 为提供文档导入，删除，修改和读取，另外专用skill调取人类用户的标注；
 >
-> **处置（B3/B11）**：已落地为 REQ-M11-F01..F04（CLI 工具族）、REQ-M11-F05..F07（skill 清单，含 `docer-annotations` 专用标注调取 skill）。详见架构规范 §9。
+> **处置（B3/B11）**：已落地为 REQ-M11-F01..F04（CLI 工具族）、REQ-M11-F05..F07（skill 清单，含 `spec-annotations` 专用标注调取 skill）。详见架构规范 §9。
 
 
 | REQ_ID | 功能 | 模块 | 优先级 | 阶段 |
@@ -81,9 +81,9 @@ section_meta: "@meta"
 | REQ-M11-F02 | CLI：文档版本 diff（B11） | M11 | P1 | 2 |
 | REQ-M11-F03 | CLI：用户与授权管理（admin，B3） | M11 | P1 | 2（随 M10 起陆续交付） |
 | REQ-M11-F04 | CLI：自动签名与身份传递（B2） | M11 | **P0** | **1**（随 M10 交付，V12） |
-| REQ-M11-F05 | Skill：docer-import/read/write/render（B3） | M11 | P1 | 2 |
-| REQ-M11-F06 | **Skill：docer-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
-| REQ-M11-F07 | Skill：docer-diff 变更感知（B11） | M11 | P2 | 3 |
+| REQ-M11-F05 | Skill：spec-import/read/write/render（B3） | M11 | P1 | 2 |
+| REQ-M11-F06 | **Skill：spec-annotations 调取人类标注**（B11） | M11 | P1 | 2 |
+| REQ-M11-F07 | Skill：spec-diff 变更感知（B11） | M11 | P2 | 3 |
 | REQ-M12-F01 | AgenticLogger 全面接入（全模块统一出口） | M12 | P0 | 1 |
 | REQ-M12-F02 | 请求级追踪（rid 贯穿鉴权→API→存储→渲染） | M12 | P0 | 1 |
 | REQ-M12-F03 | 在线性能指标（API/慢查询/鉴权/渲染） | M12 | P1 | 2 |
@@ -157,7 +157,7 @@ section_meta: "@meta"
 
 ### REQ-M03-F02: CLI 审核器
 
-`agenticdocer-import review <doc_slug>`（等价 `python -m agenticdocer.importer review`）：逐条展示提议（内容+rule_id+待确认标志），支持 通过/拒绝/修正/批量通过待确认/查看未映射清单。
+`agenticspec-import review <doc_slug>`（等价 `python -m agenticspec.importer review`）：逐条展示提议（内容+rule_id+待确认标志），支持 通过/拒绝/修正/批量通过待确认/查看未映射清单。
 
 **验收标准**：可在无 WebUI 环境完整走通审核；批量通过仅作用于非待确认项或显式指定；审核动作落审计输出。
 
@@ -271,7 +271,7 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 ### REQ-M10-F01: SSH 公钥签名鉴权（全端点）
 
-所有 HTTP 端点需 SSH 签名（**豁免白名单除外**：`/auth/challenge`、`/auth/login`、登录页静态资源、`/healthz`）。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`（**无 `X-Actor`**——S14：身份一律取自验签结果）。签名载荷（**S2**）：`METHOD\nRAW_PATH(含query原样字节)\nSHA256(body).hexdigest()\nTIMESTAMP\nNONCE`；编码统一 **SSHSIG**（namespace `agenticdocer@auth`，RSA 用 PSS，**S11**）。校验顺序（**S3/S7**）：① 时间窗 → ② 公钥查表 → ③ **验签** → ④ **验签通过后**才消费 nonce。
+所有 HTTP 端点需 SSH 签名（**豁免白名单除外**：`/auth/challenge`、`/auth/login`、登录页静态资源、`/healthz`）。请求头 `X-SSH-Signature`/`X-SSH-Key-Id`/`X-Timestamp`/`X-Nonce`（**无 `X-Actor`**——S14：身份一律取自验签结果）。签名载荷（**S2**）：`METHOD\nRAW_PATH(含query原样字节)\nSHA256(body).hexdigest()\nTIMESTAMP\nNONCE`；编码统一 **SSHSIG**（namespace `agenticspec@auth`，RSA 用 PSS，**S11**）。校验顺序（**S3/S7**）：① 时间窗 → ② 公钥查表 → ③ **验签** → ④ **验签通过后**才消费 nonce。
 
 **验收标准**：(a) 有效签名通过，`actor` 解析为验签所得 `user_id`；(b) 篡改 body / path / **query 任一参数**（如 `expected_version`）/ 时间戳 → 401；(c) 重放同一 nonce → 401；(d) 时间戳偏移 > `SIGNATURE_MAX_SKEW_SECONDS`（默认 300s）**或未来偏移 >30s** → 401；(e) 未注册公钥 → 403；(f) 签名有效但角色不足 → 403；(g) 无凭据 → 401（**fail-closed**）；(h) **豁免清单外端点无凭据必 401**；(i) 验签失败的请求**不写 nonces 表**（S7）。
 
@@ -279,7 +279,7 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 `POST /auth/challenge`（**按 IP 限流**，S7）取一次性 nonce（TTL 120s）→ 客户端用 SSH 私钥签名 → `POST /auth/login` 验签通过后签发会话 Cookie（httpOnly/SameSite=Lax/**Secure**，TTL 8h 滑动续期）；`POST /auth/logout` 销毁；过期会话由定期任务清理（**S15**，与 nonce 清理同任务）。
 
-**登录签名方式（S12）**：仅两条——(a) 本地 CLI 签名后粘贴（`agenticdocer auth sign --login --nonce <n>`）；(b) 上传一次性签名文件。**不做** WebAuthn（无数据模型支撑）、**不在浏览器读私钥**。
+**登录签名方式（S12）**：仅两条——(a) 本地 CLI 签名后粘贴（`agenticspec auth sign --login --nonce <n>`）；(b) 上传一次性签名文件。**不做** WebAuthn（无数据模型支撑）、**不在浏览器读私钥**。
 
 **验收标准**：(a) 有效签名登录成功并 Set-Cookie；(b) nonce 复用/过期 → 401；(c) 会话过期后请求 → 401；(d) logout 后原 Cookie 失效；(e) token 在 DB 仅存 SHA256 哈希（明文不入库）；(f) **token = `secrets.token_urlsafe(32)`（256 位 CSPRNG，S13）**；(g) 非 loopback 部署时 Cookie 带 `Secure`（**S6**，见架构 §5）。
 
@@ -303,43 +303,43 @@ JSON Schema 校验规则库；服务 M03 提议校验与 M06 写入校验（阶�
 
 ### REQ-M11-F01: CLI 工具族（导入/删除/修改/读取）
 
-统一入口 `agenticdocer`，提供 `import`/`import review`/`doc list|get|delete`/`node get|put|delete`/`comment list|add|resolve`/`render`/`stats`（完整清单见架构 §9.2）。
+统一入口 `agenticspec`，提供 `import`/`import review`/`doc list|get|delete`/`node get|put|delete`/`comment list|add|resolve`/`render`/`stats`（完整清单见架构 §9.2）。
 
 **验收标准**：(a) 每条命令可独立完成其语义操作并输出结构化结果（`--json`）；(b) 权限不足时以非零退出码 + 明确错误信息拒绝；(c) 读命令失败不影响库状态；(d) 所有命令（除 `auth bootstrap`）自动附带签名。
 
 ### REQ-M11-F02: CLI 文档版本 diff
 
-`agenticdocer doc diff <doc_id> [--from <ts|version>] [--to <ts|version>]`：输出与 REQ-M07-F06 同口径的结构化 diff（人可读表格 + `--json` 机器可读）。
+`agenticspec doc diff <doc_id> [--from <ts|version>] [--to <ts|version>]`：输出与 REQ-M07-F06 同口径的结构化 diff（人可读表格 + `--json` 机器可读）。
 
 **验收标准**：(a) 输出与 API 版本结果一致（同一实现）；(b) `--from/--to` 缺省时以「当前 vs 上一次变更」为默认区间；(c) 无变更时输出空且退出码 0。
 
 ### REQ-M11-F03: CLI 用户与授权管理
 
-`agenticdocer user add|list|disable|role`、`user key add|revoke`、`grant add|list|rm`（admin 专属）。
+`agenticspec user add|list|disable|role`、`user key add|revoke`、`grant add|list|rm`（admin 专属）。
 
 **验收标准**：(a) 非 admin 执行 → 退出码非零 + 明确拒绝信息；(b) 效果与 WebUI 等价（同一 M10 服务层）；(c) 操作落 `auth` 事件。
 
 ### REQ-M11-F04: CLI 自动签名与身份传递
 
-CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名头；`agenticdocer auth whoami` 显示当前身份/角色/公钥指纹。
+CLI 从 `~/.ssh/` 或 `AGENTICSPEC_SSH_KEY` 读取私钥，自动生成签名头；`agenticspec auth whoami` 显示当前身份/角色/公钥指纹。
 
 **验收标准**：(a) 无私钥时给出明确错误与获取指引（非堆栈）；(b) 私钥与登记公钥不匹配时 403 并提示；(c) `auth bootstrap` 是唯一无需签名的命令。
 
-### REQ-M11-F05: Skill：docer-import / read / write / render
+### REQ-M11-F05: Skill：spec-import / read / write / render
 
 `skills/` 下四个 skill 定义，封装对应 CLI 命令的调用语义（何时用、如何解读输出、失败重试策略、所需角色）。
 
-**验收标准（V17 修复：改为可机械验证）**：(a) `skills/` 下 6 个 skill 定义均含 `name`/`description`/前置角色/底层命令**四字段**，且可被 JSON Schema 校验通过；(b) 用固定 prompt 驱动参考 agent（或 CLI `--dry-run` 干跑模式）能成功调用底层命令并返回结构化输出（`--json`）；(c) 权限不足时输出**包含所需角色名与授权命令原文**（如 `需 editor 角色；执行：agenticdocer grant add --username X --scope doc_type --value Y --permission write`）。
+**验收标准（V17 修复：改为可机械验证）**：(a) `skills/` 下 6 个 skill 定义均含 `name`/`description`/前置角色/底层命令**四字段**，且可被 JSON Schema 校验通过；(b) 用固定 prompt 驱动参考 agent（或 CLI `--dry-run` 干跑模式）能成功调用底层命令并返回结构化输出（`--json`）；(c) 权限不足时输出**包含所需角色名与授权命令原文**（如 `需 editor 角色；执行：agenticspec grant add --username X --scope doc_type --value Y --permission write`）。
 
-### REQ-M11-F06: Skill：docer-annotations 调取人类标注（B11 专项）
+### REQ-M11-F06: Skill：spec-annotations 调取人类标注（B11 专项）
 
 专用 skill，供 agent 读取人类用户在 WebUI 中留下的批注：支持按 `doc_id`/`node_id`/`state`（open/resolved/orphaned）筛选，返回批注正文、作者、锚定版本（`target_event_id`）及该版本上下文。
 
 **验收标准**：(a) 能列出指定文档的全部开放批注（含锚定节点与版本）；(b) 能按 `target_event_id` 取回批注所指的历史节点内容（供 agent 理解「人类在说什么」）；(c) 含 orphaned 批注（节点已软删）的专门查询路径；(d) 只读，不修改批注状态（状态变更属 reviewer 职责，走 `comment resolve`）。
 
-### REQ-M11-F07: Skill：docer-diff 变更感知
+### REQ-M11-F07: Skill：spec-diff 变更感知
 
-封装 `agenticdocer doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
+封装 `agenticspec doc diff`，供 agent 在动手前感知他方（人类或其他 agent）对文档的改动。
 
 
 **验收标准**：(a) 返回结构化变更摘要（节点数/字段数/操作类型分布）；(b) 与 M11-F02 同口径；(c) 建议工作流中明确「先 diff 后 write」的时序（避免基于过期版本写入）。
@@ -360,7 +360,7 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 | S8：会话随用户禁用失效 | REQ-M10-F03 | disable 用户后**既有会话立即 401**（resolve_session JOIN status） |
 | S9：最后管理员防护 | REQ-M10-F03 | 不可删/禁/降级自身与最后一个 active admin（409）；bootstrap 语义统一为「无 active admin 时可重复」 |
 | S10：审计防污染 | REQ-M10-F05 | 失败事件 `actor='anonymous'`，自述身份记 `claimed_*` |
-| S11：签名格式统一 | REQ-M10-F01 | SSHSIG + namespace `agenticdocer@auth`；RSA 用 PSS；两条客户端路径共用验签器 |
+| S11：签名格式统一 | REQ-M10-F01 | SSHSIG + namespace `agenticspec@auth`；RSA 用 PSS；两条客户端路径共用验签器 |
 | S12：删除 WebAuthn 悬空路径 | REQ-M10-F02 | 登录仅两条方式（CLI 签名粘贴 / 签名文件） |
 | S13：token 熵 | REQ-M10-F02 | `secrets.token_urlsafe(32)`（256 位 CSPRNG） |
 | S14：删除 `X-Actor` | REQ-M06-F01 | 身份一律取自验签结果；`source` 由凭据类型判定 |
@@ -369,7 +369,7 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 ### REQ-M12-F01: AgenticLogger 全面接入
 
-所有模块统一经 `observability/logger.py` 适配层调用 AgenticLogger SDK（`program="agenticdocer"`，`command=<模块/子命令>`）；禁止业务代码直接 `print`/`import logging`。
+所有模块统一经 `observability/logger.py` 适配层调用 AgenticLogger SDK（`program="agenticspec"`，`command=<模块/子命令>`）；禁止业务代码直接 `print`/`import logging`。
 
 **验收标准**：(a) 每个模块产生结构化 JSONL 日志（含 `module`/`rid`/`ts`）；(b) lint 规则检出并拒绝业务代码中的 `print`/`logging` 直接使用（白名单仅适配层）；(c) 日志按 `INTERCHANGE.md` 规范可被 `agentic-logger` CLI 解析（`agentic-logger stats` 有输出）。
 
@@ -377,7 +377,7 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 每次 HTTP 请求或 CLI 调用生成一个 `rid`，贯穿 M10 鉴权 → M06/M07 路由 → M02 存储 → M04 渲染全链路。
 
-**验收标准**：(a) 单次请求的所有日志行共享同一 `rid`；(b) `agenticdocer logs trace --rid <id>` 输出该请求完整链路（含各阶段 `dur`）；(c) 并发请求的 `rid` 不串（ContextVar 正确传播，含 async 任务）。
+**验收标准**：(a) 单次请求的所有日志行共享同一 `rid`；(b) `agenticspec logs trace --rid <id>` 输出该请求完整链路（含各阶段 `dur`）；(c) 并发请求的 `rid` 不串（ContextVar 正确传播，含 async 任务）。
 
 ### REQ-M12-F03: 在线性能指标
 
@@ -395,7 +395,7 @@ CLI 从 `~/.ssh/` 或 `AGENTICDOCER_SSH_KEY` 读取私钥，自动生成签名�
 
 巡检表/分区行数与膨胀、索引使用率（`idx_scan=0` 建议清理）、autovacuum 滞后、连接池饱和度、events 分区完整性与归档逾期；输出 `HealthReport`（`verdict` + `advice`）。
 
-**验收标准**：(a) `agenticdocer stats --health` 输出全部巡检项；(b) 构造缺失分区/膨胀/连接池打满场景时 `verdict` 转为 `degraded`/`fail` 且 `advice` 给出具体建议；(c) 接入 M09B `perf_health` detector（质量门可调用）。
+**验收标准**：(a) `agenticspec stats --health` 输出全部巡检项；(b) 构造缺失分区/膨胀/连接池打满场景时 `verdict` 转为 `degraded`/`fail` 且 `advice` 给出具体建议；(c) 接入 M09B `perf_health` detector（质量门可调用）。
 
 ### REQ-M12-F06: 运行期 LLM 无关约束（P6）的机械验证
 

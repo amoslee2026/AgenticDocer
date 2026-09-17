@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from agenticdocer.render import (
+from agenticspec.render import (
     NormalForm,
     canonical_image_ref,
     extract_features,

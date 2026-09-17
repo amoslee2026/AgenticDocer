@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from agenticdocer.store.db import DEFAULT_DATABASE_URL, DEFAULT_MIGRATION_DATABASE_URL
-from agenticdocer.store.schema import (
+from agenticspec.store.db import DEFAULT_DATABASE_URL, DEFAULT_MIGRATION_DATABASE_URL
+from agenticspec.store.schema import (
     EVENTS_DEFAULT_PARTITION,
     NODES_PARTITION_COUNT,
     events_partition_name,
@@ -114,8 +114,8 @@ def test_primary_keys_and_downgraded_foreign_keys() -> None:
     assert {fk.parent.name for fk in metadata.tables["comments"].foreign_keys} == set()
     assert {fk.parent.name for fk in metadata.tables["terms"].foreign_keys} == set()
     assert "text_fts" in nodes.c
-    assert DEFAULT_DATABASE_URL.endswith("agenticdocer_test")
-    assert DEFAULT_MIGRATION_DATABASE_URL.endswith("agenticdocer")
+    assert DEFAULT_DATABASE_URL.endswith("agenticspec_test")
+    assert DEFAULT_MIGRATION_DATABASE_URL.endswith("agenticspec")
 
 
 def test_privilege_statements_skip_absent_role() -> None:

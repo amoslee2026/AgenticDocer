@@ -15,8 +15,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from agenticdocer.model import DocIn, NodeIn, WriteContext, new_uuid7
-from agenticdocer.store import (
+from agenticspec.model import DocIn, NodeIn, WriteContext, new_uuid7
+from agenticspec.store import (
     ConflictError,
     Database,
     EventRepository,
@@ -24,7 +24,7 @@ from agenticdocer.store import (
     Storage,
     ValidationError,
 )
-from agenticdocer.store.schema import metadata
+from agenticspec.store.schema import metadata
 
 pytestmark = pytest.mark.integration
 
@@ -34,7 +34,7 @@ CTX = WriteContext(actor="tester", source="cli")
 def unique_doc(prefix: str) -> str:
     """每次运行唯一的 doc_id。
 
-    默认不重建 schema（`AGENTICDOCER_TEST_DROP_SCHEMA=0`）⇒ 库里会有他人与历史运行的数据，
+    默认不重建 schema（`AGENTICSPEC_TEST_DROP_SCHEMA=0`）⇒ 库里会有他人与历史运行的数据，
     故用例必须**可重复执行且互不干扰**：唯一 doc_id 使 `(doc_id, anchor)` 唯一约束与
     docs 状态流转每次都从零开始，无需清理、无需独占。
     """
@@ -346,7 +346,7 @@ async def test_event_and_entity_roll_back_together(
     async def boom(*args, **kwargs):
         raise RuntimeError("event write failed")
 
-    monkeypatch.setattr("agenticdocer.store.nodes.append_event", boom)
+    monkeypatch.setattr("agenticspec.store.nodes.append_event", boom)
     with pytest.raises(RuntimeError):
         await storage.upsert_node(node_in(doc_id, node_id=node_id), None, CTX)
 
@@ -616,7 +616,7 @@ async def test_changes_since_cursor_scan(storage: Storage) -> None:
 async def test_subtree_and_section_reads_match_oracle(storage: Storage) -> None:
     """`get_section_nodes`（区间快路径）与 `get_subtree`（递归 CTE）、以及 M04 的内存 oracle
     `section_subtree(get_doc_nodes(doc), id)` **逐元素等价**（P5：章节子树口径唯一）。"""
-    from agenticdocer.render.sections import section_subtree
+    from agenticspec.render.sections import section_subtree
 
     doc_id = unique_doc("SUBTREE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
@@ -726,7 +726,7 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
     故必须做父链连通性自检（见 `NodeRepository._section_interval`）；
     同时诚实地钉住**残留风险**：反向的漏收无法在区间内自检，需 M09B 抽样 detector 兜底。
     """
-    from agenticdocer.render.sections import section_subtree
+    from agenticspec.render.sections import section_subtree
 
     doc_id = unique_doc("OUTLINE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)
@@ -794,7 +794,7 @@ async def test_section_interval_falls_back_on_outline_violation(storage: Storage
 
 async def test_subtree_terminates_on_cyclic_parent_links(storage: Storage) -> None:
     """脏数据成环（A→B→A）时递归必须有界：不死循环、不重复，语义与 M04 visited 一致。"""
-    from agenticdocer.render.sections import section_subtree
+    from agenticspec.render.sections import section_subtree
 
     doc_id = unique_doc("CYCLE")
     await storage.upsert_doc(doc_in(doc_id), None, CTX)

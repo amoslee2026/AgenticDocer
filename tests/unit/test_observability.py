@@ -22,7 +22,7 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from agenticdocer.observability import (
+from agenticspec.observability import (
     DTO_ANCHOR_CONFLICT,
     DTO_AUTH_REJECTED,
     DTO_PARTITION_MISSING,
@@ -126,7 +126,7 @@ def test_new_rid_leading_bytes_track_clock() -> None:
 
 def test_new_rid_unique_across_processes() -> None:
     code = (
-        "from agenticdocer.observability.rid import new_rid\n"
+        "from agenticspec.observability.rid import new_rid\n"
         "for _ in range(2000):\n"
         "    print(new_rid())\n"
     )
@@ -293,11 +293,11 @@ def test_get_logger_returns_module_view(logs: Path) -> None:
 
 
 def test_command_derived_from_module_prefix(logs: Path) -> None:
-    assert get_logger("m02.nodes").file_path.name.startswith("agenticdocer_store")
-    assert get_logger("m06.router").file_path.name.startswith("agenticdocer_api")
-    assert get_logger("m07.router").file_path.name.startswith("agenticdocer_api")
-    assert get_logger("mlr.export").file_path.name.startswith("agenticdocer_export")
-    assert get_logger("custom.thing").file_path.name.startswith("agenticdocer_custom")
+    assert get_logger("m02.nodes").file_path.name.startswith("agenticspec_store")
+    assert get_logger("m06.router").file_path.name.startswith("agenticspec_api")
+    assert get_logger("m07.router").file_path.name.startswith("agenticspec_api")
+    assert get_logger("mlr.export").file_path.name.startswith("agenticspec_export")
+    assert get_logger("custom.thing").file_path.name.startswith("agenticspec_custom")
 
 
 def test_logger_writes_structured_jsonl(logs: Path) -> None:
@@ -372,11 +372,11 @@ def test_child_binds_extra_context(logs: Path) -> None:
 
 
 def test_tool_call_logs_command_with_error_code(logs: Path) -> None:
-    get_logger("m11.cli").tool_call("agenticdocer", "import --doc SPEC-1", 2, 42)
+    get_logger("m11.cli").tool_call("agenticspec", "import --doc SPEC-1", 2, 42)
     entry = _entries(logs)[0]
     assert entry["level"] == "TOOL"
     assert entry["module"] == "m11.cli"
-    assert entry["tool"] == "agenticdocer"
+    assert entry["tool"] == "agenticspec"
     assert entry["cmd"] == "import --doc SPEC-1"
     assert entry["exit"] == 2
     assert entry["dur"] == 42
@@ -384,7 +384,7 @@ def test_tool_call_logs_command_with_error_code(logs: Path) -> None:
 
 
 def test_tool_call_success_has_no_error_code(logs: Path) -> None:
-    get_logger("m11.cli").tool_call("agenticdocer", "stats", 0, 5)
+    get_logger("m11.cli").tool_call("agenticspec", "stats", 0, 5)
     entry = _entries(logs)[0]
     assert entry["exit"] == 0
     assert "error_code" not in entry
@@ -774,7 +774,7 @@ def test_pool_health_from_sqlalchemy_like_pool() -> None:
 
 
 def test_health_reports_fail_when_db_unreachable(logs: Path) -> None:
-    report = asyncio.run(health(dsn="postgresql://nobody:nobody@127.0.0.1:1/agenticdocer", timeout=0.5))
+    report = asyncio.run(health(dsn="postgresql://nobody:nobody@127.0.0.1:1/agenticspec", timeout=0.5))
     assert report.verdict == "fail"
     assert report.advice and any("数据库" in advice for advice in report.advice)
     assert _entries(logs, module="m12.health")
@@ -904,7 +904,7 @@ def test_middleware_buckets_pre_routing_rejections(logs: Path) -> None:
     错误率退化为「每桶计数 1」，指标悄悄失效（不报错、只在被反复探测时暴露）。
     注：M10 的 401/403 走依赖解析、路由已匹配 → 落模板桶，见下一个用例。
     """
-    from agenticdocer.observability.middleware import UNROUTED
+    from agenticspec.observability.middleware import UNROUTED
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.responses import JSONResponse
 
@@ -949,7 +949,7 @@ def test_middleware_uses_template_for_post_routing_rejection(logs: Path) -> None
     这是 M10 鉴权拒答的实际路径：`require_auth`/`require_permission` 是依赖项，
     在路由匹配后执行 → `scope["route"]` 已就绪 → `route` 为模板、`path` 为具体资源。
     """
-    from agenticdocer.observability.middleware import UNROUTED
+    from agenticspec.observability.middleware import UNROUTED
 
     app = FastAPI()
 
@@ -1018,7 +1018,7 @@ class _FakeConn:
 
 def _patch_pg(monkeypatch: pytest.MonkeyPatch, conn: _FakeConn) -> None:
     # 注意：包级 `health` 是函数名，取子模块须走 importlib。
-    health_module = importlib.import_module("agenticdocer.observability.health")
+    health_module = importlib.import_module("agenticspec.observability.health")
 
     async def fake_connect(dsn: str, timeout: float = 5.0) -> _FakeConn:
         return conn
@@ -1053,7 +1053,7 @@ def test_probe_detects_missing_next_month_partition(
     )
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert conn.closed  # 连接必须被关闭
     assert report.partitions.events_next_missing is True
     assert report.verdict == "fail"
@@ -1081,7 +1081,7 @@ def test_probe_accepts_covered_next_month(logs: Path, monkeypatch: pytest.Monkey
     )
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert report.partitions.events_next_missing is False
     assert report.verdict == "ok"
     assert [t.name for t in report.tables] == ["nodes"]
@@ -1092,7 +1092,7 @@ def test_probe_flags_unpartitioned_events_table(logs: Path, monkeypatch: pytest.
     conn = _FakeConn(tables=[], indexes=[], relkind=b"r", bounds=[])
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert report.partitions.events_next_missing is False
     assert report.verdict == "degraded"
     assert any("分区" in advice for advice in report.advice)
@@ -1102,7 +1102,7 @@ def test_probe_fails_when_events_table_missing(logs: Path, monkeypatch: pytest.M
     conn = _FakeConn(tables=[], indexes=[], relkind=None, bounds=[])
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert report.verdict == "fail"
     assert any("迁移" in advice for advice in report.advice)
 
@@ -1116,7 +1116,7 @@ def test_probe_ignores_unparseable_bounds(logs: Path, monkeypatch: pytest.Monkey
     )
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert report.partitions.oldest_event_ts is None
     assert report.partitions.events_next_missing is True
 
@@ -1133,7 +1133,7 @@ def test_health_reports_fail_without_dsn(logs: Path, monkeypatch: pytest.MonkeyP
 )
 def test_as_text_normalises_pg_char(value: object, expected: str | None) -> None:
     """PG `"char"` 经 asyncpg 返回 bytes；`_as_text` 必须归一为 str。"""
-    module = importlib.import_module("agenticdocer.observability.health")
+    module = importlib.import_module("agenticspec.observability.health")
     assert module._as_text(value) == expected
 
 
@@ -1144,7 +1144,7 @@ def test_probe_handles_asyncpg_bytes_relkind_for_partitioned_events(
     conn = _FakeConn(tables=[], indexes=[], relkind=b"p", bounds=_month_bounds(_this_month()))
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert not any("尚未按 ts RANGE 分区" in advice for advice in report.advice)
     assert report.partitions.events_next_missing is True  # 真正做了分区覆盖判定
     assert report.verdict == "fail"
@@ -1158,7 +1158,7 @@ def test_probe_handles_asyncpg_bytes_relkind_for_plain_events(
     conn = _FakeConn(tables=[], indexes=[], relkind=b"r", bounds=[])
     _patch_pg(monkeypatch, conn)
 
-    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticdocer"))
+    report = asyncio.run(health(dsn="postgresql://u:p@127.0.0.1:5432/agenticspec"))
     assert report.partitions.events_next_missing is False
     assert report.verdict == "degraded"
     assert any("尚未按 ts RANGE 分区" in advice for advice in report.advice)

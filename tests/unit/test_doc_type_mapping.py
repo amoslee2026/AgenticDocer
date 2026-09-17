@@ -24,8 +24,8 @@ import re
 import jsonschema
 import pytest
 
-from agenticdocer.importer import check_proposals, parse_text
-from agenticdocer.importer.doc_type_map import (
+from agenticspec.importer import check_proposals, parse_text
+from agenticspec.importer.doc_type_map import (
     ALIASES,
     IDEA_DOC_TYPES,
     MAPPINGS_BY_SLUG,
@@ -45,8 +45,8 @@ from agenticdocer.importer.doc_type_map import (
     resolve_doc_type,
     subtypes_for,
 )
-from agenticdocer.importer.frontmatter import doc_in_from_meta, parse_frontmatter
-from agenticdocer.importer.vplan import (
+from agenticspec.importer.frontmatter import doc_in_from_meta, parse_frontmatter
+from agenticspec.importer.vplan import (
     COVERAGE_MATRIX_ATOM,
     MATRIX_FIELDS,
     UNASSIGNED_TEST,
@@ -56,8 +56,8 @@ from agenticdocer.importer.vplan import (
     coverage_matrix_content,
     parse_vplan,
 )
-from agenticdocer.model import DOC_TYPES, get_atom_schema, is_atom_allowed
-from agenticdocer.store import ValidationError
+from agenticspec.model import DOC_TYPES, get_atom_schema, is_atom_allowed
+from agenticspec.store import ValidationError
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MAPPING_DOC = ROOT / "spec" / "arch_spec" / "doc_type_mapping.md"
@@ -385,7 +385,7 @@ def test_failure_mode_variant_is_allowed_but_not_required_for_safety() -> None:
     - 真实语料证明安全文档未必含失效模式表 → 门禁会拒收真实文档；
     - 新契约：必备只约束「所有该类型文档必然具备」的原子（`clause`）；变体「有则用，无不强制」。
     """
-    from agenticdocer.model.doc_types import get_doc_type_rule
+    from agenticspec.model.doc_types import get_doc_type_rule
 
     rule = get_doc_type_rule("safety")
     assert rule.required_atom_types == ("clause",), "必备原子只应含 clause"

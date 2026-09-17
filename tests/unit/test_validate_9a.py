@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 import pytest
 
-from agenticdocer.model import (
+from agenticspec.model import (
     ATOM_SCHEMAS,
     DOC_TYPE_RULES,
     DOC_TYPES,
@@ -24,8 +24,8 @@ from agenticdocer.model import (
     derive_text,
     new_uuid7,
 )
-from agenticdocer.model.doc_types import DocTypeRule
-from agenticdocer.m09 import (
+from agenticspec.model.doc_types import DocTypeRule
+from agenticspec.m09 import (
     RULES_9A,
     RULE_ANCHOR_DOC_ID,
     RULE_ATOM_SCHEMA,
@@ -41,7 +41,7 @@ from agenticdocer.m09 import (
     validate_proposal,
     validate_write,
 )
-from agenticdocer.store.schema import docs
+from agenticspec.store.schema import docs
 
 DOC_ID = "SPEC-STD-AMBA-APB"
 ANCHOR = f"{DOC_ID}#1·overview"

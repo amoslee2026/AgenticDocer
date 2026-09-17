@@ -15,8 +15,8 @@ import pytest
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
 
-from agenticdocer.app import create_app, dev_mode
-from agenticdocer.auth.middleware import EXEMPT_PATHS, is_exempt
+from agenticspec.app import create_app, dev_mode
+from agenticspec.auth.middleware import EXEMPT_PATHS, is_exempt
 
 M06_ROUTES: Final[dict[str, set[str]]] = {
     "/api/v1/nodes": {"POST"},
@@ -218,7 +218,7 @@ def test_admin_endpoints_are_present_and_scoped(spec: dict[str, Any]) -> None:
 def test_openapi_is_exportable_json(spec: dict[str, Any]) -> None:
     """契约可导出为 JSON（M08 前端据此生成客户端类型）。"""
     assert spec["openapi"].startswith("3.")
-    assert spec["info"]["title"] == "AgenticDocer API"
+    assert spec["info"]["title"] == "AgenticSpec API"
     payload = json.dumps(spec, ensure_ascii=False)
     assert "X-Actor" not in payload and "x-actor" not in payload
 
@@ -293,7 +293,7 @@ def test_auth_coverage_guard_passes_and_fires() -> None:
     用 M10 的判据复核**我的装配**，与 `test_every_business_endpoint_requires_credentials`
     构成两条独立机制（依赖树遍历 vs 官方自检）。
     """
-    from agenticdocer.auth.middleware import assert_auth_coverage, find_unguarded_routes
+    from agenticspec.auth.middleware import assert_auth_coverage, find_unguarded_routes
 
     application = create_app(dev=False)
     assert find_unguarded_routes(application) == []

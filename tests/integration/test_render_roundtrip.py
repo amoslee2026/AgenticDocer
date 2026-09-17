@@ -29,9 +29,9 @@ import pytest
 import yaml
 from sqlalchemy import text
 
-from agenticdocer.importer import commit_document, parse_markdown
-from agenticdocer.model import DocIn, NodeIn, WriteContext, derive_text, new_uuid7
-from agenticdocer.render import (
+from agenticspec.importer import commit_document, parse_markdown
+from agenticspec.model import DocIn, NodeIn, WriteContext, derive_text, new_uuid7
+from agenticspec.render import (
     body_text,
     grid_to_content,
     list_sections,
@@ -46,13 +46,13 @@ from agenticdocer.render import (
     table_meta,
     write_table_edit,
 )
-from agenticdocer.render.editable import TableEdit, TableGrid, parse_table_fragment
-from agenticdocer.store import ConflictError, NotFoundError, Storage
+from agenticspec.render.editable import TableEdit, TableGrid, parse_table_fragment
+from agenticspec.store import ConflictError, NotFoundError, Storage
 
 pytestmark = pytest.mark.integration
 
 CORPUS = Path(
-    os.environ.get("AGENTICDOCER_CORPUS", Path(__file__).resolve().parents[2] / "spec" / "standards")
+    os.environ.get("AGENTICSPEC_CORPUS", Path(__file__).resolve().parents[2] / "spec" / "standards")
 )
 AMBA = CORPUS / "amba" / "IHI0024_AMBA_APB_spec.md"
 CXL = CORPUS / "cxl" / "CXL_Specification_rev3p2_ver1p0.md"
@@ -104,7 +104,7 @@ async def clean_database(storage: Storage) -> None:
 
 def _require(path: Path) -> None:
     if not path.is_file():
-        pytest.skip(f"语料缺失：{path}（设 AGENTICDOCER_CORPUS 指向语料根）")
+        pytest.skip(f"语料缺失：{path}（设 AGENTICSPEC_CORPUS 指向语料根）")
 
 
 def _body(source: Path, result) -> str:

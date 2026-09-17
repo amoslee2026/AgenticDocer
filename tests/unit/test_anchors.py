@@ -7,8 +7,8 @@ import re
 
 import pytest
 
-import agenticdocer.model.anchors as anchors
-from agenticdocer.model.anchors import (
+import agenticspec.model.anchors as anchors
+from agenticspec.model.anchors import (
     EMPTY_SLUG,
     SLUG_MAX_CHARS,
     SectionRef,

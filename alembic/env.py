@@ -1,6 +1,6 @@
 """Alembic 环境（async engine，asyncpg）。
 
-- `target_metadata` = `agenticdocer.store.schema.metadata`（§4 DDL 的单一来源）；
+- `target_metadata` = `agenticspec.store.schema.metadata`（§4 DDL 的单一来源）；
 - 连接串取 `MIGRATION_DATABASE_URL`（属主角色，§4.3）→ `DATABASE_URL` → 默认；
 - 迁移用 `NullPool`：一次性进程，不复用连接池。
 """
@@ -13,8 +13,8 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from agenticdocer.store import schema
-from agenticdocer.store.db import migration_database_url
+from agenticspec.store import schema
+from agenticspec.store.db import migration_database_url
 
 config = context.config
 

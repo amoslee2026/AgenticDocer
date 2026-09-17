@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# AgenticDocer 部署脚本（幂等，可重复执行）
+# AgenticSpec 部署脚本（幂等，可重复执行）
 #
 # 前置：bash scripts/provision_pg.sh 已跑过（角色与库就绪）
 # 用法：bash scripts/deploy.sh [--host HOST] [--port PORT]
 set -euo pipefail
 
-REPO="/home/lxx/wrk/AgenticDocer"
-UNIT_NAME="agenticdocer-api"
+REPO="/home/lxx/wrk/AgenticSpec"
+UNIT_NAME="agenticspec-api"
 UNIT_DIR="$HOME/.config/systemd/user"
 
 # 本机 all_proxy=socks5 会破坏 PG/HTTP 连接（TLS handshake 失败）
@@ -60,7 +60,7 @@ echo
 echo "首次部署提醒（ADR-007 S9）："
 echo "  1. 放置管理员公钥：cp ~/.ssh/id_ed25519.pub $REPO/data/admin_keys/admin.pub"
 echo "  2. 重启服务触发自举：systemctl --user restart $UNIT_NAME"
-echo "  3. 验证身份：cd $REPO && uv run agenticdocer auth whoami"
+echo "  3. 验证身份：cd $REPO && uv run agenticspec auth whoami"
 echo
 echo "对外暴露（ADR-007 S6，二者缺一不可）："
 echo "  ① 已自举 admin（无 users 行则 fail-closed）"

@@ -27,12 +27,12 @@ from fastapi import Depends, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from agenticdocer.auth import bootstrap, middleware, sessions, signing, sshsig
-from agenticdocer.auth import users as auth_users
-from agenticdocer.auth.errors import BootstrapError
-from agenticdocer.auth.router import router as auth_router
-from agenticdocer.model import DocTarget, DocTypeTarget, WriteContext, new_uuid7
-from agenticdocer.store import (
+from agenticspec.auth import bootstrap, middleware, sessions, signing, sshsig
+from agenticspec.auth import users as auth_users
+from agenticspec.auth.errors import BootstrapError
+from agenticspec.auth.router import router as auth_router
+from agenticspec.model import DocTarget, DocTypeTarget, WriteContext, new_uuid7
+from agenticspec.store import (
     ConflictError,
     Database,
     ForbiddenError,

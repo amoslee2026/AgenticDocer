@@ -11,10 +11,10 @@ from uuid import UUID
 
 import pytest
 
-from agenticdocer.store import ValidationError
-from agenticdocer.model import Event, NodeSnapshot, new_uuid7
-from agenticdocer.store.fold import ENTITY_OPS, apply_events
-from agenticdocer.store.rows import build_model, field_deltas
+from agenticspec.store import ValidationError
+from agenticspec.model import Event, NodeSnapshot, new_uuid7
+from agenticspec.store.fold import ENTITY_OPS, apply_events
+from agenticspec.store.rows import build_model, field_deltas
 
 TS = datetime(2026, 9, 16, 8, 0, tzinfo=timezone.utc)
 TS2 = datetime(2026, 9, 16, 9, 30, tzinfo=timezone.utc)

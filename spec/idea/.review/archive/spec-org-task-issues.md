@@ -16,7 +16,7 @@
 
 - **Severity**: HIGH
 - **位置**: §Task 1 Step 1（L123）+ §Task 3 Step 3（L447）+ K5（L72）+ §Task 5 Step 3 判据（L691）
-- **问题描述**: 全计划对 AgenticDocer 只有两笔提交：Task 1 Step 1 `git add Notes`、Task 3 Step 3 `git add spec/ scripts/`。`.gitignore`（Task 1 交付物）、`docs/plans/`（本计划自身）、`idea/assumptions.md`（A1–A13）没有任何 Task 提交，执行完毕后仍为 untracked。后果：(a) K5「AgenticDocer 全程 git 跟踪」不成立；(b) Task 5「status 干净（untracked 仅限本计划外文件）」不可满足——上述三者恰是本计划产物；(c) 计划与假设文档本身无版本兜底，违背 AGENTS.md「项目内文件先 commit 再修改」的可恢复性原则。
+- **问题描述**: 全计划对 AgenticSpec 只有两笔提交：Task 1 Step 1 `git add Notes`、Task 3 Step 3 `git add spec/ scripts/`。`.gitignore`（Task 1 交付物）、`docs/plans/`（本计划自身）、`idea/assumptions.md`（A1–A13）没有任何 Task 提交，执行完毕后仍为 untracked。后果：(a) K5「AgenticSpec 全程 git 跟踪」不成立；(b) Task 5「status 干净（untracked 仅限本计划外文件）」不可满足——上述三者恰是本计划产物；(c) 计划与假设文档本身无版本兜底，违背 AGENTS.md「项目内文件先 commit 再修改」的可恢复性原则。
 - **修复建议**: Task 1 Step 1 改为 `git add Notes docs idea`；Step 2 写完 `.gitignore` 后一并 `git add .gitignore`（或并入 Task 3 提交）；或在 Task 5 增加收尾提交 `git add -A && git commit -m "docs: spec 集中目录计划与假设记录入库"`。
 
 ## R3 · Task 1「幂等自证」在 Task 1 时点不可执行（仓库内无任何文件能产出 [skip]）
@@ -46,7 +46,7 @@
 - **Severity**: MEDIUM
 - **位置**: §Task 5 Step 3（L690–691）
 - **问题描述**: 实测 GigaRAG 工作树当前已有 42 条未提交记录：含 7 个**已跟踪且已修改**的 `corpus/02_converted/**/auto/*.md`，以及大量 untracked（output/、HIPI2025/、.pi/、.skills_local/、logs/、refs/ 等），全部与本计划无关却混在同一 `git status --short` 输出里。「untracked 仅限本计划外文件」需人工逐条分类 40+ 条目，无机械判据，不同执行者会得出不同结论。
-- **修复建议**: 把断言限定到本计划作用路径：`git -C ~/wrk/GigaRAG status --short -- scripts README.md corpus/03_reviewed corpus/04_ingested` 输出为空即判干净；AgenticDocer 侧在 R2 修复后可直接 `git status --short` 全量判空。
+- **修复建议**: 把断言限定到本计划作用路径：`git -C ~/wrk/GigaRAG status --short -- scripts README.md corpus/03_reviewed corpus/04_ingested` 输出为空即判干净；AgenticSpec 侧在 R2 修复后可直接 `git status --short` 全量判空。
 
 ## R7 · 字段断言 grep 扫全文而非 frontmatter，且 glob 零匹配时空真通过
 

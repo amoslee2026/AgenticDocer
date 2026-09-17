@@ -18,7 +18,7 @@ Accepted（2026-09-16）
 系统为单机单用户知识库（C4/B6），9 个功能模块 + 1 个集成边界；需支持 coding agent 与人类并行开发（WebUI 前端可独立工作流）。
 
 ## Decision
-采用**模块化单体**：单 Python 包 `src/agenticdocer/`（M01–M09 目录对应）+ React 前端 `webui/`；前后端以 **OpenAPI 契约**（FastAPI 自动生成）为边界；服务以单进程 `agenticdocer-api` 交付（前端静态挂载）。
+采用**模块化单体**：单 Python 包 `src/agenticspec/`（M01–M09 目录对应）+ React 前端 `webui/`；前后端以 **OpenAPI 契约**（FastAPI 自动生成）为边界；服务以单进程 `agenticspec-api` 交付（前端静态挂载）。
 
 ## Trade-offs
 | 维度 | 模块化单体（采用） | 微服务 | 纯单体（无契约边界） |

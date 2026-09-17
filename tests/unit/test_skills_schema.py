@@ -3,7 +3,7 @@
 三件事：
 
 1. **四字段齐备且过 JSON Schema**（``skills/skill.schema.json``，``additionalProperties: false``）；
-2. **底层命令可达**：``command`` 字段里出现的 ``agenticdocer <group> <sub>`` 必须真实注册在 Typer app 上；
+2. **底层命令可达**：``command`` 字段里出现的 ``agenticspec <group> <sub>`` 必须真实注册在 Typer app 上；
 3. **前置角色与 M10 权限矩阵一致**：skill 声明的最低角色 = 由底层命令推导出的权限所需的最低角色；
    另校验正文含封装语义小节（何时用/前置角色/底层命令/失败与重试/权限不足补救）。
 """
@@ -18,19 +18,19 @@ import jsonschema
 import pytest
 import yaml
 
-from agenticdocer import cli
+from agenticspec import cli
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / "skills"
 SCHEMA_PATH = SKILLS / "skill.schema.json"
 FIELDS: Final = ("name", "description", "role", "command")
 EXPECTED_SKILLS: Final = (
-    "docer-annotations",
-    "docer-diff",
-    "docer-import",
-    "docer-read",
-    "docer-render",
-    "docer-write",
+    "spec-annotations",
+    "spec-diff",
+    "spec-import",
+    "spec-read",
+    "spec-render",
+    "spec-write",
 )
 REQUIRED_SECTIONS: Final = ("何时用", "前置角色", "底层命令", "失败与重试", "权限不足补救")
 
@@ -82,13 +82,13 @@ def test_skill_declares_exactly_the_four_fields(path: Path) -> None:
     jsonschema.validate(instance=data, schema=_schema())
     assert data["name"] == path.parent.name
     assert data["role"] in ("reader", "reviewer", "editor", "admin")
-    assert "agenticdocer" in data["command"]
+    assert "agenticspec" in data["command"]
 
 
 def test_schema_rejects_missing_field_and_extra_field() -> None:
     """判据必须**有牙齿**：缺字段、多字段、越界角色都要被拒。"""
     validator = jsonschema.Draft202012Validator(_schema())
-    base = {"name": "docer-x", "description": "d" * 20, "role": "reader", "command": "agenticdocer doc list"}
+    base = {"name": "spec-x", "description": "d" * 20, "role": "reader", "command": "agenticspec doc list"}
     assert not list(validator.iter_errors(base))
     for broken in (
         {key: value for key, value in base.items() if key != "role"},
@@ -128,7 +128,7 @@ def test_skill_commands_are_reachable(path: Path) -> None:
     matched = 0
     for token in tokens:
         parts = token.split()
-        assert parts[0] == "agenticdocer", token
+        assert parts[0] == "agenticspec", token
         candidates = [tuple(part.replace("|", "") for part in parts[1 : index + 1]) for index in range(1, len(parts))]
         if any(candidate in registered for candidate in candidates):
             matched += 1

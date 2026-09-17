@@ -6,8 +6,8 @@ import threading
 import time
 import uuid as uuid_mod
 
-import agenticdocer.model.uuid7 as uuid7_mod
-from agenticdocer.model.uuid7 import is_uuid7, new_uuid7, uuid7_timestamp_ms
+import agenticspec.model.uuid7 as uuid7_mod
+from agenticspec.model.uuid7 import is_uuid7, new_uuid7, uuid7_timestamp_ms
 
 
 def test_consecutive_ids_are_byte_order_monotonic():

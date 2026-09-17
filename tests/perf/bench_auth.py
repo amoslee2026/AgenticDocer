@@ -76,8 +76,8 @@ async def _identity(db) -> dict:
     """
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    from agenticdocer.auth import add_ssh_key, create_user, find_user_by_username
-    from agenticdocer.auth.signing import fingerprint, public_key_line
+    from agenticspec.auth import add_ssh_key, create_user, find_user_by_username
+    from agenticspec.auth.signing import fingerprint, public_key_line
 
     key = Ed25519PrivateKey.generate()
     public_line = public_key_line(key)
@@ -91,17 +91,17 @@ async def _identity(db) -> dict:
 
 
 async def run_bench(args: argparse.Namespace) -> Bench:
-    from agenticdocer.auth import resolve_session, verify_signature
-    from agenticdocer.auth.middleware import SshSigHeaders
-    from agenticdocer.auth.sessions import create_challenge, login
-    from agenticdocer.auth.signing import (
+    from agenticspec.auth import resolve_session, verify_signature
+    from agenticspec.auth.middleware import SshSigHeaders
+    from agenticspec.auth.sessions import create_challenge, login
+    from agenticspec.auth.signing import (
         login_payload,
         new_nonce,
         request_payload,
         sign_message,
         timestamp_now,
     )
-    from agenticdocer.auth.sshsig import verify_sshsig
+    from agenticspec.auth.sshsig import verify_sshsig
 
     storage = open_storage(args.dsn)
     db = storage.db

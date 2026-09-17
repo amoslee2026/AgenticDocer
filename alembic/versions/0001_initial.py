@@ -4,7 +4,7 @@ Revision ID: 0001_initial
 Revises:
 Create Date: 2026-09-16
 
-本 revision 的表结构由 `agenticdocer.store.schema.metadata` 直接落地——**单一来源**：
+本 revision 的表结构由 `agenticspec.store.schema.metadata` 直接落地——**单一来源**：
 `store/schema.py` 是 DDL 的权威定义，此处不复制一份会漂移的字面 DDL。
 约束：后续任何结构变更都必须（a）改 `schema.py` 并（b）新增一个 revision 用
 `op.*` 显式写出增量（不要依赖本文件重新生成），否则「新建库」与「升级库」会分叉。
@@ -21,7 +21,7 @@ from __future__ import annotations
 from alembic import op
 from sqlalchemy import text
 
-from agenticdocer.store import schema
+from agenticspec.store import schema
 
 revision = "0001_initial"
 down_revision = None

@@ -45,14 +45,14 @@ export function LoginPage() {
   }
 
   const command = nonce
-    ? `uv run agenticdocer auth sign --login --nonce ${nonce}`
-    : "uv run agenticdocer auth sign --login --nonce <nonce>";
+    ? `uv run agenticspec auth sign --login --nonce ${nonce}`
+    : "uv run agenticspec auth sign --login --nonce <nonce>";
 
   return (
     <div className="login-wrap">
       <div className="card login-card">
         <div className="card-head">
-          <h2>登录 AgenticDocer</h2>
+          <h2>登录 AgenticSpec</h2>
           <span className="chip">SSH 挑战-响应</span>
         </div>
         <div className="card-body">

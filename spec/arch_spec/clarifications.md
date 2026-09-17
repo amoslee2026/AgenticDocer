@@ -40,11 +40,11 @@ section_meta: "@meta"
 | A-D5 | 关键词检索实现（FTS english vs pg_trgm；索引策略） | ADR |
 | A-D6 | 节点粒度最终裁决（Q4：条款级基线确认） | ADR |
 | A-D7 | CLI 审核器命令面（阶段 1 交付物）接口定义 | architecture_specification.md |
-| A-D8 | 部署单元与端口（agenticdocer-api 监听端口、前端托管方式） | architecture_specification.md |
+| A-D8 | 部署单元与端口（agenticspec-api 监听端口、前端托管方式） | architecture_specification.md |
 
 ## 2. 环境事实（已实测，继承 idea/clarifications Q2）
 
-- PG 16.15（Podman `pgvector/pgvector:pg16`，:5432）→ 新建 database `agenticdocer`
+- PG 16.15（Podman `pgvector/pgvector:pg16`，:5432）→ 新建 database `agenticspec`
 - lightRAG v1.5.6 运行中（JSON 文件模式；PG 后端代码存在，迁移为后期配置变更）
 - node v22.22.3 / npm 10.9.8；uv 0.12.7（Python 3.11）；系统 python3=3.6.8（不可用）
 - `/mnt/big10T` 不存在（数据落 home）；本机主机名 TeraFab
@@ -54,11 +54,11 @@ section_meta: "@meta"
 
 | # | 假设 | 默认 | 回退 |
 |---|---|---|---|
-| AB1 | API 端口 | `agenticdocer-api` 监听 `127.0.0.1:8787`（不与现有服务冲突：9621/8090/7474/5432 已占） | 端口配置化 |
+| AB1 | API 端口 | `agenticspec-api` 监听 `127.0.0.1:8787`（不与现有服务冲突：9621/8090/7474/5432 已占） | 端口配置化 |
 | AB2 | 前端托管 | 构建产物由 FastAPI 静态挂载（单进程交付；开发期 Vite devserver 反代） | 独立静态服务 |
-| AB3 | 测试数据库 | 同实例 `agenticdocer_test` 库（pytest 集成用例专用，可重建） | 容器内临时库 |
+| AB3 | 测试数据库 | 同实例 `agenticspec_test` 库（pytest 集成用例专用，可重建） | 容器内临时库 |
 | AB4 | 迁移工具 | Alembic（SQLAlchemy 配套）管理 DDL 版本 | 手写 SQL 脚本目录 |
-| AB5 | 包结构 | 单包 `src/agenticdocer/`（模块目录与 M 编号对应，Agent-friendly） | 拆分发包（无必要） |
+| AB5 | 包结构 | 单包 `src/agenticspec/`（模块目录与 M 编号对应，Agent-friendly） | 拆分发包（无必要） |
 
 ## 4. 批注触发的假设作废与替换（v1.3，2026-09-16）
 
@@ -75,7 +75,7 @@ section_meta: "@meta"
 | 项 | 内容 | 依据 |
 |---|---|---|
 | M10 模块 | 鉴权与用户管理（`users`/`ssh_keys`/`grants`/`sessions`/`nonces` 五表） | 批注 B2/B3 |
-| M11 交付物 | CLI 工具族（13 命令）+ 6 个 coding agent skill（含 `docer-annotations`） | 批注 B3/B11 |
+| M11 交付物 | CLI 工具族（13 命令）+ 6 个 coding agent skill（含 `spec-annotations`） | 批注 B3/B11 |
 | 明确排除 | 飞书多维文档集成（SaaS 闭源、模型不可无损映射、违反 P1） | 批注 B7 答复 |
 | 检索边界 | M05 降级为 M-LR 内部接口；语义检索归 LightRAG | 批注 B5/B8；ADR-008 |
 

@@ -1,24 +1,24 @@
-# AgenticDocer skills（agent 侧语义封装，架构 §9.3）
+# AgenticSpec skills（agent 侧语义封装，架构 §9.3）
 
 本目录是给**外部 coding agent** 消费的 skill 定义（运行期不依赖、不安装，P6）：每个 skill 把
-`agenticdocer` CLI 的若干子命令封装成「何时用 / 需要什么角色 / 怎么读输出 / 失败怎么重试」的语义单元，
+`agenticspec` CLI 的若干子命令封装成「何时用 / 需要什么角色 / 怎么读输出 / 失败怎么重试」的语义单元，
 **不重复实现任何逻辑**。
 
 | Skill | 用途 | 前置角色 | 底层命令 |
 |---|---|---|---|
-| [`docer-import`](docer-import/SKILL.md) | 导入 markdown → 结构化库（解析 → 提议审核 → 事务入库） | editor | `agenticdocer import parse\|agenticdocer import review\|agenticdocer import commit` |
-| [`docer-read`](docer-read/SKILL.md) | 按 doc_id/anchor/node_id 读取文档树与节点（含 `version`） | reader | `agenticdocer doc list\|agenticdocer doc get\|agenticdocer node get` |
-| [`docer-write`](docer-write/SKILL.md) | 结构化写入/更新/软删（乐观锁，409 重读重试） | editor | `agenticdocer node put\|agenticdocer node delete` |
-| [`docer-render`](docer-render/SKILL.md) | 渲染整档或章节为 Markdown | reader | `agenticdocer render` |
-| [`docer-diff`](docer-diff/SKILL.md) | 查看文档版本 diff（了解他方改动） | reader | `agenticdocer doc diff` |
-| [`docer-annotations`](docer-annotations/SKILL.md) | **调取人类标注**（含锚定版本上下文） | reader | `agenticdocer comment list` |
+| [`spec-import`](spec-import/SKILL.md) | 导入 markdown → 结构化库（解析 → 提议审核 → 事务入库） | editor | `agenticspec import parse\|agenticspec import review\|agenticspec import commit` |
+| [`spec-read`](spec-read/SKILL.md) | 按 doc_id/anchor/node_id 读取文档树与节点（含 `version`） | reader | `agenticspec doc list\|agenticspec doc get\|agenticspec node get` |
+| [`spec-write`](spec-write/SKILL.md) | 结构化写入/更新/软删（乐观锁，409 重读重试） | editor | `agenticspec node put\|agenticspec node delete` |
+| [`spec-render`](spec-render/SKILL.md) | 渲染整档或章节为 Markdown | reader | `agenticspec render` |
+| [`spec-diff`](spec-diff/SKILL.md) | 查看文档版本 diff（了解他方改动） | reader | `agenticspec doc diff` |
+| [`spec-annotations`](spec-annotations/SKILL.md) | **调取人类标注**（含锚定版本上下文） | reader | `agenticspec comment list` |
 
 ## skill 与 CLI 的关系
 
 - **skill 是 CLI 的语义封装**：声明「何时用哪个命令、如何解读输出、失败如何重试、需要何种角色」；
-  实现只有一处——`src/agenticdocer/cli.py`；
+  实现只有一处——`src/agenticspec/cli.py`；
 - **鉴权由 CLI 自动完成**：skill 不感知密码学细节，只要求运行环境有可用 SSH 私钥且公钥已在 `users` 表登记
-  （`AGENTICDOCER_SSH_KEY` 可指定私钥；`agenticdocer auth whoami` 自检身份）；
+  （`AGENTICSPEC_SSH_KEY` 可指定私钥；`agenticspec auth whoami` 自检身份）；
 - **面向 agent 的输出**：所有命令支持 `--json`（camelCase，与 M06/M07 DTO 同形），便于机读；
 - **干跑**：`--dry-run` 只回放将要发出的请求（不触网/不写库），用于参数自检与固定 prompt 演练。
 
@@ -36,15 +36,15 @@ uv run pytest tests/unit/test_skills_schema.py -q      # jsonschema 校验 + 四
 ## 典型 agent 工作流（§9.3）
 
 ```
-docer-import（首次导入：parse → review → commit）
-  → docer-annotations（读取人类标注，定位待修正点，含锚定版本上下文）
-  → docer-diff（先感知他方改动）
-  → docer-read（取最新 version）
-  → docer-write（按标注修订节点，乐观锁）
-  → docer-render + docer-diff（自检产物与变更范围）
+spec-import（首次导入：parse → review → commit）
+  → spec-annotations（读取人类标注，定位待修正点，含锚定版本上下文）
+  → spec-diff（先感知他方改动）
+  → spec-read（取最新 version）
+  → spec-write（按标注修订节点，乐观锁）
+  → spec-render + spec-diff（自检产物与变更范围）
 ```
 
-**时序纪律**：任何写入前先 `docer-diff` + `docer-read` 取最新 `version`，避免基于过期版本写入
+**时序纪律**：任何写入前先 `spec-diff` + `spec-read` 取最新 `version`，避免基于过期版本写入
 （否则 409；重读后重试）。
 
 ## 权限模型（M10 四角色）
@@ -54,9 +54,9 @@ docer-import（首次导入：parse → review → commit）
 
 ```
 错误：HTTP 403 ...
-补救：agenticdocer user role --username <你的用户名> --role editor
-      agenticdocer grant add --username <你的用户名> --scope doc_type --value <doc_type|doc_id> --permission write
+补救：agenticspec user role --username <你的用户名> --role editor
+      agenticspec grant add --username <你的用户名> --scope doc_type --value <doc_type|doc_id> --permission write
 ```
 
-> **注**：`agenticdocer import commit` 与 `auth bootstrap` 不经 HTTP（前者是 M03 批量导入服务的事务写路径，
+> **注**：`agenticspec import commit` 与 `auth bootstrap` 不经 HTTP（前者是 M03 批量导入服务的事务写路径，
 > 后者建立鉴权本身）。其余用户级操作一律经 M06/M07 HTTP，与 WebUI 共享同一套鉴权/RBAC 判定（P5）。

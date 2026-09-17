@@ -18,17 +18,17 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from agenticdocer.mlr import export as export_module
-from agenticdocer.mlr.export import (
+from agenticspec.mlr import export as export_module
+from agenticspec.mlr.export import (
     EXPORT_GRAPH_FILE,
     EXPORT_MANIFEST_FILE,
     EXPORT_NODES_FILE,
     export_package,
     node_record,
 )
-from agenticdocer.mlr.stream import _parse_cursor, change_stream, cursor_token
-from agenticdocer.model import Doc, Event, Node, TraversalHit, new_uuid7, uuid7_timestamp_ms
-from agenticdocer.store import NotFoundError, ValidationError
+from agenticspec.mlr.stream import _parse_cursor, change_stream, cursor_token
+from agenticspec.model import Doc, Event, Node, TraversalHit, new_uuid7, uuid7_timestamp_ms
+from agenticspec.store import NotFoundError, ValidationError
 
 TS = datetime(2026, 9, 16, 10, 0, 0, tzinfo=timezone.utc)
 DOC_A = "SPEC-A"

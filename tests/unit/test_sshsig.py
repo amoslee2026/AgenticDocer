@@ -21,8 +21,8 @@ import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
-from agenticdocer.auth import signing, sshsig
-from agenticdocer.auth.errors import SignatureFormatError, SignatureVerificationError
+from agenticspec.auth import signing, sshsig
+from agenticspec.auth.errors import SignatureFormatError, SignatureVerificationError
 
 SSH_KEYGEN = shutil.which("ssh-keygen")
 needs_ssh_keygen = pytest.mark.skipif(SSH_KEYGEN is None, reason="需要本机 ssh-keygen")

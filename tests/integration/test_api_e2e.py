@@ -12,7 +12,7 @@
 （`_TOKEN`），且断言**不依赖任何表为空**（只做「我的数据」作用域内的成员/计数断言）。
 故本模块与 `conftest.migrated_schema` 的**默认模式**（仅幂等 `alembic upgrade head`，不清库）
 兼容：`uv run pytest tests/integration/test_api_e2e.py -q` 即可，无需独占库；只有需要
-「干净空库」时才另带 `AGENTICDOCER_TEST_DROP_SCHEMA=1` 并广播申请独占。
+「干净空库」时才另带 `AGENTICSPEC_TEST_DROP_SCHEMA=1` 并广播申请独占。
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from agenticdocer.app import create_app
-from agenticdocer.auth import sessions, signing
-from agenticdocer.auth import users as auth_users
-from agenticdocer.model import DocIn, WriteContext
-from agenticdocer.store import Database, Storage
+from agenticspec.app import create_app
+from agenticspec.auth import sessions, signing
+from agenticspec.auth import users as auth_users
+from agenticspec.model import DocIn, WriteContext
+from agenticspec.store import Database, Storage
 
 pytestmark = pytest.mark.integration
 
